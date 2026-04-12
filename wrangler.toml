@@ -1,0 +1,14 @@
+name = "discord-reaction-moderator"
+main = "src/index.ts"
+compatibility_date = "2024-01-01"
+
+[vars]
+BOT_USER_ID = ""  # Set your bot's user ID after creating it in Discord Developer Portal
+
+# Discord Credentials (set as secrets, not here)
+# wrangler secret put DISCORD_BOT_TOKEN
+# wrangler secret put DISCORD_PUBLIC_KEY
+
+[[kv_namespaces]]
+binding = "BLOCKLIST_KV"
+id = ""  # Run `wrangler kv:namespace create BLOCKLIST_KV` and paste the id here

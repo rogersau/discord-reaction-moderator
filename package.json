@@ -1,0 +1,21 @@
+{
+  "name": "discord-reaction-moderator",
+  "version": "1.0.0",
+  "description": "Cloudflare Worker that removes blocked emoji reactions from Discord messages",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "kv:init": "wrangler kv:namespace create BLOCKLIST_KV",
+    "kv:init:preview": "wrangler kv:namespace create --env preview BLOCKLIST_KV"
+  },
+  "dependencies": {
+    "@cloudflare/workers-types": "^4.20241106.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.2",
+    "wrangler": "^3.93.0"
+  }
+}
