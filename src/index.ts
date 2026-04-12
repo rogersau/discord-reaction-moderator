@@ -31,6 +31,7 @@ interface Env {
   DISCORD_BOT_TOKEN: string;
   DISCORD_PUBLIC_KEY: string;
   BOT_USER_ID: string;
+  ADMIN_AUTH_SECRET?: string;
 }
 
 export default {
@@ -146,10 +147,13 @@ async function handleReactionAdd(
 
 /**
  * Admin endpoint for managing the blocklist.
- * WARNING: No auth by default. Add your own auth in production.
+ * Uses optional bearer token auth when ADMIN_AUTH_SECRET is configured.
  */
 async function handleAdminRequest(request: Request, env: Env): Promise<Response> {
-  // TODO: Add authentication (e.g., Bearer token check) before production use
+  if (!isAuthorizedAdminRequest(request, env)) {
+    return new Response("Unauthorized", { status: 401 });
+  }
+
   const method = request.method;
 
   if (method === "GET") {
@@ -197,4 +201,13 @@ async function handleAdminRequest(request: Request, env: Env): Promise<Response>
   }
 
   return new Response("Method not allowed", { status: 405 });
+}
+
+function isAuthorizedAdminRequest(request: Request, env: Env): boolean {
+  if (!env.ADMIN_AUTH_SECRET) {
+    return true;
+  }
+
+  const authorization = request.headers.get("Authorization");
+  return authorization === `Bearer ${env.ADMIN_AUTH_SECRET}`;
 }

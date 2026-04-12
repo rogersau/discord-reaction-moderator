@@ -50,6 +50,9 @@ wrangler secret put DISCORD_BOT_TOKEN
 
 # Public key from Discord Developer Portal (General Information page)
 wrangler secret put DISCORD_PUBLIC_KEY
+
+# Optional: protect /admin/blocklist with a bearer token
+wrangler secret put ADMIN_AUTH_SECRET
 ```
 
 ### 4. Set Your Bot User ID
@@ -91,12 +94,50 @@ https://your-worker-url.discord-reaction-moderator.workers.dev
 curl https://your-worker-url.workers.dev/admin/blocklist
 ```
 
+If you configured `ADMIN_AUTH_SECRET`, include it as a bearer token:
+
+```bash
+curl https://your-worker-url.workers.dev/admin/blocklist \
+  -H "Authorization: Bearer $ADMIN_AUTH_SECRET"
+```
+
 ### Add an emoji to block
 
 ```bash
 curl -X POST https://your-worker-url.workers.dev/admin/blocklist \
   -H "Content-Type: application/json" \
   -d '{"emoji": "🏳️‍🌈", "action": "add"}'
+```
+
+If you prefer managing the deployed blocklist directly in Cloudflare KV with Wrangler, update the `blocklist_config` key:
+
+```bash
+npx wrangler kv:key get blocklist_config --binding=BLOCKLIST_KV --text
+```
+
+Save the updated config to a file such as `blocklist_config.json`, then write it back to KV:
+
+```json
+{
+  "emojis": ["🏳️‍🌈", "🏳️‍⚧️", "🏳️", "🟤", "🏴", "🏴‍☠️", "☣️", "🔞", "🍎", "✅"],
+  "guilds": {},
+  "botUserId": ""
+}
+```
+
+```bash
+npx wrangler kv:key put blocklist_config \
+  --binding=BLOCKLIST_KV \
+  --path ./blocklist_config.json
+```
+
+If you use the admin API after setting `ADMIN_AUTH_SECRET`, send the same bearer token in the `Authorization` header:
+
+```bash
+curl -X POST https://your-worker-url.workers.dev/admin/blocklist \
+  -H "Authorization: Bearer $ADMIN_AUTH_SECRET" \
+  -H "Content-Type: application/json" \
+  -d '{"emoji": "✅", "action": "add"}'
 ```
 
 ### Remove an emoji from block
@@ -125,11 +166,11 @@ These emojis are blocked by default:
 | GET | `/admin/blocklist` | View current blocklist config |
 | POST | `/admin/blocklist` | Add/remove emojis |
 
-**Note:** The admin endpoint has no authentication by default. For production, add your own auth (e.g., Bearer token check in the Worker code).
+If `ADMIN_AUTH_SECRET` is configured with `wrangler secret put ADMIN_AUTH_SECRET`, the admin endpoint requires `Authorization: Bearer <secret>`. If the secret is not configured, the admin endpoint remains open.
 
 ## Security Notes
 
-1. **Admin endpoint** — Currently unauthenticated. In production, add a secret token check.
+1. **Admin endpoint** — Set `ADMIN_AUTH_SECRET` to require a bearer token on `/admin/blocklist`.
 2. **Discord signature verification** — Always verifies incoming requests against Discord's public key.
 3. **Bot self-ignore** — The bot ignores its own reactions (configured via `BOT_USER_ID`).
 
