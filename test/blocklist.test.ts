@@ -1,7 +1,5 @@
-/// <reference path="../node_modules/@types/node/assert.d.ts" />
-/// <reference path="../node_modules/@types/node/assert/strict.d.ts" />
-
-import { strict as assert } from "node:assert";
+/// <reference types="node/assert" />
+/// <reference types="node/assert/strict" />
 
 import {
   buildBlocklistConfig,
@@ -9,8 +7,9 @@ import {
   normalizeEmoji,
 } from "../src/blocklist";
 
-const requireFn = eval("require") as (id: string) => any;
-const test = requireFn("node:test");
+import assert from "node:assert/strict";
+// @ts-ignore -- The worker typecheck config omits Node built-ins and full node:test types conflict with Workers globals; tsconfig.tests provides the runtime test types.
+import test from "node:test";
 
 test("buildBlocklistConfig materializes global and guild rules", () => {
   const config = buildBlocklistConfig(
