@@ -1,7 +1,10 @@
-// @ts-nocheck
+declare const require: (id: string) => unknown;
 
-import test from "node:test";
-import assert from "node:assert/strict";
+type TestFn = (name: string, fn: () => void) => void;
+type Assert = { equal(actual: unknown, expected: unknown): void };
+
+const test = require("node:test") as TestFn;
+const assert = require("node:assert/strict") as Assert;
 
 import {
   buildBlocklistConfig,
@@ -21,7 +24,6 @@ test("buildBlocklistConfig materializes global and guild rules", () => {
   assert.equal(isEmojiBlocked("❌", config, "guild-1"), true);
   assert.equal(config.guilds["guild-disabled"]?.enabled, false);
   assert.equal(config.botUserId, "bot-1");
-  assert.equal(normalizeEmoji(":blobcat:"), "blobcat");
 });
 
 test("guild-specific blocklists stay isolated per guild", () => {
@@ -53,4 +55,5 @@ test("missing bot_user_id materializes as an empty string", () => {
 test("normalizeEmoji handles null and empty input", () => {
   assert.equal(normalizeEmoji(null), null);
   assert.equal(normalizeEmoji(""), null);
+  assert.equal(normalizeEmoji(":blobcat:"), "blobcat");
 });
