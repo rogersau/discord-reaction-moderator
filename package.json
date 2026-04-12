@@ -8,7 +8,7 @@
     "deploy": "wrangler deploy",
     "typecheck": "tsc --noEmit",
     "build:test": "tsc -p tsconfig.tests.json",
-    "test": "npm run build:test && node --test dist-tests/test/*.test.js",
+    "test": "sh -c 'rm -rf dist-tests; npm run build:test && node --test dist-tests/test/*.test.js; status=$?; rm -rf dist-tests; exit $status'",
     "kv:init": "wrangler kv:namespace create BLOCKLIST_KV",
     "kv:init:preview": "wrangler kv:namespace create --env preview BLOCKLIST_KV"
   },
