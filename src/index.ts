@@ -23,16 +23,8 @@ import {
   addBlockedEmoji,
   removeBlockedEmoji,
 } from "./blocklist";
+import type { Env } from "./env";
 import type { DiscordWebhookPayload, DiscordReaction } from "./types";
-
-// Environment bindings (defined in wrangler.toml)
-interface Env {
-  BLOCKLIST_KV: KVNamespace;
-  DISCORD_BOT_TOKEN: string;
-  DISCORD_PUBLIC_KEY: string;
-  BOT_USER_ID: string;
-  ADMIN_AUTH_SECRET?: string;
-}
 
 export default {
   async fetch(
