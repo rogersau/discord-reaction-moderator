@@ -17,6 +17,8 @@ import { getModerationStoreStub } from "./reaction-moderation";
 
 export { GatewaySessionDO, ModerationStoreDO };
 
+const DISCORD_INTERACTION_MAX_AGE_SECONDS = 5 * 60;
+
 export default {
   async fetch(
     request: Request,
@@ -130,6 +132,20 @@ function isAuthorizedAdminRequest(request: Request, env: Env): boolean {
   return authorization === `Bearer ${env.ADMIN_AUTH_SECRET}`;
 }
 
+function isFreshDiscordTimestamp(timestamp: string): boolean {
+  if (!/^\d+$/.test(timestamp)) {
+    return false;
+  }
+
+  const timestampSeconds = Number.parseInt(timestamp, 10);
+  if (!Number.isSafeInteger(timestampSeconds)) {
+    return false;
+  }
+
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  return Math.abs(nowSeconds - timestampSeconds) <= DISCORD_INTERACTION_MAX_AGE_SECONDS;
+}
+
 async function handleInteractionRequest(
   request: Request,
   env: Env
@@ -139,6 +155,10 @@ async function handleInteractionRequest(
   const body = await request.text();
 
   if (!signature || !timestamp) {
+    return new Response("Unauthorized", { status: 401 });
+  }
+
+  if (!isFreshDiscordTimestamp(timestamp)) {
     return new Response("Unauthorized", { status: 401 });
   }
 

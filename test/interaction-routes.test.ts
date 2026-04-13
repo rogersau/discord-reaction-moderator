@@ -44,6 +44,22 @@ test("worker rejects interactions with an invalid Discord signature", async () =
   assert.equal(await response.text(), "Unauthorized");
 });
 
+test("worker rejects interactions with a stale Discord timestamp", async () => {
+  const { publicKeyHex, request } = await createSignedInteractionRequest(
+    { type: 1 },
+    { timestamp: String(Math.floor(Date.now() / 1000) - 3600) }
+  );
+
+  const response = await worker.fetch(
+    request,
+    createEnv({ DISCORD_PUBLIC_KEY: publicKeyHex }),
+    {} as ExecutionContext
+  );
+
+  assert.equal(response.status, 401);
+  assert.equal(await response.text(), "Unauthorized");
+});
+
 test("worker rejects slash commands from members without guild admin permissions", async () => {
   const storeCalls: Array<{ input: string; method: string; body: unknown }> = [];
   const { publicKeyHex, request } = await createSignedInteractionRequest(
@@ -193,9 +209,12 @@ function createApplicationCommand(options: {
   };
 }
 
-async function createSignedInteractionRequest(payload: unknown) {
+async function createSignedInteractionRequest(
+  payload: unknown,
+  options?: { timestamp?: string }
+) {
   const { publicKeyHex, bodyText, timestamp, signatureHex } =
-    await createSignedInteractionRequestBody(payload);
+    await createSignedInteractionRequestBody(payload, options);
 
   return {
     publicKeyHex,
@@ -211,12 +230,15 @@ async function createSignedInteractionRequest(payload: unknown) {
   };
 }
 
-async function createSignedInteractionRequestBody(payload: unknown) {
+async function createSignedInteractionRequestBody(
+  payload: unknown,
+  options?: { timestamp?: string }
+) {
   const keyPair = (await crypto.subtle.generateKey("Ed25519", true, [
     "sign",
     "verify",
   ])) as CryptoKeyPair;
-  const timestamp = "1700000000";
+  const timestamp = options?.timestamp ?? String(Math.floor(Date.now() / 1000));
   const bodyText = JSON.stringify(payload);
   const signature = await crypto.subtle.sign(
     "Ed25519",
