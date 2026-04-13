@@ -99,3 +99,7 @@ test("nextBackoffMillis caps at the max delay", () => {
 test("nextBackoffMillis falls back to the base delay for non-finite attempts", () => {
   assert.equal(nextBackoffMillis(Number.NaN), 1000);
 });
+
+test("nextBackoffMillis floors fractional attempt counts", () => {
+  assert.equal(nextBackoffMillis(1.5), 2000);
+});

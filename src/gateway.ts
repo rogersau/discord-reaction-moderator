@@ -84,6 +84,6 @@ export function shouldHandleDispatch(event: GatewayDispatchEnvelope): boolean {
 
 export function nextBackoffMillis(attempt: number): number {
   const safeAttempt =
-    Number.isFinite(attempt) && attempt >= 0 ? attempt : 0;
+    Number.isFinite(attempt) && attempt >= 0 ? Math.floor(attempt) : 0;
   return Math.min(DEFAULT_BACKOFF_MS * 2 ** safeAttempt, MAX_BACKOFF_MS);
 }
