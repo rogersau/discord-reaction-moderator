@@ -152,7 +152,7 @@ test("ModerationStoreDO seeds bot user id from env only when missing", async () 
   assert.equal(config.botUserId, "seeded-bot-id");
 });
 
-test("ModerationStoreDO does not seed bot user id from env for existing stores", async () => {
+test("ModerationStoreDO seeds bot user id from env for existing stores when missing", async () => {
   const ctx = {
     storage: {
       sql: createFakeSql({
@@ -164,7 +164,7 @@ test("ModerationStoreDO does not seed bot user id from env for existing stores",
   const response = await store.fetch(new Request("https://moderation-store/config"));
   const config = (await response.json()) as { botUserId: string };
 
-  assert.equal(config.botUserId, "");
+  assert.equal(config.botUserId, "seeded-bot-id");
 });
 
 test("ModerationStoreDO preserves stored bot user id across reconstruction", async () => {
