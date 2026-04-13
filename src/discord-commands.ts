@@ -6,14 +6,18 @@ export const SLASH_COMMAND_DEFINITIONS = [
       {
         type: 1,
         name: "add",
-        description: "Add an emoji to the blocked list",
-        options: [{ type: 3, name: "emoji", description: "Emoji to block" }],
+        description: "Block an emoji in this server",
+        options: [
+          { type: 3, name: "emoji", description: "Emoji to block", required: true },
+        ],
       },
       {
         type: 1,
         name: "remove",
-        description: "Remove an emoji from the blocked list",
-        options: [{ type: 3, name: "emoji", description: "Emoji to unblock" }],
+        description: "Unblock an emoji in this server",
+        options: [
+          { type: 3, name: "emoji", description: "Emoji to unblock", required: true },
+        ],
       },
     ],
   },
