@@ -258,7 +258,7 @@ function parseGuildEmojiMutation(body: unknown): { guildId: string; emoji: strin
   const normalizedEmoji = normalizeEmoji(asOptionalString(body.emoji));
   const action = body.action;
 
-  if (typeof guildId !== "string" || !normalizedEmoji || typeof action !== "string") {
+  if (typeof guildId !== "string" || guildId.length === 0 || !normalizedEmoji || typeof action !== "string") {
     throw new ModerationStoreInputError("Missing guildId, emoji or action");
   }
 

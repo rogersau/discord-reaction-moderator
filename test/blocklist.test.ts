@@ -299,14 +299,19 @@ test("guild-scoped emoji add and remove", async () => {
   assert.equal(addResponse.status, 200);
 
   const addBody = (await addResponse.json()) as any;
-  // POST should return the updated config
-  assert.equal(addBody.guilds["guild-1"]?.enabled, true);
-  assert.deepEqual(addBody.guilds["guild-1"]?.emojis, ["✅"]);
+  // Construct expected full config after add
+  const expectedAfterAdd = buildBlocklistConfig(
+    DEFAULT_BLOCKLIST.emojis.map((e) => ({ normalized_emoji: e })),
+    [{ guild_id: "guild-1", moderation_enabled: 1 }],
+    [{ guild_id: "guild-1", normalized_emoji: "✅" }],
+    [{ key: "bot_user_id", value: "bot-1" }]
+  );
+
+  assert.deepEqual(addBody, expectedAfterAdd);
 
   const configResponse = await store.fetch(new Request("https://moderation-store/config"));
   const config = (await configResponse.json()) as any;
-  assert.equal(config.guilds["guild-1"]?.enabled, true);
-  assert.deepEqual(config.guilds["guild-1"]?.emojis, ["✅"]);
+  assert.deepEqual(config, expectedAfterAdd);
 
   const removeResponse = await store.fetch(
     new Request("https://moderation-store/guild-emoji", {
@@ -318,14 +323,36 @@ test("guild-scoped emoji add and remove", async () => {
   assert.equal(removeResponse.status, 200);
 
   const removeBody = (await removeResponse.json()) as any;
-  // POST remove should also return the updated config
-  assert.equal(removeBody.guilds["guild-1"]?.enabled, true);
-  assert.deepEqual(removeBody.guilds["guild-1"]?.emojis, []);
+  // Construct expected full config after remove
+  const expectedAfterRemove = buildBlocklistConfig(
+    DEFAULT_BLOCKLIST.emojis.map((e) => ({ normalized_emoji: e })),
+    [{ guild_id: "guild-1", moderation_enabled: 1 }],
+    [],
+    [{ key: "bot_user_id", value: "bot-1" }]
+  );
+
+  assert.deepEqual(removeBody, expectedAfterRemove);
 
   const configResponse2 = await store.fetch(new Request("https://moderation-store/config"));
   const config2 = (await configResponse2.json()) as any;
-  assert.equal(config2.guilds["guild-1"]?.enabled, true);
-  assert.deepEqual(config2.guilds["guild-1"]?.emojis, []);
+  assert.deepEqual(config2, expectedAfterRemove);
+});
+
+test("guild-scoped empty guild id is rejected", async () => {
+  const sql = createFakeSql();
+  const ctx = { storage: { sql } } as unknown as DurableObjectState;
+  const env = { BOT_USER_ID: "bot-1" } as never;
+  const store = new ModerationStoreDO(ctx, env);
+
+  const response = await store.fetch(
+    new Request("https://moderation-store/guild-emoji", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ guildId: "", emoji: "✅", action: "add" }),
+    })
+  );
+
+  assert.equal(response.status, 400);
 });
 
 function createFakeSql(options?: {
