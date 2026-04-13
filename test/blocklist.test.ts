@@ -283,6 +283,41 @@ test("ModerationStoreDO returns 500 when config reads hit storage faults", async
   assert.equal(response.status, 500);
 });
 
+test("guild-scoped emoji add and remove", async () => {
+  const sql = createFakeSql();
+  const ctx = { storage: { sql } } as unknown as DurableObjectState;
+  const env = { BOT_USER_ID: "bot-1" } as never;
+  const store = new ModerationStoreDO(ctx, env);
+
+  const addResponse = await store.fetch(
+    new Request("https://moderation-store/guild-emoji", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ guildId: "guild-1", emoji: "✅", action: "add" }),
+    })
+  );
+  assert.equal(addResponse.status, 200);
+
+  const configResponse = await store.fetch(new Request("https://moderation-store/config"));
+  const config = (await configResponse.json()) as any;
+  assert.equal(config.guilds["guild-1"]?.enabled, true);
+  assert.deepEqual(config.guilds["guild-1"]?.emojis, ["✅"]);
+
+  const removeResponse = await store.fetch(
+    new Request("https://moderation-store/guild-emoji", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ guildId: "guild-1", emoji: "✅", action: "remove" }),
+    })
+  );
+  assert.equal(removeResponse.status, 200);
+
+  const configResponse2 = await store.fetch(new Request("https://moderation-store/config"));
+  const config2 = (await configResponse2.json()) as any;
+  assert.equal(config2.guilds["guild-1"]?.enabled, true);
+  assert.deepEqual(config2.guilds["guild-1"]?.emojis, []);
+});
+
 function createFakeSql(options?: {
   failOnDelete?: boolean;
   failOnSelectConfig?: boolean;
@@ -291,6 +326,8 @@ function createFakeSql(options?: {
 }) {
   const globalBlockedEmojis = new Set<string>(options?.globalBlockedEmojis ?? []);
   const appConfig = new Map<string, string>(options?.appConfigEntries ?? []);
+  const guildSettings = new Map<string, number>();
+  const guildBlockedEmojis = new Map<string, Set<string>>();
 
   return {
     exec(query: string, ...params: unknown[]) {
@@ -314,6 +351,39 @@ function createFakeSql(options?: {
         }
 
         globalBlockedEmojis.delete(params[0] as string);
+        return [];
+      }
+
+      if (
+        query === "INSERT OR IGNORE INTO guild_settings(guild_id, moderation_enabled) VALUES(?, ?)"
+      ) {
+        const [guildId, moderationEnabled] = params as [string, number];
+        if (!guildSettings.has(guildId)) {
+          guildSettings.set(guildId, moderationEnabled);
+        }
+        return [];
+      }
+
+      if (
+        query === "INSERT OR IGNORE INTO guild_blocked_emojis(guild_id, normalized_emoji) VALUES(?, ?)"
+      ) {
+        const [guildId, normalizedEmoji] = params as [string, string];
+        const set = guildBlockedEmojis.get(guildId) ?? new Set<string>();
+        set.add(normalizedEmoji);
+        guildBlockedEmojis.set(guildId, set);
+        return [];
+      }
+
+      if (
+        query ===
+        "DELETE FROM guild_blocked_emojis WHERE guild_id = ? AND normalized_emoji = ?"
+      ) {
+        if (options?.failOnDelete) {
+          throw new Error("storage fault");
+        }
+
+        const [guildId, normalizedEmoji] = params as [string, string];
+        guildBlockedEmojis.get(guildId)?.delete(normalizedEmoji);
         return [];
       }
 
@@ -350,15 +420,27 @@ function createFakeSql(options?: {
         }));
       }
 
-      if (
-        query === "SELECT guild_id, moderation_enabled FROM guild_settings" ||
-        query === "SELECT guild_id, normalized_emoji FROM guild_blocked_emojis"
-      ) {
+      if (query === "SELECT guild_id, moderation_enabled FROM guild_settings") {
         if (options?.failOnSelectConfig) {
           throw new Error("storage fault");
         }
 
-        return [];
+        return [...guildSettings.entries()].map(([guild_id, moderation_enabled]) => ({ guild_id, moderation_enabled }));
+      }
+
+      if (query === "SELECT guild_id, normalized_emoji FROM guild_blocked_emojis") {
+        if (options?.failOnSelectConfig) {
+          throw new Error("storage fault");
+        }
+
+        const rows: Array<{ guild_id: string; normalized_emoji: string }> = [];
+        for (const [guild_id, set] of guildBlockedEmojis.entries()) {
+          for (const normalized_emoji of set) {
+            rows.push({ guild_id, normalized_emoji });
+          }
+        }
+
+        return rows;
       }
 
       if (query === "SELECT 1 FROM global_blocked_emojis LIMIT 1") {
@@ -369,7 +451,9 @@ function createFakeSql(options?: {
         query === "SELECT 1 FROM guild_settings LIMIT 1" ||
         query === "SELECT 1 FROM guild_blocked_emojis LIMIT 1"
       ) {
-        return [];
+        const hasGuildSettings = guildSettings.size > 0;
+        const hasGuildBlocked = Array.from(guildBlockedEmojis.values()).some((s) => s.size > 0);
+        return (hasGuildSettings || hasGuildBlocked) ? [{ 1: 1 }] : [];
       }
 
       if (query === "SELECT 1 FROM app_config LIMIT 1") {

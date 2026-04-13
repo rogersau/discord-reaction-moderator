@@ -69,6 +69,15 @@ export class ModerationStoreDO implements DurableObject {
       }
     }
 
+    if (request.method === "POST" && url.pathname === "/guild-emoji") {
+      try {
+        const body = parseGuildEmojiMutation(await request.json());
+        return Response.json(this.applyGuildEmojiMutation(body));
+      } catch (error) {
+        return this.errorResponse(error);
+      }
+    }
+
     if (request.method === "POST" && url.pathname === "/app-config") {
       try {
         const body = parseAppConfigMutation(await request.json());
@@ -143,6 +152,31 @@ export class ModerationStoreDO implements DurableObject {
     return this.readConfig();
   }
 
+  private applyGuildEmojiMutation(body: { guildId: string; emoji: string; action: "add" | "remove"; }): BlocklistConfig {
+    // Ensure guild settings row exists
+    this.sql.exec(
+      "INSERT OR IGNORE INTO guild_settings(guild_id, moderation_enabled) VALUES(?, ?)",
+      body.guildId,
+      1
+    );
+
+    if (body.action === "add") {
+      this.sql.exec(
+        "INSERT OR IGNORE INTO guild_blocked_emojis(guild_id, normalized_emoji) VALUES(?, ?)",
+        body.guildId,
+        body.emoji
+      );
+    } else {
+      this.sql.exec(
+        "DELETE FROM guild_blocked_emojis WHERE guild_id = ? AND normalized_emoji = ?",
+        body.guildId,
+        body.emoji
+      );
+    }
+
+    return this.readConfig();
+  }
+
   private seedDefaultsOnce(): void {
     const isSeeded =
       [...this.sql.exec("SELECT key FROM app_config WHERE key = ?", DEFAULT_SEED_KEY)]
@@ -210,6 +244,30 @@ function parseGlobalEmojiMutation(body: unknown): {
   }
 
   return {
+    emoji: normalizedEmoji,
+    action,
+  };
+}
+
+function parseGuildEmojiMutation(body: unknown): { guildId: string; emoji: string; action: "add" | "remove" } {
+  if (!isRecord(body)) {
+    throw new ModerationStoreInputError("Invalid JSON body");
+  }
+
+  const guildId = body.guildId;
+  const normalizedEmoji = normalizeEmoji(asOptionalString(body.emoji));
+  const action = body.action;
+
+  if (typeof guildId !== "string" || !normalizedEmoji || typeof action !== "string") {
+    throw new ModerationStoreInputError("Missing guildId, emoji or action");
+  }
+
+  if (action !== "add" && action !== "remove") {
+    throw new ModerationStoreInputError("Invalid action. Use 'add' or 'remove'");
+  }
+
+  return {
+    guildId,
     emoji: normalizedEmoji,
     action,
   };
