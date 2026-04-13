@@ -12,6 +12,8 @@
   "include": [
     "src/blocklist.ts",
     "src/discord.ts",
+    "src/discord-interactions.ts",
+    "src/discord-commands.ts",
     "src/durable-objects/moderation-store.ts",
     "src/env.ts",
     "src/index.ts",
