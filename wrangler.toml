@@ -9,6 +9,14 @@ BOT_USER_ID = ""  # Set your bot's user ID after creating it in Discord Develope
 # wrangler secret put DISCORD_BOT_TOKEN
 # wrangler secret put DISCORD_PUBLIC_KEY
 
-[[kv_namespaces]]
-binding = "BLOCKLIST_KV"
-id = "00000000000000000000000000000000"  # Replace with a real KV namespace id before deploy
+[[durable_objects.bindings]]
+name = "MODERATION_STORE_DO"
+class_name = "ModerationStoreDO"
+
+[[durable_objects.bindings]]
+name = "GATEWAY_SESSION_DO"
+class_name = "GatewaySessionDO"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["ModerationStoreDO", "GatewaySessionDO"]

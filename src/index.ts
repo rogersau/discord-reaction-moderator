@@ -21,18 +21,15 @@ import {
   isEmojiBlocked,
   normalizeEmoji,
 } from "./blocklist";
+import { GatewaySessionDO } from "./durable-objects/gateway-session";
 import { ModerationStoreDO } from "./durable-objects/moderation-store";
-import type { Env as BaseEnv } from "./env";
+import type { Env } from "./env";
 import type {
   DiscordWebhookPayload,
   DiscordReaction,
 } from "./types";
 
-type Env = BaseEnv & {
-  MODERATION_STORE_DO: DurableObjectNamespace;
-};
-
-export { ModerationStoreDO };
+export { GatewaySessionDO, ModerationStoreDO };
 
 export default {
   async fetch(
@@ -50,6 +47,13 @@ export default {
     // Admin endpoint to view/update blocklist
     if (url.pathname === "/admin/blocklist") {
       return handleAdminRequest(request, env);
+    }
+
+    if (
+      url.pathname === "/admin/gateway/status" ||
+      url.pathname === "/admin/gateway/start"
+    ) {
+      return handleGatewayAdminRequest(request, env);
     }
 
     // Verify Discord webhook signature
@@ -183,6 +187,33 @@ async function handleAdminRequest(request: Request, env: Env): Promise<Response>
 function getModerationStoreStub(env: Env): DurableObjectStub {
   const storeId = env.MODERATION_STORE_DO.idFromName("moderation-store");
   return env.MODERATION_STORE_DO.get(storeId);
+}
+
+async function handleGatewayAdminRequest(
+  request: Request,
+  env: Env
+): Promise<Response> {
+  if (!isAuthorizedAdminRequest(request, env)) {
+    return new Response("Unauthorized", { status: 401 });
+  }
+
+  const gatewayStub = getGatewaySessionStub(env);
+  const url = new URL(request.url);
+
+  if (request.method === "GET" && url.pathname === "/admin/gateway/status") {
+    return gatewayStub.fetch("https://gateway-session/status");
+  }
+
+  if (request.method === "POST" && url.pathname === "/admin/gateway/start") {
+    return gatewayStub.fetch("https://gateway-session/start", { method: "POST" });
+  }
+
+  return new Response("Method not allowed", { status: 405 });
+}
+
+function getGatewaySessionStub(env: Env): DurableObjectStub {
+  const gatewayId = env.GATEWAY_SESSION_DO.idFromName("gateway-session");
+  return env.GATEWAY_SESSION_DO.get(gatewayId);
 }
 
 function isAuthorizedAdminRequest(request: Request, env: Env): boolean {

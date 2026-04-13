@@ -325,10 +325,19 @@ test("worker uses moderation store config for live moderation decisions", async 
         body,
       }),
       {
-        BLOCKLIST_KV: {} as never,
         DISCORD_BOT_TOKEN: "bot-token",
         DISCORD_PUBLIC_KEY: signedRequest.publicKey,
         BOT_USER_ID: "bot-1",
+        GATEWAY_SESSION_DO: {
+          idFromName() {
+            return "gateway-id" as never;
+          },
+          get() {
+            return {
+              fetch: async () => Response.json({ status: "idle" }),
+            };
+          },
+        } as never,
         MODERATION_STORE_DO: {
           idFromName() {
             return "store-id" as never;
@@ -401,10 +410,19 @@ test("worker still acknowledges webhook when moderation store config fails", asy
         body,
       }),
       {
-        BLOCKLIST_KV: {} as never,
         DISCORD_BOT_TOKEN: "bot-token",
         DISCORD_PUBLIC_KEY: signedRequest.publicKey,
         BOT_USER_ID: "bot-1",
+        GATEWAY_SESSION_DO: {
+          idFromName() {
+            return "gateway-id" as never;
+          },
+          get() {
+            return {
+              fetch: async () => Response.json({ status: "idle" }),
+            };
+          },
+        } as never,
         MODERATION_STORE_DO: {
           idFromName() {
             return "store-id" as never;
@@ -466,10 +484,19 @@ test("worker ignores bot reactions using the moderation store bot user id", asyn
         body,
       }),
       {
-        BLOCKLIST_KV: {} as never,
         DISCORD_BOT_TOKEN: "bot-token",
         DISCORD_PUBLIC_KEY: signedRequest.publicKey,
         BOT_USER_ID: "env-bot-id",
+        GATEWAY_SESSION_DO: {
+          idFromName() {
+            return "gateway-id" as never;
+          },
+          get() {
+            return {
+              fetch: async () => Response.json({ status: "idle" }),
+            };
+          },
+        } as never,
         MODERATION_STORE_DO: {
           idFromName() {
             return "store-id" as never;
@@ -536,10 +563,19 @@ test("worker does not fall back to env bot user id when store bot user id is emp
         body,
       }),
       {
-        BLOCKLIST_KV: {} as never,
         DISCORD_BOT_TOKEN: "bot-token",
         DISCORD_PUBLIC_KEY: signedRequest.publicKey,
         BOT_USER_ID: "env-bot-id",
+        GATEWAY_SESSION_DO: {
+          idFromName() {
+            return "gateway-id" as never;
+          },
+          get() {
+            return {
+              fetch: async () => Response.json({ status: "idle" }),
+            };
+          },
+        } as never,
         MODERATION_STORE_DO: {
           idFromName() {
             return "store-id" as never;
