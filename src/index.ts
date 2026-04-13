@@ -6,7 +6,7 @@
 
 import { GatewaySessionDO } from "./durable-objects/gateway-session";
 import { ModerationStoreDO } from "./durable-objects/moderation-store";
-import { getBlocklistFromStore } from "./blocklist";
+import { getBlocklistFromStore, normalizeEmoji } from "./blocklist";
 import {
   buildEphemeralMessage,
   extractCommandInvocation,
@@ -230,6 +230,11 @@ async function handleApplicationCommand(
     return Response.json(buildEphemeralMessage("Unsupported command."));
   }
 
+  const normalizedEmoji = normalizeEmoji(invocation.emoji);
+  if (!normalizedEmoji) {
+    return Response.json(buildEphemeralMessage("Unsupported command."));
+  }
+
   const storeStub = getModerationStoreStub(env);
   let isAlreadyBlocked = false;
   try {
@@ -237,7 +242,7 @@ async function handleApplicationCommand(
       storeStub.fetch("https://moderation-store/config")
     );
     isAlreadyBlocked =
-      config.guilds?.[interaction.guild_id]?.emojis.includes(invocation.emoji) ?? false;
+      config.guilds?.[interaction.guild_id]?.emojis.includes(normalizedEmoji) ?? false;
   } catch (error) {
     console.error("Failed to load moderation config", error);
     return Response.json(
@@ -266,7 +271,7 @@ async function handleApplicationCommand(
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           guildId: interaction.guild_id,
-          emoji: invocation.emoji,
+          emoji: normalizedEmoji,
           action: invocation.subcommandName,
         }),
       }

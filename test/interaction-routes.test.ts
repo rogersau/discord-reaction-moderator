@@ -288,6 +288,99 @@ test("worker returns missing remove feedback without mutating the store", async 
   ]);
 });
 
+test("worker normalizes custom emoji aliases before duplicate and missing checks", async () => {
+  const duplicateCalls: Array<{ input: string; method: string; body: unknown }> = [];
+  const duplicateRequest = await createSignedInteractionRequest(
+    createApplicationCommand({
+      guildId: "guild-123",
+      permissions: "8",
+      subcommand: "add",
+      emoji: ":blobcat:",
+    })
+  );
+
+  const duplicateResponse = await worker.fetch(
+    duplicateRequest.request,
+    createEnv({
+      DISCORD_PUBLIC_KEY: duplicateRequest.publicKeyHex,
+      moderationFetch(input, init) {
+        duplicateCalls.push({
+          input: String(input),
+          method: init?.method ?? "GET",
+          body: init?.body ? JSON.parse(String(init.body)) : null,
+        });
+        return Response.json({
+          emojis: [],
+          guilds: {
+            "guild-123": {
+              enabled: true,
+              emojis: ["blobcat"],
+            },
+          },
+          botUserId: "",
+        });
+      },
+    }),
+    {} as ExecutionContext
+  );
+
+  assert.equal(duplicateResponse.status, 200);
+  assert.deepEqual(
+    await duplicateResponse.json(),
+    buildEphemeralMessage(":blobcat: is already blocked in this server.")
+  );
+  assert.deepEqual(duplicateCalls, [
+    {
+      input: "https://moderation-store/config",
+      method: "GET",
+      body: null,
+    },
+  ]);
+
+  const missingCalls: Array<{ input: string; method: string; body: unknown }> = [];
+  const missingRequest = await createSignedInteractionRequest(
+    createApplicationCommand({
+      guildId: "guild-123",
+      permissions: "8",
+      subcommand: "remove",
+      emoji: ":blobcat:",
+    })
+  );
+
+  const missingResponse = await worker.fetch(
+    missingRequest.request,
+    createEnv({
+      DISCORD_PUBLIC_KEY: missingRequest.publicKeyHex,
+      moderationFetch(input, init) {
+        missingCalls.push({
+          input: String(input),
+          method: init?.method ?? "GET",
+          body: init?.body ? JSON.parse(String(init.body)) : null,
+        });
+        return Response.json({
+          emojis: [],
+          guilds: {},
+          botUserId: "",
+        });
+      },
+    }),
+    {} as ExecutionContext
+  );
+
+  assert.equal(missingResponse.status, 200);
+  assert.deepEqual(
+    await missingResponse.json(),
+    buildEphemeralMessage(":blobcat: is not currently blocked in this server.")
+  );
+  assert.deepEqual(missingCalls, [
+    {
+      input: "https://moderation-store/config",
+      method: "GET",
+      body: null,
+    },
+  ]);
+});
+
 test("worker returns an ephemeral failure when moderation store forwarding throws", async () => {
   const { publicKeyHex, request } = await createSignedInteractionRequest(
     createApplicationCommand({
