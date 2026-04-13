@@ -68,6 +68,31 @@ test("extractCommandInvocation returns blocklist add/remove requests", () => {
   assert.equal(extractCommandInvocation({} as any), null);
 });
 
+test("extractCommandInvocation rejects unknown commands and subcommands", () => {
+  const bogusSub = {
+    data: {
+      name: "blocklist",
+      options: [
+        {
+          name: "bogus",
+          type: 1,
+          options: [{ name: "emoji", value: "💀" }],
+        },
+      ],
+    },
+  } as any;
+
+  const unknownCmd = {
+    data: {
+      name: "unknown",
+      options: [],
+    },
+  } as any;
+
+  assert.equal(extractCommandInvocation(bogusSub), null);
+  assert.equal(extractCommandInvocation(unknownCmd), null);
+});
+
 test("SLASH_COMMAND_DEFINITIONS matches expected blocklist command tree", () => {
   const expected = [
     {

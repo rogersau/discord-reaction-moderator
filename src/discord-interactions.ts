@@ -10,20 +10,37 @@ export function hasGuildAdminPermission(permissions: string): boolean {
   }
 }
 
+import { SLASH_COMMAND_DEFINITIONS } from "./discord-commands";
+
 export function extractCommandInvocation(invocation: any):
   | { commandName: string; subcommandName: string; emoji: string }
   | null {
   const data = invocation?.data;
-  if (!data || data.name !== "blocklist") return null;
+  if (!data || typeof data.name !== "string") return null;
+
+  const cmdDef = SLASH_COMMAND_DEFINITIONS.find((d) => d.name === data.name);
+  if (!cmdDef) return null;
+
   const options = Array.isArray(data.options) ? data.options : [];
   const sub = options[0];
   if (!sub || sub.type !== 1) return null;
+
+  const subDef = (cmdDef.options || []).find(
+    (o: any) => o.name === sub.name && o.type === sub.type
+  );
+  if (!subDef) return null;
+
+  // Ensure the subcommand definition expects an emoji option
+  const emojiDef = (subDef.options || []).find((o: any) => o.name === "emoji" && o.type === 3);
+  if (!emojiDef) return null;
+
   const emojiOpt = Array.isArray(sub.options)
     ? sub.options.find((o: any) => o.name === "emoji")
     : undefined;
   const emoji = emojiOpt?.value;
   if (!emoji) return null;
-  return { commandName: "blocklist", subcommandName: sub.name, emoji };
+
+  return { commandName: data.name, subcommandName: sub.name, emoji };
 }
 
 export function buildEphemeralMessage(content: string) {
