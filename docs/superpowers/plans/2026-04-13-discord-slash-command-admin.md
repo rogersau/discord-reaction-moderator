@@ -116,7 +116,7 @@ test("buildEphemeralMessage returns the Discord ephemeral response shape", () =>
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `npm run build:test && node --test dist-tests/test/discord-interactions.test.js`  
+Run: `pnpm run build:test && node --test dist-tests/test/discord-interactions.test.js`  
 Expected: FAIL with `Cannot find module '../src/discord-interactions'` or missing exported symbol errors.
 
 - [ ] **Step 3: Write minimal implementation**
@@ -207,7 +207,7 @@ export const SLASH_COMMAND_DEFINITIONS = [
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `npm run build:test && node --test dist-tests/test/discord-interactions.test.js`  
+Run: `pnpm run build:test && node --test dist-tests/test/discord-interactions.test.js`  
 Expected: PASS for all tests in `discord-interactions.test.js`.
 
 - [ ] **Step 5: Commit**
@@ -270,7 +270,7 @@ test("ModerationStoreDO applies guild-scoped emoji add and remove mutations", as
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `npm run build:test && node --test dist-tests/test/blocklist.test.js --test-name-pattern="guild-scoped emoji add and remove"`  
+Run: `pnpm run build:test && node --test dist-tests/test/blocklist.test.js --test-name-pattern="guild-scoped emoji add and remove"`  
 Expected: FAIL with `404 !== 200` because `/guild-emoji` does not exist yet.
 
 - [ ] **Step 3: Write minimal implementation**
@@ -335,7 +335,7 @@ function parseGuildEmojiMutation(body: unknown): {
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `npm run build:test && node --test dist-tests/test/blocklist.test.js --test-name-pattern="guild-scoped emoji add and remove"`  
+Run: `pnpm run build:test && node --test dist-tests/test/blocklist.test.js --test-name-pattern="guild-scoped emoji add and remove"`  
 Expected: PASS for the new guild mutation test.
 
 - [ ] **Step 5: Commit**
@@ -404,7 +404,7 @@ test("worker rejects slash commands from members without guild admin permissions
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `npm run build:test && node --test dist-tests/test/interaction-routes.test.js`  
+Run: `pnpm run build:test && node --test dist-tests/test/interaction-routes.test.js`  
 Expected: FAIL with `404 !== 200` because `/interactions` is not routed yet.
 
 - [ ] **Step 3: Write minimal implementation**
@@ -514,7 +514,7 @@ export async function verifyDiscordSignature(
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `npm run build:test && node --test dist-tests/test/interaction-routes.test.js`  
+Run: `pnpm run build:test && node --test dist-tests/test/interaction-routes.test.js`  
 Expected: PASS for the new interaction route tests.
 
 - [ ] **Step 5: Commit**
@@ -567,7 +567,7 @@ test("worker scheduled handler syncs slash commands before starting the gateway 
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `npm run build:test && node --test dist-tests/test/admin-routes.test.js --test-name-pattern="syncs slash commands before starting the gateway session"`  
+Run: `pnpm run build:test && node --test dist-tests/test/admin-routes.test.js --test-name-pattern="syncs slash commands before starting the gateway session"`  
 Expected: FAIL because scheduled bootstrap currently only starts the gateway session.
 
 - [ ] **Step 3: Write minimal implementation**
@@ -667,7 +667,7 @@ Use these slash commands in a guild where the bot is installed:
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `npm run build:test && node --test dist-tests/test/admin-routes.test.js --test-name-pattern="syncs slash commands before starting the gateway session"`  
+Run: `pnpm run build:test && node --test dist-tests/test/admin-routes.test.js --test-name-pattern="syncs slash commands before starting the gateway session"`  
 Expected: PASS for the new bootstrap sync test.
 
 - [ ] **Step 5: Run full validation and commit**
@@ -675,15 +675,15 @@ Expected: PASS for the new bootstrap sync test.
 Run:
 
 ```bash
-npm test
-npm run typecheck
+pnpm test
+pnpm run typecheck
 npx wrangler deploy --dry-run
 ```
 
 Expected:
 
-- `npm test` PASS
-- `npm run typecheck` PASS
+- `pnpm test` PASS
+- `pnpm run typecheck` PASS
 - `npx wrangler deploy --dry-run` exits `0`
 
 Commit:

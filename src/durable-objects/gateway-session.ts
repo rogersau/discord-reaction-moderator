@@ -100,7 +100,6 @@ export class GatewaySessionDO implements DurableObject {
     const socket = new WebSocket(
       this.snapshot.resumeGatewayUrl ?? DEFAULT_GATEWAY_URL
     );
-    socket.accept();
     socket.addEventListener("message", async (event) => {
       await this.handleSocketMessage(event);
     });

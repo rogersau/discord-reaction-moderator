@@ -34,7 +34,7 @@ The required setup is adding your Discord token, configuring the public Discord 
 ### 1. Install dependencies
 
 ```bash
-npm install
+pnpm install
 ```
 
 ### 2. Create a Discord bot
@@ -72,7 +72,7 @@ wrangler secret put ADMIN_AUTH_SECRET
 ### 4. Deploy
 
 ```bash
-npm run deploy
+pnpm run deploy
 ```
 
 Deploy provisions:
@@ -125,6 +125,7 @@ Once the interactions endpoint is configured and a bootstrap has run successfull
 
 - `/blocklist add emoji:<emoji>` — block an emoji in the current server
 - `/blocklist remove emoji:<emoji>` — unblock an emoji in the current server
+- `/blocklist list` — show the current server's blocked emojis
 
 Examples:
 
@@ -136,6 +137,8 @@ Examples:
 Only members with **Administrator** or **Manage Guild** permissions can use the commands.
 
 These commands are **server-local**: they update the blocklist for the guild where they are used, not the global operator blocklist. If an emoji is already blocked or already absent, the bot returns an explicit no-op message instead of pretending a change happened.
+
+`/blocklist list` responds ephemerally to the invoker and shows only the current server's blocked emojis.
 
 ## Managing the global blocklist via admin API
 
@@ -202,9 +205,9 @@ These emojis are seeded into a brand-new moderation store:
 ## Local validation
 
 ```bash
-npm test
-npm run typecheck
-npx wrangler deploy --dry-run
+pnpm test
+pnpm run typecheck
+pnpm exec wrangler deploy --dry-run
 ```
 
 ## Project structure

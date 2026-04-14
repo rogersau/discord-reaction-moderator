@@ -233,8 +233,8 @@ Add focused coverage for:
 
 Repository validation remains:
 
-- `npm test`
-- `npm run typecheck`
+- `pnpm test`
+- `pnpm run typecheck`
 - `npx wrangler deploy --dry-run`
 
 ## Notes

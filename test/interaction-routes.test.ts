@@ -409,6 +409,50 @@ test("worker returns an ephemeral failure when moderation store forwarding throw
   );
 });
 
+test("worker returns the empty state for /blocklist list when no emojis are blocked", async () => {
+  const storeCalls: Array<{ input: string; method: string; body: unknown }> = [];
+  const { publicKeyHex, request } = await createSignedInteractionRequest(
+    createApplicationCommand({
+      guildId: "guild-123",
+      permissions: "8",
+      subcommand: "list",
+    })
+  );
+
+  const response = await worker.fetch(
+    request,
+    createEnv({
+      DISCORD_PUBLIC_KEY: publicKeyHex,
+      moderationFetch(input, init) {
+        storeCalls.push({
+          input: String(input),
+          method: init?.method ?? "GET",
+          body: init?.body ? JSON.parse(String(init.body)) : null,
+        });
+        return Response.json({
+          emojis: [],
+          guilds: {},
+          botUserId: "",
+        });
+      },
+    }),
+    {} as ExecutionContext
+  );
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(
+    await response.json(),
+    buildEphemeralMessage("No emojis are blocked in this server.")
+  );
+  assert.deepEqual(storeCalls, [
+    {
+      input: "https://moderation-store/config",
+      method: "GET",
+      body: null,
+    },
+  ]);
+});
+
 test("worker returns the current server blocklist for /blocklist list", async () => {
   const storeCalls: Array<{ input: string; method: string; body: unknown }> = [];
   const { publicKeyHex, request } = await createSignedInteractionRequest(

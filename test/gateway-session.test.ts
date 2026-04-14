@@ -48,7 +48,6 @@ test("GatewaySessionDO starts a fresh websocket session from the default gateway
     assert.equal(response.status, 200);
     assert.equal(sockets.length, 1);
     assert.equal(sockets[0]?.url, "wss://gateway.discord.gg/?v=10&encoding=json");
-    assert.equal(sockets[0]?.accepted, true);
     assert.equal(status.status, "connecting");
   } finally {
     restore();
@@ -530,6 +529,7 @@ function installFakeWebSocket() {
 
     constructor(url: string) {
       this.url = url;
+      this.readyState = FakeWebSocket.OPEN;
       sockets.push(this);
     }
 
