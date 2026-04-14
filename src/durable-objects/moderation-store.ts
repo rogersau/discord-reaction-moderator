@@ -4,9 +4,11 @@ import type {
   GlobalBlockedEmojiRow,
   GuildBlockedEmojiRow,
   GuildSettingRow,
+  TimedRoleAssignment,
 } from "../types";
 import type { Env } from "../env";
 import { buildBlocklistConfig, normalizeEmoji } from "../blocklist";
+import { removeGuildMemberRole } from "../discord";
 import { DEFAULT_BLOCKLIST } from "../types";
 
 const DEFAULT_SEED_KEY = "default_blocklist_seeded";
@@ -14,9 +16,13 @@ const DEFAULT_SEED_KEY = "default_blocklist_seeded";
 class ModerationStoreInputError extends Error {}
 
 export class ModerationStoreDO implements DurableObject {
+  private readonly ctx: DurableObjectState;
+  private readonly env: Env;
   private readonly sql: DurableObjectStorage["sql"];
 
-  constructor(ctx: DurableObjectState, _env: Env) {
+  constructor(ctx: DurableObjectState, env: Env) {
+    this.ctx = ctx;
+    this.env = env;
     this.sql = ctx.storage.sql;
     this.sql.exec(`
       CREATE TABLE IF NOT EXISTS global_blocked_emojis (
@@ -35,6 +41,16 @@ export class ModerationStoreDO implements DurableObject {
         key TEXT PRIMARY KEY,
         value TEXT NOT NULL
       );
+      CREATE TABLE IF NOT EXISTS timed_roles (
+        guild_id TEXT NOT NULL,
+        user_id TEXT NOT NULL,
+        role_id TEXT NOT NULL,
+        duration_input TEXT NOT NULL,
+        expires_at_ms INTEGER NOT NULL,
+        created_at_ms INTEGER NOT NULL,
+        updated_at_ms INTEGER NOT NULL,
+        PRIMARY KEY (guild_id, user_id, role_id)
+      );
     `);
 
     this.seedDefaultsOnce();
@@ -42,7 +58,7 @@ export class ModerationStoreDO implements DurableObject {
     this.sql.exec(
       "INSERT OR IGNORE INTO app_config(key, value) VALUES(?, ?)",
       "bot_user_id",
-      _env.BOT_USER_ID
+      env.BOT_USER_ID
     );
   }
 
@@ -75,6 +91,34 @@ export class ModerationStoreDO implements DurableObject {
         return Response.json(this.applyGuildEmojiMutation(body));
       } catch (error) {
         return this.errorResponse(error);
+        }
+      }
+
+    if (request.method === "POST" && url.pathname === "/timed-role") {
+      try {
+        const body = parseTimedRoleUpsert(await request.json());
+        await this.upsertTimedRole(body);
+        return Response.json({ ok: true });
+      } catch (error) {
+        return this.errorResponse(error);
+      }
+    }
+
+    if (request.method === "POST" && url.pathname === "/timed-role/remove") {
+      try {
+        const body = parseTimedRoleRemoval(await request.json());
+        await this.deleteTimedRole(body);
+        return Response.json({ ok: true });
+      } catch (error) {
+        return this.errorResponse(error);
+      }
+    }
+
+    if (request.method === "GET" && url.pathname === "/timed-roles") {
+      try {
+        return Response.json(this.listTimedRolesByGuild(parseGuildId(url)));
+      } catch (error) {
+        return this.errorResponse(error);
       }
     }
 
@@ -90,9 +134,45 @@ export class ModerationStoreDO implements DurableObject {
     return new Response("Not found", { status: 404 });
   }
 
+  async alarm(): Promise<void> {
+    const expiredRows: TimedRoleAssignment[] = [
+      ...this.sql.exec(
+        "SELECT guild_id, user_id, role_id, duration_input, expires_at_ms FROM timed_roles WHERE expires_at_ms <= ? ORDER BY expires_at_ms ASC",
+        Date.now()
+      ),
+    ].map(mapTimedRoleSelection);
+
+    for (const row of expiredRows) {
+      try {
+        await removeGuildMemberRole(
+          row.guildId,
+          row.userId,
+          row.roleId,
+          this.env.DISCORD_BOT_TOKEN
+        );
+        this.sql.exec(
+          "DELETE FROM timed_roles WHERE guild_id = ? AND user_id = ? AND role_id = ?",
+          row.guildId,
+          row.userId,
+          row.roleId
+        );
+      } catch (error) {
+        console.error("Failed to remove expired timed role", error);
+      }
+    }
+
+    await this.scheduleNextTimedRoleAlarm();
+  }
+
+  private readTimedRoleSelections(query: string, ...params: unknown[]): TimedRoleAssignment[] {
+    return [...this.sql.exec(query, ...params)].map(mapTimedRoleSelection);
+  }
+
   private readConfig(): BlocklistConfig {
     const globalRows: GlobalBlockedEmojiRow[] = [
-      ...this.sql.exec("SELECT normalized_emoji FROM global_blocked_emojis"),
+      ...this.sql.exec(
+        "SELECT normalized_emoji FROM global_blocked_emojis"
+      ),
     ].map((row) => ({
       normalized_emoji: row.normalized_emoji as string,
     }));
@@ -175,6 +255,67 @@ export class ModerationStoreDO implements DurableObject {
     return this.readConfig();
   }
 
+  private async upsertTimedRole(body: TimedRoleAssignment): Promise<void> {
+    const now = Date.now();
+    this.sql.exec(
+      "INSERT INTO timed_roles(guild_id, user_id, role_id, duration_input, expires_at_ms, created_at_ms, updated_at_ms) VALUES(?, ?, ?, ?, ?, ?, ?) ON CONFLICT(guild_id, user_id, role_id) DO UPDATE SET duration_input = excluded.duration_input, expires_at_ms = excluded.expires_at_ms, updated_at_ms = excluded.updated_at_ms",
+      body.guildId,
+      body.userId,
+      body.roleId,
+      body.durationInput,
+      body.expiresAtMs,
+      now,
+      now
+    );
+    await this.scheduleNextTimedRoleAlarm();
+  }
+
+  private async deleteTimedRole(body: {
+    guildId: string;
+    userId: string;
+    roleId: string;
+  }): Promise<void> {
+    this.sql.exec(
+      "DELETE FROM timed_roles WHERE guild_id = ? AND user_id = ? AND role_id = ?",
+      body.guildId,
+      body.userId,
+      body.roleId
+    );
+    await this.scheduleNextTimedRoleAlarm();
+  }
+
+  private listTimedRolesByGuild(guildId: string): TimedRoleAssignment[] {
+    return this.readTimedRoleSelections(
+      "SELECT guild_id, user_id, role_id, duration_input, expires_at_ms FROM timed_roles WHERE guild_id = ? ORDER BY expires_at_ms ASC",
+      guildId
+    );
+  }
+
+  private async scheduleNextTimedRoleAlarm(): Promise<void> {
+    const nextRow = [
+      ...this.sql.exec(
+        "SELECT expires_at_ms FROM timed_roles ORDER BY expires_at_ms ASC LIMIT 1"
+      ),
+    ][0];
+
+    if (!nextRow) {
+      await this.clearTimedRoleAlarm();
+      return;
+    }
+
+    await this.ctx.storage.setAlarm(nextRow.expires_at_ms as number);
+  }
+
+  private async clearTimedRoleAlarm(): Promise<void> {
+    const storageWithDeleteAlarm = this.ctx.storage as DurableObjectStorage & {
+      deleteAlarm?: () => Promise<void>;
+    };
+
+    if (typeof storageWithDeleteAlarm.deleteAlarm === "function") {
+      await storageWithDeleteAlarm.deleteAlarm();
+    }
+  }
+
   private seedDefaultsOnce(): void {
     const isSeeded =
       [...this.sql.exec("SELECT key FROM app_config WHERE key = ?", DEFAULT_SEED_KEY)]
@@ -205,6 +346,7 @@ export class ModerationStoreDO implements DurableObject {
       [...this.sql.exec("SELECT 1 FROM global_blocked_emojis LIMIT 1")].length > 0 ||
       [...this.sql.exec("SELECT 1 FROM guild_settings LIMIT 1")].length > 0 ||
       [...this.sql.exec("SELECT 1 FROM guild_blocked_emojis LIMIT 1")].length > 0 ||
+      [...this.sql.exec("SELECT 1 FROM timed_roles LIMIT 1")].length > 0 ||
       [...this.sql.exec("SELECT 1 FROM app_config LIMIT 1")].length > 0
     );
   }
@@ -287,10 +429,72 @@ function parseAppConfigMutation(body: unknown): { key: string; value: string } {
   };
 }
 
+function parseTimedRoleUpsert(body: unknown): TimedRoleAssignment {
+  if (!isRecord(body)) {
+    throw new ModerationStoreInputError("Invalid JSON body");
+  }
+
+  const guildId = asRequiredString(body.guildId, "guildId");
+  const userId = asRequiredString(body.userId, "userId");
+  const roleId = asRequiredString(body.roleId, "roleId");
+  const durationInput = asRequiredString(body.durationInput, "durationInput");
+  const expiresAtMs = body.expiresAtMs;
+
+  if (typeof expiresAtMs !== "number" || !Number.isFinite(expiresAtMs)) {
+    throw new ModerationStoreInputError("Missing expiresAtMs");
+  }
+
+  return {
+    guildId,
+    userId,
+    roleId,
+    durationInput,
+    expiresAtMs,
+  };
+}
+
+function parseTimedRoleRemoval(body: unknown): {
+  guildId: string;
+  userId: string;
+  roleId: string;
+} {
+  if (!isRecord(body)) {
+    throw new ModerationStoreInputError("Invalid JSON body");
+  }
+
+  return {
+    guildId: asRequiredString(body.guildId, "guildId"),
+    userId: asRequiredString(body.userId, "userId"),
+    roleId: asRequiredString(body.roleId, "roleId"),
+  };
+}
+
+function parseGuildId(url: URL): string {
+  return asRequiredString(url.searchParams.get("guildId"), "guildId");
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
+function asRequiredString(value: unknown, fieldName: string): string {
+  if (typeof value !== "string" || value.length === 0) {
+    throw new ModerationStoreInputError(`Missing ${fieldName}`);
+  }
+
+  return value;
+}
+
 function asOptionalString(value: unknown): string | null {
   return typeof value === "string" ? value : null;
+}
+
+function mapTimedRoleSelection(row: Record<string, unknown>): TimedRoleAssignment {
+  return {
+    guildId: row.guild_id as string,
+    userId: row.user_id as string,
+    roleId: row.role_id as string,
+    durationInput: row.duration_input as string,
+    expiresAtMs: row.expires_at_ms as number,
+  };
 }

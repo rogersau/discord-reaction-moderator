@@ -406,6 +406,231 @@ test("createFakeSql distinguishes guild tables", () => {
   assert.deepEqual(blockedResult, [{ 1: 1 }]);
 });
 
+test("ModerationStoreDO upserts and lists active timed roles by guild", async () => {
+  const alarms: number[] = [];
+  const ctx = {
+    storage: {
+      sql: createFakeSql(),
+      setAlarm(time: number) {
+        alarms.push(time);
+        return Promise.resolve();
+      },
+    },
+  } as unknown as DurableObjectState;
+
+  const store = new ModerationStoreDO(
+    ctx,
+    { BOT_USER_ID: "bot-1", DISCORD_BOT_TOKEN: "token" } as never
+  );
+
+  const response = await store.fetch(
+    new Request("https://moderation-store/timed-role", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        guildId: "guild-1",
+        userId: "user-1",
+        roleId: "role-1",
+        durationInput: "1w",
+        expiresAtMs: 1_700_604_800_000,
+      }),
+    })
+  );
+
+  assert.equal(response.status, 200);
+
+  const listResponse = await store.fetch(
+    new Request("https://moderation-store/timed-roles?guildId=guild-1")
+  );
+
+  assert.deepEqual(await listResponse.json(), [
+    {
+      guildId: "guild-1",
+      userId: "user-1",
+      roleId: "role-1",
+      durationInput: "1w",
+      expiresAtMs: 1_700_604_800_000,
+    },
+  ]);
+  assert.deepEqual(alarms, [1_700_604_800_000]);
+});
+
+test("ModerationStoreDO removes timed roles via route", async () => {
+  const ctx = {
+    storage: {
+      sql: createFakeSql(),
+      setAlarm() {
+        return Promise.resolve();
+      },
+    },
+  } as unknown as DurableObjectState;
+  const store = new ModerationStoreDO(
+    ctx,
+    { BOT_USER_ID: "bot-1", DISCORD_BOT_TOKEN: "token" } as never
+  );
+
+  await store.fetch(
+    new Request("https://moderation-store/timed-role", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        guildId: "guild-1",
+        userId: "user-1",
+        roleId: "role-1",
+        durationInput: "1w",
+        expiresAtMs: 1_700_604_800_000,
+      }),
+    })
+  );
+
+  const deleteResponse = await store.fetch(
+    new Request("https://moderation-store/timed-role/remove", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        guildId: "guild-1",
+        userId: "user-1",
+        roleId: "role-1",
+      }),
+    })
+  );
+
+  assert.equal(deleteResponse.status, 200);
+
+  const listResponse = await store.fetch(
+    new Request("https://moderation-store/timed-roles?guildId=guild-1")
+  );
+  assert.deepEqual(await listResponse.json(), []);
+});
+
+test("ModerationStoreDO alarm only removes timed roles after Discord role removal succeeds", async () => {
+  const now = 1_700_000_000_000;
+  const originalNow = Date.now;
+  const originalFetch = globalThis.fetch;
+  const originalConsoleError = console.error;
+  const alarms: number[] = [];
+  const discordCalls: Array<{ input: string; method: string | undefined }> = [];
+  let shouldFailRemoval = true;
+
+  Date.now = () => now;
+  console.error = () => {};
+  globalThis.fetch = async (input, init) => {
+    discordCalls.push({
+      input: String(input),
+      method: init?.method,
+    });
+
+    if (shouldFailRemoval) {
+      return new Response("discord unavailable", { status: 500 });
+    }
+
+    return new Response(null, { status: 204 });
+  };
+
+  try {
+    const ctx = {
+      storage: {
+        sql: createFakeSql(),
+        setAlarm(time: number) {
+          alarms.push(time);
+          return Promise.resolve();
+        },
+      },
+    } as unknown as DurableObjectState;
+    const store = new ModerationStoreDO(
+      ctx,
+      { BOT_USER_ID: "bot-1", DISCORD_BOT_TOKEN: "token" } as never
+    );
+
+    await store.fetch(
+      new Request("https://moderation-store/timed-role", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          guildId: "guild-1",
+          userId: "user-1",
+          roleId: "role-1",
+          durationInput: "5m",
+          expiresAtMs: now - 1,
+        }),
+      })
+    );
+    await store.fetch(
+      new Request("https://moderation-store/timed-role", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          guildId: "guild-1",
+          userId: "user-2",
+          roleId: "role-2",
+          durationInput: "10m",
+          expiresAtMs: now + 60_000,
+        }),
+      })
+    );
+
+    await (store as ModerationStoreDO & { alarm(): Promise<void> }).alarm();
+
+    const afterFailedAlarm = await store.fetch(
+      new Request("https://moderation-store/timed-roles?guildId=guild-1")
+    );
+    assert.deepEqual(await afterFailedAlarm.json(), [
+      {
+        guildId: "guild-1",
+        userId: "user-1",
+        roleId: "role-1",
+        durationInput: "5m",
+        expiresAtMs: now - 1,
+      },
+      {
+        guildId: "guild-1",
+        userId: "user-2",
+        roleId: "role-2",
+        durationInput: "10m",
+        expiresAtMs: now + 60_000,
+      },
+    ]);
+
+    shouldFailRemoval = false;
+    await (store as ModerationStoreDO & { alarm(): Promise<void> }).alarm();
+
+    const afterSuccessfulAlarm = await store.fetch(
+      new Request("https://moderation-store/timed-roles?guildId=guild-1")
+    );
+    assert.deepEqual(await afterSuccessfulAlarm.json(), [
+      {
+        guildId: "guild-1",
+        userId: "user-2",
+        roleId: "role-2",
+        durationInput: "10m",
+        expiresAtMs: now + 60_000,
+      },
+    ]);
+
+    assert.deepEqual(
+      discordCalls.map((call) => ({
+        method: call.method,
+        input: call.input,
+      })),
+      [
+        {
+          method: "DELETE",
+          input: "https://discord.com/api/v10/guilds/guild-1/members/user-1/roles/role-1",
+        },
+        {
+          method: "DELETE",
+          input: "https://discord.com/api/v10/guilds/guild-1/members/user-1/roles/role-1",
+        },
+      ]
+    );
+    assert.deepEqual(alarms, [now - 1, now - 1, now - 1, now + 60_000]);
+  } finally {
+    Date.now = originalNow;
+    globalThis.fetch = originalFetch;
+    console.error = originalConsoleError;
+  }
+});
+
 function createFakeSql(options?: {
   failOnDelete?: boolean;
   failOnSelectConfig?: boolean;
@@ -416,6 +641,18 @@ function createFakeSql(options?: {
   const appConfig = new Map<string, string>(options?.appConfigEntries ?? []);
   const guildSettings = new Map<string, number>();
   const guildBlockedEmojis = new Map<string, Set<string>>();
+  const timedRoles = new Map<
+    string,
+    {
+      guild_id: string;
+      user_id: string;
+      role_id: string;
+      duration_input: string;
+      expires_at_ms: number;
+      created_at_ms: number;
+      updated_at_ms: number;
+    }
+  >();
 
   return {
     exec(query: string, ...params: unknown[]) {
@@ -548,12 +785,89 @@ function createFakeSql(options?: {
         return appConfig.size > 0 ? [{ 1: 1 }] : [];
       }
 
+      if (query === "SELECT 1 FROM timed_roles LIMIT 1") {
+        return timedRoles.size > 0 ? [{ 1: 1 }] : [];
+      }
+
       if (query === "SELECT key, value FROM app_config") {
         if (options?.failOnSelectConfig) {
           throw new Error("storage fault");
         }
 
         return [...appConfig.entries()].map(([key, value]) => ({ key, value }));
+      }
+
+      if (
+        query ===
+        "INSERT INTO timed_roles(guild_id, user_id, role_id, duration_input, expires_at_ms, created_at_ms, updated_at_ms) VALUES(?, ?, ?, ?, ?, ?, ?) ON CONFLICT(guild_id, user_id, role_id) DO UPDATE SET duration_input = excluded.duration_input, expires_at_ms = excluded.expires_at_ms, updated_at_ms = excluded.updated_at_ms"
+      ) {
+        const [
+          guild_id,
+          user_id,
+          role_id,
+          duration_input,
+          expires_at_ms,
+          created_at_ms,
+          updated_at_ms,
+        ] = params as [string, string, string, string, number, number, number];
+        const key = `${guild_id}:${user_id}:${role_id}`;
+        const existing = timedRoles.get(key);
+        timedRoles.set(key, {
+          guild_id,
+          user_id,
+          role_id,
+          duration_input,
+          expires_at_ms,
+          created_at_ms: existing?.created_at_ms ?? created_at_ms,
+          updated_at_ms,
+        });
+        return [];
+      }
+
+      if (
+        query ===
+        "SELECT guild_id, user_id, role_id, duration_input, expires_at_ms FROM timed_roles WHERE guild_id = ? ORDER BY expires_at_ms ASC"
+      ) {
+        return [...timedRoles.values()]
+          .filter((row) => row.guild_id === params[0])
+          .sort((a, b) => a.expires_at_ms - b.expires_at_ms)
+          .map(({ guild_id, user_id, role_id, duration_input, expires_at_ms }) => ({
+            guild_id,
+            user_id,
+            role_id,
+            duration_input,
+            expires_at_ms,
+          }));
+      }
+
+      if (
+        query ===
+        "SELECT guild_id, user_id, role_id, duration_input, expires_at_ms FROM timed_roles WHERE expires_at_ms <= ? ORDER BY expires_at_ms ASC"
+      ) {
+        return [...timedRoles.values()]
+          .filter((row) => row.expires_at_ms <= (params[0] as number))
+          .sort((a, b) => a.expires_at_ms - b.expires_at_ms)
+          .map(({ guild_id, user_id, role_id, duration_input, expires_at_ms }) => ({
+            guild_id,
+            user_id,
+            role_id,
+            duration_input,
+            expires_at_ms,
+          }));
+      }
+
+      if (
+        query === "DELETE FROM timed_roles WHERE guild_id = ? AND user_id = ? AND role_id = ?"
+      ) {
+        timedRoles.delete(`${params[0]}:${params[1]}:${params[2]}`);
+        return [];
+      }
+
+      if (query === "SELECT expires_at_ms FROM timed_roles ORDER BY expires_at_ms ASC LIMIT 1") {
+        const first = [...timedRoles.values()].sort(
+          (a, b) => a.expires_at_ms - b.expires_at_ms
+        )[0];
+        return first ? [{ expires_at_ms: first.expires_at_ms }] : [];
       }
 
       throw new Error(`Unexpected SQL: ${query}`);

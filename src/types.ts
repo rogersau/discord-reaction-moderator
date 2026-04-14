@@ -33,6 +33,24 @@ export interface AppConfigRow {
   value: string;
 }
 
+export interface TimedRoleRow {
+  guild_id: string;
+  user_id: string;
+  role_id: string;
+  duration_input: string;
+  expires_at_ms: number;
+  created_at_ms: number;
+  updated_at_ms: number;
+}
+
+export interface TimedRoleAssignment {
+  guildId: string;
+  userId: string;
+  roleId: string;
+  durationInput: string;
+  expiresAtMs: number;
+}
+
 export interface GlobalEmojiMutation {
   scope: "global";
   action: "add" | "remove";
