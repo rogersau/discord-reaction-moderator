@@ -175,7 +175,7 @@ export function isEmojiBlocked(
  * Normalize an emoji for comparison.
  * Handles both unicode emojis and custom emoji name:id format.
  */
-export function normalizeEmoji(rawEmoji: string | null | undefined): string | null {
+export function normalizeEmoji(rawEmoji: string | null): string | null {
   if (!rawEmoji) return null;
   // Strip colons from custom emoji names if present
   return rawEmoji.replace(/^:/, "").replace(/:$/, "");

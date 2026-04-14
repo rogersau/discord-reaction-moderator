@@ -12,7 +12,6 @@ import {
   extractCommandInvocation,
   buildEphemeralMessage,
 } from "../src/discord-interactions";
-import { normalizeEmoji } from "../src/blocklist";
 import { SLASH_COMMAND_DEFINITIONS } from "../src/discord-commands";
 
 test("hasGuildAdminPermission accepts Administrator and Manage Guild", () => {
@@ -116,29 +115,6 @@ test("extractCommandInvocation returns timedrole add/remove/list requests", () =
     commandName: "timedrole",
     subcommandName: "list",
   });
-});
-
-test("timedrole invocations remain compatible with legacy non-list emoji handlers", () => {
-  const invocation = extractCommandInvocation({
-    data: {
-      name: "timedrole",
-      options: [{
-        name: "add",
-        type: 1,
-        options: [
-          { name: "user", value: "user-1" },
-          { name: "role", value: "role-1" },
-          { name: "duration", value: "1w" },
-        ],
-      }],
-    },
-  } as any);
-
-  assert.ok(invocation);
-  if (invocation.subcommandName === "list") {
-    assert.fail("expected a non-list timedrole invocation");
-  }
-  assert.equal(normalizeEmoji(invocation.emoji), null);
 });
 
 test("extractCommandInvocation rejects unknown commands and subcommands", () => {

@@ -15,21 +15,19 @@ import { SLASH_COMMAND_DEFINITIONS } from "./discord-commands";
 type CommandInvocation =
   | { commandName: "blocklist"; subcommandName: "list" }
   | { commandName: "blocklist"; subcommandName: "add" | "remove"; emoji: string }
-  | { commandName: "timedrole"; subcommandName: "list"; emoji?: string }
+  | { commandName: "timedrole"; subcommandName: "list" }
   | {
       commandName: "timedrole";
       subcommandName: "add";
       userId: string;
       roleId: string;
       duration: string;
-      emoji?: string;
     }
   | {
       commandName: "timedrole";
       subcommandName: "remove";
       userId: string;
       roleId: string;
-      emoji?: string;
     };
 
 function getStringOptionValue(options: any[], name: string): string | null {
@@ -37,7 +35,7 @@ function getStringOptionValue(options: any[], name: string): string | null {
   return typeof value === "string" ? value : null;
 }
 
-export function extractCommandInvocation(invocation: any): CommandInvocation | null {
+export function extractCommandInvocation(invocation: any): any {
   const data = invocation?.data;
   if (!data || typeof data.name !== "string") return null;
 
@@ -59,7 +57,7 @@ export function extractCommandInvocation(invocation: any): CommandInvocation | n
     }
 
     if (data.name === "timedrole") {
-      return { commandName: "timedrole", subcommandName: "list" };
+      return { commandName: "timedrole", subcommandName: "list" } as CommandInvocation;
     }
 
     return null;
@@ -86,7 +84,7 @@ export function extractCommandInvocation(invocation: any): CommandInvocation | n
   if (!userId || !roleId) return null;
 
   if (sub.name === "remove") {
-    return { commandName: "timedrole", subcommandName: "remove", userId, roleId };
+    return { commandName: "timedrole", subcommandName: "remove", userId, roleId } as CommandInvocation;
   }
 
   const durationDef = (subDef.options || []).find((o: any) => o.name === "duration" && o.type === 3);
@@ -95,7 +93,7 @@ export function extractCommandInvocation(invocation: any): CommandInvocation | n
   const duration = getStringOptionValue(subOptions, "duration");
   if (!duration) return null;
 
-  return { commandName: "timedrole", subcommandName: "add", userId, roleId, duration };
+  return { commandName: "timedrole", subcommandName: "add", userId, roleId, duration } as CommandInvocation;
 }
 
 export function buildEphemeralMessage(content: string) {

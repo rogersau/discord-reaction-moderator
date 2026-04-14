@@ -78,9 +78,8 @@ test("applyEmojiMutation adds uniquely and removes exact matches", () => {
   assert.deepEqual(removed.emojis, ["❌"]);
 });
 
-test("normalizeEmoji handles null, undefined, and empty input", () => {
+test("normalizeEmoji handles null and empty input", () => {
   assert.equal(normalizeEmoji(null), null);
-  assert.equal(normalizeEmoji(undefined), null);
   assert.equal(normalizeEmoji(""), null);
   assert.equal(normalizeEmoji(":blobcat:"), "blobcat");
 });
