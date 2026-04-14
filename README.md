@@ -144,7 +144,7 @@ Only members with **Administrator** or **Manage Guild** permissions can use the 
 
 These commands are **server-local**: they update the blocklist for the guild where they are used, not the global operator blocklist. If an emoji is already blocked or already absent, the bot returns an explicit no-op message instead of pretending a change happened.
 
-`/blocklist list` responds ephemerally to the invoker and shows only the current server's blocked emojis.
+`/blocklist list` responds ephemerally to the invoker and shows the effective blocked emojis for the current server, including global defaults plus any enabled server-specific entries.
 
 For timed roles, the role must already exist and be configured in Discord; the bot only adds and removes it on a timer.
 

@@ -500,6 +500,78 @@ test("worker returns the current server blocklist for /blocklist list", async ()
   ]);
 });
 
+test("worker includes global defaults in /blocklist list", async () => {
+  const { publicKeyHex, request } = await createSignedInteractionRequest(
+    createApplicationCommand({
+      guildId: "guild-123",
+      permissions: "8",
+      subcommand: "list",
+    })
+  );
+
+  const response = await worker.fetch(
+    request,
+    createEnv({
+      DISCORD_PUBLIC_KEY: publicKeyHex,
+      moderationFetch() {
+        return Response.json({
+          emojis: ["🏳️‍🌈", "🍎"],
+          guilds: {},
+          botUserId: "",
+        });
+      },
+    }),
+    {} as ExecutionContext
+  );
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(
+    await response.json(),
+    buildEphemeralMessage("Blocked emojis in this server:\n- 🏳️‍🌈\n- 🍎")
+  );
+});
+
+test("worker truncates oversized /blocklist list responses to Discord's message limit", async () => {
+  const oversizedGuildBlocklist = Array.from({ length: 400 }, (_, index) =>
+    `custom-emoji-${String(index).padStart(3, "0")}`
+  );
+  const { publicKeyHex, request } = await createSignedInteractionRequest(
+    createApplicationCommand({
+      guildId: "guild-123",
+      permissions: "8",
+      subcommand: "list",
+    })
+  );
+
+  const response = await worker.fetch(
+    request,
+    createEnv({
+      DISCORD_PUBLIC_KEY: publicKeyHex,
+      moderationFetch() {
+        return Response.json({
+          emojis: [],
+          guilds: {
+            "guild-123": {
+              enabled: true,
+              emojis: oversizedGuildBlocklist,
+            },
+          },
+          botUserId: "",
+        });
+      },
+    }),
+    {} as ExecutionContext
+  );
+
+  assert.equal(response.status, 200);
+  const body = (await response.json()) as ReturnType<typeof buildEphemeralMessage>;
+  assert.deepEqual(body.type, 4);
+  assert.equal(body.data.flags, 64);
+  assert.ok(body.data.content.startsWith("Blocked emojis in this server:\n- custom-emoji-000"));
+  assert.ok(body.data.content.includes("\n...and "));
+  assert.ok(body.data.content.length <= 2000);
+});
+
 test("worker assigns a timed role for a valid guild admin command", async () => {
   const storeCalls: Array<{ input: string; method: string; body: unknown }> = [];
 

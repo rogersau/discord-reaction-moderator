@@ -26,6 +26,7 @@ import { formatTimedRoleExpiry, parseTimedRoleDuration } from "./timed-roles";
 export { GatewaySessionDO, ModerationStoreDO };
 
 const DISCORD_INTERACTION_MAX_AGE_SECONDS = 5 * 60;
+const DISCORD_MESSAGE_CONTENT_LIMIT = 2_000;
 
 export default {
   async fetch(
@@ -437,11 +438,18 @@ async function handleApplicationCommand(
       const config = await getBlocklistFromStore(() =>
         storeStub.fetch("https://moderation-store/config")
       );
-      const guildEmojis = config.guilds?.[interaction.guild_id]?.emojis ?? [];
-      const content =
-        guildEmojis.length === 0
-          ? "No emojis are blocked in this server."
-          : `Blocked emojis in this server:\n${guildEmojis.map((emoji) => `- ${emoji}`).join("\n")}`;
+      const guildConfig = config.guilds?.[interaction.guild_id];
+      const effectiveEmojis = Array.from(
+        new Set([
+          ...config.emojis,
+          ...(guildConfig?.enabled === false ? [] : guildConfig?.emojis ?? []),
+        ])
+      );
+      const content = formatBoundedBulletList(
+        "Blocked emojis in this server:",
+        "No emojis are blocked in this server.",
+        effectiveEmojis
+      );
 
       return Response.json(buildEphemeralMessage(content));
     } catch (error) {
@@ -521,4 +529,48 @@ async function handleApplicationCommand(
       : `Unblocked ${blocklistInvocation.emoji} in this server.`;
 
   return Response.json(buildEphemeralMessage(actionMessage));
+}
+
+function formatBoundedBulletList(
+  title: string,
+  emptyMessage: string,
+  items: string[]
+): string {
+  if (items.length === 0) {
+    return emptyMessage;
+  }
+
+  const lines = [title];
+
+  for (let index = 0; index < items.length; index += 1) {
+    const line = `- ${items[index]}`;
+    const remainingAfterLine = items.length - index - 1;
+
+    if (remainingAfterLine === 0) {
+      return [...lines, line].join("\n");
+    }
+
+    const contentWithLine = [...lines, line].join("\n");
+    const summaryLine = `...and ${remainingAfterLine} more.`;
+
+    if (`${contentWithLine}\n${summaryLine}`.length <= DISCORD_MESSAGE_CONTENT_LIMIT) {
+      lines.push(line);
+      continue;
+    }
+
+    let omittedCount = items.length - index;
+    while (lines.length > 1) {
+      const truncatedContent = [...lines, `...and ${omittedCount} more.`].join("\n");
+      if (truncatedContent.length <= DISCORD_MESSAGE_CONTENT_LIMIT) {
+        return truncatedContent;
+      }
+
+      lines.pop();
+      omittedCount += 1;
+    }
+
+    return `${title}\n...and ${items.length} more.`;
+  }
+
+  return lines.join("\n");
 }
