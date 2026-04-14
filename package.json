@@ -1,9 +1,13 @@
 {
-  "name": "discord-reaction-moderator",
+  "name": "discord-automation-workers",
   "version": "1.0.0",
-  "description": "Cloudflare Worker that removes blocked emoji reactions from Discord messages",
+  "description": "Cloudflare Worker suite for Discord moderation and automation",
   "main": "src/index.ts",
   "packageManager": "pnpm@10.32.1",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rogersau/discord-automation-workers.git"
+  },
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
@@ -19,5 +23,24 @@
     "@types/node": "^22.10.0",
     "typescript": "^5.7.2",
     "wrangler": "^4.82.2"
+  },
+  "cloudflare": {
+    "bindings": {
+      "BOT_USER_ID": {
+        "description": "Your Discord bot user's ID from the Discord Developer Portal."
+      },
+      "DISCORD_PUBLIC_KEY": {
+        "description": "The Discord application public key used to verify interaction signatures."
+      },
+      "DISCORD_APPLICATION_ID": {
+        "description": "Your Discord application ID for syncing slash commands during gateway bootstrap."
+      },
+      "DISCORD_BOT_TOKEN": {
+        "description": "The Discord bot token for gateway access and slash-command sync."
+      },
+      "ADMIN_AUTH_SECRET": {
+        "description": "Optional bearer token that protects the `/admin/*` routes."
+      }
+    }
   }
 }

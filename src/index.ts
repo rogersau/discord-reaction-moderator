@@ -1,5 +1,5 @@
 /**
- * Discord Reaction Moderator - Cloudflare Worker
+ * Discord Automation Workers - Cloudflare Worker suite
  *
  * Public entry point for health checks, admin APIs, and scheduled gateway bootstrap.
  */

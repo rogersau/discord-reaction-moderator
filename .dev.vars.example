@@ -1,0 +1,5 @@
+# Discord bot token used for gateway access and command sync.
+DISCORD_BOT_TOKEN=your-discord-bot-token
+
+# Optional bearer token for protecting /admin/* routes.
+ADMIN_AUTH_SECRET=your-admin-auth-secret

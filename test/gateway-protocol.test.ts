@@ -21,8 +21,8 @@ test("buildIdentifyPayload creates the expected gateway identify frame", () => {
       intents: 1025,
       properties: {
         os: "cloudflare",
-        browser: "discord-reaction-moderator",
-        device: "discord-reaction-moderator",
+        browser: "discord-automation-workers",
+        device: "discord-automation-workers",
       },
     },
   });

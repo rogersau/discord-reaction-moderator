@@ -1,12 +1,18 @@
-# Discord Reaction Moderator
+# Discord Automation Workers
 
-A Cloudflare-first Discord reaction moderator built on **SQLite-backed Durable Objects**. The Worker provisions its moderation store and gateway session on deploy, keeps the Discord Gateway connection inside Cloudflare, and stays free-tier-compatible.
+A Cloudflare-first suite of Discord automation workers built on **SQLite-backed Durable Objects**. The current suite includes reaction moderation, guild blocklist management, gateway/session automation, and timed roles, all deployed as a single Worker that keeps the Discord Gateway connection inside Cloudflare.
 
-## What this deploy gives you
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/rogersau/discord-automation-workers)
 
-- **SQLite Durable Object moderation store** for blocklist state
+> [!NOTE]
+> The Deploy to Cloudflare button only works when the repository is public.
+
+## Current workers and capabilities
+
+- **Reaction moderation** that removes blocked emoji reactions from Discord messages
+- **SQLite Durable Object moderation store** for shared config and timed-role state
 - **Gateway session Durable Object** that connects to Discord from Cloudflare
-- **Guild-scoped slash commands** for blocklist management
+- **Guild-scoped slash commands** for blocklist and timed-role management
 - **Signed `/interactions` endpoint** for Discord interactions
 - **Automatic slash command sync** before each bootstrap when `DISCORD_APPLICATION_ID` is set
 - **Automatic gateway bootstrap** on a scheduled trigger after deploy
@@ -69,7 +75,7 @@ wrangler secret put DISCORD_BOT_TOKEN
 wrangler secret put ADMIN_AUTH_SECRET
 ```
 
-### 4. Deploy
+### 4. Deploy the suite
 
 ```bash
 pnpm run deploy
@@ -119,7 +125,7 @@ curl https://your-worker-url.workers.dev/admin/gateway/status \
 
 If command sync fails, the Worker logs the sync error but still attempts to start the gateway session.
 
-## Slash commands
+## Current slash commands
 
 Once the interactions endpoint is configured and a bootstrap has run successfully, Discord will expose:
 
@@ -142,7 +148,7 @@ Examples:
 
 Only members with **Administrator** or **Manage Guild** permissions can use the commands.
 
-These commands are **server-local**: they update the blocklist for the guild where they are used, not the global operator blocklist. If an emoji is already blocked or already absent, the bot returns an explicit no-op message instead of pretending a change happened.
+These commands are **server-local**: they update the blocklist or timed-role assignments for the guild where they are used, not the global operator blocklist. If an emoji is already blocked or already absent, the bot returns an explicit no-op message instead of pretending a change happened.
 
 `/blocklist list` responds ephemerally to the invoker and shows the effective blocked emojis for the current server, including global defaults plus any enabled server-specific entries.
 
@@ -226,11 +232,14 @@ pnpm exec wrangler deploy --dry-run
 │   │   ├── gateway-session.ts
 │   │   └── moderation-store.ts
 │   ├── blocklist.ts
+│   ├── discord-commands.ts
+│   ├── discord-interactions.ts
 │   ├── discord.ts
 │   ├── env.ts
 │   ├── gateway.ts
 │   ├── index.ts
 │   ├── reaction-moderation.ts
+│   ├── timed-roles.ts
 │   └── types.ts
 ├── test/
 ├── wrangler.toml

@@ -8,6 +8,7 @@ const GUILD_MESSAGE_REACTIONS_INTENT = 1 << 10;
 const DEFAULT_GATEWAY_INTENTS = GUILD_INTENT | GUILD_MESSAGE_REACTIONS_INTENT;
 const DEFAULT_BACKOFF_MS = 1000;
 const MAX_BACKOFF_MS = 30000;
+const GATEWAY_CLIENT_IDENTITY = "discord-automation-workers";
 
 interface GatewayProperties {
   os: string;
@@ -47,8 +48,8 @@ export function buildIdentifyPayload(token: string): GatewayFrame<IdentifyData> 
       intents: DEFAULT_GATEWAY_INTENTS,
       properties: {
         os: "cloudflare",
-        browser: "discord-reaction-moderator",
-        device: "discord-reaction-moderator",
+        browser: GATEWAY_CLIENT_IDENTITY,
+        device: GATEWAY_CLIENT_IDENTITY,
       },
     },
   };
