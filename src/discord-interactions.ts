@@ -12,7 +12,7 @@ export function hasGuildAdminPermission(permissions: string): boolean {
 
 import { SLASH_COMMAND_DEFINITIONS } from "./discord-commands";
 
-type CommandInvocation =
+export type CommandInvocation =
   | { commandName: "blocklist"; subcommandName: "list" }
   | { commandName: "blocklist"; subcommandName: "add" | "remove"; emoji: string }
   | { commandName: "timedrole"; subcommandName: "list" }
@@ -35,7 +35,7 @@ function getStringOptionValue(options: any[], name: string): string | null {
   return typeof value === "string" ? value : null;
 }
 
-export function extractCommandInvocation(invocation: any): any {
+export function extractCommandInvocation(invocation: any): CommandInvocation | null {
   const data = invocation?.data;
   if (!data || typeof data.name !== "string") return null;
 
@@ -75,6 +75,8 @@ export function extractCommandInvocation(invocation: any): any {
     return { commandName: "blocklist", subcommandName: sub.name, emoji };
   }
 
+  if (data.name !== "timedrole") return null;
+
   const userDef = (subDef.options || []).find((o: any) => o.name === "user" && o.type === 6);
   const roleDef = (subDef.options || []).find((o: any) => o.name === "role" && o.type === 8);
   if (!userDef || !roleDef) return null;
@@ -88,7 +90,7 @@ export function extractCommandInvocation(invocation: any): any {
   }
 
   const durationDef = (subDef.options || []).find((o: any) => o.name === "duration" && o.type === 3);
-  if (!durationDef || sub.name !== "add") return null;
+  if (!durationDef) return null;
 
   const duration = getStringOptionValue(subOptions, "duration");
   if (!duration) return null;

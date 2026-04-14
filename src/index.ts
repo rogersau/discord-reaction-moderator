@@ -9,6 +9,7 @@ import { ModerationStoreDO } from "./durable-objects/moderation-store";
 import { getBlocklistFromStore, normalizeEmoji } from "./blocklist";
 import {
   buildEphemeralMessage,
+  type CommandInvocation,
   extractCommandInvocation,
   hasGuildAdminPermission,
 } from "./discord-interactions";
@@ -252,7 +253,11 @@ async function handleApplicationCommand(
     }
   }
 
-  const normalizedEmoji = normalizeEmoji(invocation.emoji);
+  const blocklistInvocation = invocation as Extract<
+    CommandInvocation,
+    { commandName: "blocklist"; subcommandName: "add" | "remove" }
+  >;
+  const normalizedEmoji = normalizeEmoji(blocklistInvocation.emoji);
   if (!normalizedEmoji) {
     return Response.json(buildEphemeralMessage("Unsupported command."));
   }
@@ -271,15 +276,15 @@ async function handleApplicationCommand(
     );
   }
 
-  if (invocation.subcommandName === "add" && isAlreadyBlocked) {
+  if (blocklistInvocation.subcommandName === "add" && isAlreadyBlocked) {
     return Response.json(
-      buildEphemeralMessage(`${invocation.emoji} is already blocked in this server.`)
+      buildEphemeralMessage(`${blocklistInvocation.emoji} is already blocked in this server.`)
     );
   }
 
-  if (invocation.subcommandName === "remove" && !isAlreadyBlocked) {
+  if (blocklistInvocation.subcommandName === "remove" && !isAlreadyBlocked) {
     return Response.json(
-      buildEphemeralMessage(`${invocation.emoji} is not currently blocked in this server.`)
+      buildEphemeralMessage(`${blocklistInvocation.emoji} is not currently blocked in this server.`)
     );
   }
 
@@ -293,7 +298,7 @@ async function handleApplicationCommand(
         body: JSON.stringify({
           guildId: interaction.guild_id,
           emoji: normalizedEmoji,
-          action: invocation.subcommandName,
+          action: blocklistInvocation.subcommandName,
         }),
       }
     );
@@ -312,9 +317,9 @@ async function handleApplicationCommand(
   }
 
   const actionMessage =
-    invocation.subcommandName === "add"
-      ? `Blocked ${invocation.emoji} in this server.`
-      : `Unblocked ${invocation.emoji} in this server.`;
+    blocklistInvocation.subcommandName === "add"
+      ? `Blocked ${blocklistInvocation.emoji} in this server.`
+      : `Unblocked ${blocklistInvocation.emoji} in this server.`;
 
   return Response.json(buildEphemeralMessage(actionMessage));
 }

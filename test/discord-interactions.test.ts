@@ -8,11 +8,25 @@ import test from "node:test";
 import {
   ADMINISTRATOR_PERMISSION,
   MANAGE_GUILD_PERMISSION,
+  type CommandInvocation,
   hasGuildAdminPermission,
   extractCommandInvocation,
   buildEphemeralMessage,
 } from "../src/discord-interactions";
 import { SLASH_COMMAND_DEFINITIONS } from "../src/discord-commands";
+
+type IsExact<A, B> =
+  (<T>() => T extends A ? 1 : 2) extends
+  (<T>() => T extends B ? 1 : 2)
+    ? ((<T>() => T extends B ? 1 : 2) extends
+      (<T>() => T extends A ? 1 : 2)
+        ? true
+        : false)
+    : false;
+
+function expectTrue<T extends true>(_value: T) {}
+
+expectTrue<IsExact<ReturnType<typeof extractCommandInvocation>, CommandInvocation | null>>(true);
 
 test("hasGuildAdminPermission accepts Administrator and Manage Guild", () => {
   assert.equal(
@@ -140,6 +154,44 @@ test("extractCommandInvocation rejects unknown commands and subcommands", () => 
 
   assert.equal(extractCommandInvocation(bogusSub), null);
   assert.equal(extractCommandInvocation(unknownCmd), null);
+});
+
+test("extractCommandInvocation rejects future commands with timedrole-shaped options", () => {
+  SLASH_COMMAND_DEFINITIONS.push({
+    name: "futurecommand",
+    description: "Future command",
+    options: [
+      {
+        type: 1,
+        name: "add",
+        description: "Add",
+        options: [
+          { type: 6, name: "user", description: "User", required: true },
+          { type: 8, name: "role", description: "Role", required: true },
+          { type: 3, name: "duration", description: "Duration", required: true },
+        ],
+      },
+    ],
+  });
+
+  try {
+    assert.equal(extractCommandInvocation({
+      data: {
+        name: "futurecommand",
+        options: [{
+          name: "add",
+          type: 1,
+          options: [
+            { name: "user", value: "user-1" },
+            { name: "role", value: "role-1" },
+            { name: "duration", value: "1w" },
+          ],
+        }],
+      },
+    } as any), null);
+  } finally {
+    SLASH_COMMAND_DEFINITIONS.pop();
+  }
 });
 
 test("extractCommandInvocation rejects non-string emoji values", () => {
