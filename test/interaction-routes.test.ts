@@ -409,12 +409,62 @@ test("worker returns an ephemeral failure when moderation store forwarding throw
   );
 });
 
-function createApplicationCommand(options: {
-  guildId: string;
-  permissions: string;
-  subcommand: "add" | "remove";
-  emoji: string;
-}) {
+test("worker returns the current server blocklist for /blocklist list", async () => {
+  const storeCalls: Array<{ input: string; method: string; body: unknown }> = [];
+  const { publicKeyHex, request } = await createSignedInteractionRequest(
+    createApplicationCommand({
+      guildId: "guild-123",
+      permissions: "8",
+      subcommand: "list",
+    })
+  );
+
+  const response = await worker.fetch(
+    request,
+    createEnv({
+      DISCORD_PUBLIC_KEY: publicKeyHex,
+      moderationFetch(input, init) {
+        storeCalls.push({
+          input: String(input),
+          method: init?.method ?? "GET",
+          body: init?.body ? JSON.parse(String(init.body)) : null,
+        });
+        return Response.json({
+          emojis: [],
+          guilds: {
+            "guild-123": {
+              enabled: true,
+              emojis: ["✅", "🍎"],
+            },
+          },
+          botUserId: "",
+        });
+      },
+    }),
+    {} as ExecutionContext
+  );
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), buildEphemeralMessage("Blocked emojis in this server:\n- ✅\n- 🍎"));
+  assert.deepEqual(storeCalls, [
+    {
+      input: "https://moderation-store/config",
+      method: "GET",
+      body: null,
+    },
+  ]);
+});
+
+function createApplicationCommand(
+  options:
+    | { guildId: string; permissions: string; subcommand: "add" | "remove"; emoji: string }
+    | { guildId: string; permissions: string; subcommand: "list" }
+) {
+  const subOptions =
+    options.subcommand === "list"
+      ? []
+      : [{ type: 3, name: "emoji", value: options.emoji }];
+
   return {
     type: 2,
     guild_id: options.guildId,
@@ -427,7 +477,7 @@ function createApplicationCommand(options: {
         {
           type: 1,
           name: options.subcommand,
-          options: [{ type: 3, name: "emoji", value: options.emoji }],
+          options: subOptions,
         },
       ],
     },

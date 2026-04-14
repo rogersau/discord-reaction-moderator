@@ -230,8 +230,26 @@ async function handleApplicationCommand(
     return Response.json(buildEphemeralMessage("Unsupported command."));
   }
 
+  const storeStub = getModerationStoreStub(env);
+
   if (invocation.subcommandName === "list") {
-    return Response.json(buildEphemeralMessage("Unsupported command."));
+    try {
+      const config = await getBlocklistFromStore(() =>
+        storeStub.fetch("https://moderation-store/config")
+      );
+      const guildEmojis = config.guilds?.[interaction.guild_id]?.emojis ?? [];
+      const content =
+        guildEmojis.length === 0
+          ? "No emojis are blocked in this server."
+          : `Blocked emojis in this server:\n${guildEmojis.map((emoji) => `- ${emoji}`).join("\n")}`;
+
+      return Response.json(buildEphemeralMessage(content));
+    } catch (error) {
+      console.error("Failed to load moderation config", error);
+      return Response.json(
+        buildEphemeralMessage("Failed to load the server blocklist.")
+      );
+    }
   }
 
   const normalizedEmoji = normalizeEmoji(invocation.emoji);
@@ -239,7 +257,6 @@ async function handleApplicationCommand(
     return Response.json(buildEphemeralMessage("Unsupported command."));
   }
 
-  const storeStub = getModerationStoreStub(env);
   let isAlreadyBlocked = false;
   try {
     const config = await getBlocklistFromStore(() =>
