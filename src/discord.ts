@@ -136,7 +136,7 @@ async function mutateGuildMemberRole(
     }
   );
 
-  if (!response.ok && response.status !== 204) {
+  if (!response.ok) {
     const error = await response.text().catch(() => "Unknown error");
     throw new Error(`Discord API error: ${response.status} ${error}`);
   }
