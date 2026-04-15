@@ -95,6 +95,68 @@ test("node gateway service schedules reconnect after websocket close", async () 
   assert.equal(openedUrls.length, 2, "should reconnect after backoff timer fires");
 });
 
+test("node gateway service clears the heartbeat interval when the websocket closes", async () => {
+  let onMessage: ((payload: string) => void) | undefined;
+  let onClose: (() => void) | undefined;
+  const intervalToken = { id: "heartbeat-interval" };
+  const originalSetInterval = globalThis.setInterval;
+  const originalClearInterval = globalThis.clearInterval;
+  const scheduledIntervals: Array<{ callback: () => void; delayMs: number }> = [];
+  const clearedIntervals: unknown[] = [];
+
+  globalThis.setInterval = (((callback: () => void, delayMs?: number) => {
+    scheduledIntervals.push({ callback, delayMs: delayMs ?? 0 });
+    return intervalToken as any;
+  }) as typeof setInterval);
+  globalThis.clearInterval = (((token: unknown) => {
+    clearedIntervals.push(token);
+  }) as typeof clearInterval);
+
+  try {
+    const store = {
+      async readConfig() {
+        return { guilds: {}, botUserId: "bot-user-id" };
+      },
+      async readGatewaySnapshot() {
+        return { status: "idle", sessionId: null, resumeGatewayUrl: null, lastSequence: null, backoffAttempt: 0, lastError: null, heartbeatIntervalMs: null };
+      },
+      async writeGatewaySnapshot() {},
+    } as any;
+
+    const gateway = createNodeGatewayService({
+      botToken: "bot-token",
+      store,
+      openWebSocket(_url: string, handlers: any) {
+        onMessage = handlers.onMessage;
+        onClose = handlers.onClose;
+        return {
+          send() {},
+          close() {},
+        };
+      },
+      setTimer(_callback: any, _delayMs: number) {
+        return { stop() {} };
+      },
+    });
+
+    await gateway.start();
+    onMessage?.(JSON.stringify({ op: 10, d: { heartbeat_interval: 45000 } }));
+
+    assert.equal(scheduledIntervals.length, 1, "HELLO should schedule a heartbeat interval");
+
+    onClose?.();
+
+    assert.deepEqual(
+      clearedIntervals,
+      [intervalToken],
+      "closing the websocket should clear the active heartbeat interval"
+    );
+  } finally {
+    globalThis.setInterval = originalSetInterval;
+    globalThis.clearInterval = originalClearInterval;
+  }
+});
+
 test("node gateway service guards against duplicate start calls", async () => {
   const openedUrls: string[] = [];
 

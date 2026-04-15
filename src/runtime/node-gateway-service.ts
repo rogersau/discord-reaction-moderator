@@ -76,6 +76,7 @@ export function createNodeGatewayService(options: NodeGatewayServiceOptions): Ga
           void handleSocketMessage(payload);
         },
         onClose: () => {
+          stopHeartbeat();
           if (socket) {
             socket = null;
           }
@@ -200,6 +201,13 @@ export function createNodeGatewayService(options: NodeGatewayServiceOptions): Ga
     void options.store.writeGatewaySnapshot(snapshot);
   }
 
+  function stopHeartbeat(): void {
+    if (heartbeatTimer) {
+      clearInterval(heartbeatTimer);
+      heartbeatTimer = null;
+    }
+  }
+
   function handleInvalidSession(canResume: boolean): void {
     const currentSocket = socket;
     socket = null;
@@ -218,6 +226,7 @@ export function createNodeGatewayService(options: NodeGatewayServiceOptions): Ga
   }
 
   function enterBackoff(): void {
+    stopHeartbeat();
     const backoffMs = nextBackoffMillis(snapshot.backoffAttempt);
     snapshot.status = "backoff";
     snapshot.backoffAttempt += 1;
