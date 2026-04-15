@@ -102,22 +102,7 @@ test("createRuntimeApp respects enabled: false for /blocklist list", async () =>
           botUserId: "bot-user-id",
         };
       },
-      async applyGuildEmojiMutation() {
-        return { guilds: {}, botUserId: "" };
-      },
-      async listTimedRolesByGuild() {
-        return [];
-      },
-      async upsertTimedRole() {},
-      async deleteTimedRole() {},
-      async listExpiredTimedRoles() {
-        return [];
-      },
-      async readGatewaySnapshot() {
-        return { status: "idle", sessionId: null, resumeGatewayUrl: null, lastSequence: null, backoffAttempt: 0, lastError: null, heartbeatIntervalMs: null };
-      },
-      async writeGatewaySnapshot() {},
-    } as RuntimeStore,
+    } as unknown as RuntimeStore,
     gateway: {} as GatewayController,
   });
 
