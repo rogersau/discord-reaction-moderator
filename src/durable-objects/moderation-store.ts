@@ -1,7 +1,6 @@
 import type {
   AppConfigRow,
   BlocklistConfig,
-  GlobalBlockedEmojiRow,
   GuildBlockedEmojiRow,
   GuildSettingRow,
   TimedRoleAssignment,
@@ -10,9 +9,6 @@ import type {
 import type { Env } from "../env";
 import { buildBlocklistConfig, normalizeEmoji } from "../blocklist";
 import { removeGuildMemberRole } from "../discord";
-import { DEFAULT_BLOCKLIST } from "../types";
-
-const DEFAULT_SEED_KEY = "default_blocklist_seeded";
 
 class ModerationStoreInputError extends Error {}
 
@@ -26,9 +22,6 @@ export class ModerationStoreDO implements DurableObject {
     this.env = env;
     this.sql = ctx.storage.sql;
     this.sql.exec(`
-      CREATE TABLE IF NOT EXISTS global_blocked_emojis (
-        normalized_emoji TEXT PRIMARY KEY
-      );
       CREATE TABLE IF NOT EXISTS guild_settings (
         guild_id TEXT PRIMARY KEY,
         moderation_enabled INTEGER NOT NULL DEFAULT 1
@@ -54,8 +47,6 @@ export class ModerationStoreDO implements DurableObject {
       );
     `);
 
-    this.seedDefaultsOnce();
-
     this.sql.exec(
       "INSERT OR IGNORE INTO app_config(key, value) VALUES(?, ?)",
       "bot_user_id",
@@ -69,18 +60,6 @@ export class ModerationStoreDO implements DurableObject {
     if (request.method === "GET" && url.pathname === "/config") {
       try {
         return Response.json(this.readConfig());
-      } catch (error) {
-        return this.errorResponse(error);
-      }
-    }
-
-    if (
-      (request.method === "POST" || request.method === "PUT") &&
-      url.pathname === "/emoji"
-    ) {
-      try {
-        const body = parseGlobalEmojiMutation(await request.json());
-        return Response.json(this.applyGlobalEmojiMutation(body));
       } catch (error) {
         return this.errorResponse(error);
       }
@@ -171,13 +150,6 @@ export class ModerationStoreDO implements DurableObject {
   }
 
   private readConfig(): BlocklistConfig {
-    const globalRows: GlobalBlockedEmojiRow[] = [
-      ...this.sql.exec(
-        "SELECT normalized_emoji FROM global_blocked_emojis"
-      ),
-    ].map((row) => ({
-      normalized_emoji: row.normalized_emoji as string,
-    }));
     const guildRows: GuildSettingRow[] = [
       ...this.sql.exec("SELECT guild_id, moderation_enabled FROM guild_settings"),
     ].map((row) => ({
@@ -199,7 +171,7 @@ export class ModerationStoreDO implements DurableObject {
       value: row.value as string,
     }));
 
-    return buildBlocklistConfig(globalRows, guildRows, guildEmojiRows, appConfigRows);
+    return buildBlocklistConfig(guildRows, guildEmojiRows, appConfigRows);
   }
 
   private upsertAppConfig(body: {
@@ -213,25 +185,6 @@ export class ModerationStoreDO implements DurableObject {
     );
 
     return { ok: true };
-  }
-
-  private applyGlobalEmojiMutation(body: {
-    emoji: string;
-    action: "add" | "remove";
-  }): BlocklistConfig {
-    if (body.action === "add") {
-      this.sql.exec(
-        "INSERT OR IGNORE INTO global_blocked_emojis(normalized_emoji) VALUES(?)",
-        body.emoji
-      );
-    } else {
-      this.sql.exec(
-        "DELETE FROM global_blocked_emojis WHERE normalized_emoji = ?",
-        body.emoji
-      );
-    }
-
-    return this.readConfig();
   }
 
   private applyGuildEmojiMutation(body: { guildId: string; emoji: string; action: "add" | "remove"; }): BlocklistConfig {
@@ -318,41 +271,6 @@ export class ModerationStoreDO implements DurableObject {
     }
   }
 
-  private seedDefaultsOnce(): void {
-    const isSeeded =
-      [...this.sql.exec("SELECT key FROM app_config WHERE key = ?", DEFAULT_SEED_KEY)]
-        .length > 0;
-
-    if (isSeeded) {
-      return;
-    }
-
-    if (!this.hasExistingState()) {
-      for (const emoji of DEFAULT_BLOCKLIST.emojis) {
-        this.sql.exec(
-          "INSERT OR IGNORE INTO global_blocked_emojis(normalized_emoji) VALUES(?)",
-          emoji
-        );
-      }
-    }
-
-    this.sql.exec(
-      "INSERT OR IGNORE INTO app_config(key, value) VALUES(?, ?)",
-      DEFAULT_SEED_KEY,
-      "1"
-    );
-  }
-
-  private hasExistingState(): boolean {
-    return (
-      [...this.sql.exec("SELECT 1 FROM global_blocked_emojis LIMIT 1")].length > 0 ||
-      [...this.sql.exec("SELECT 1 FROM guild_settings LIMIT 1")].length > 0 ||
-      [...this.sql.exec("SELECT 1 FROM guild_blocked_emojis LIMIT 1")].length > 0 ||
-      [...this.sql.exec("SELECT 1 FROM timed_roles LIMIT 1")].length > 0 ||
-      [...this.sql.exec("SELECT 1 FROM app_config LIMIT 1")].length > 0
-    );
-  }
-
   private errorResponse(error: unknown): Response {
     if (error instanceof SyntaxError || error instanceof ModerationStoreInputError) {
       return Response.json(
@@ -364,31 +282,6 @@ export class ModerationStoreDO implements DurableObject {
     console.error("Moderation store request failed", error);
     return Response.json({ error: "Internal Server Error" }, { status: 500 });
   }
-}
-
-function parseGlobalEmojiMutation(body: unknown): {
-  emoji: string;
-  action: "add" | "remove";
-} {
-  if (!isRecord(body)) {
-    throw new ModerationStoreInputError("Invalid JSON body");
-  }
-
-  const normalizedEmoji = normalizeEmoji(asOptionalString(body.emoji));
-  const action = body.action;
-
-  if (!normalizedEmoji || typeof action !== "string") {
-    throw new ModerationStoreInputError("Missing emoji or action");
-  }
-
-  if (action !== "add" && action !== "remove") {
-    throw new ModerationStoreInputError("Invalid action. Use 'add' or 'remove'");
-  }
-
-  return {
-    emoji: normalizedEmoji,
-    action,
-  };
 }
 
 function parseGuildEmojiMutation(body: unknown): { guildId: string; emoji: string; action: "add" | "remove" } {

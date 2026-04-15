@@ -154,8 +154,12 @@ test("GatewaySessionDO moderates blocked reaction dispatch events", async () => 
         moderationStoreFetch(input) {
           storeFetches.push(String(input));
           return Response.json({
-            emojis: ["✅"],
-            guilds: {},
+            guilds: {
+              "guild-1": {
+                enabled: true,
+                emojis: ["✅"],
+              },
+            },
             botUserId: "bot-1",
           });
         },

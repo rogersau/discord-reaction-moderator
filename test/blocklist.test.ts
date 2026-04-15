@@ -2,28 +2,24 @@
 /// <reference types="node/assert/strict" />
 
 import {
-  applyEmojiMutation,
   buildBlocklistConfig,
   getBlocklistFromStore,
   isEmojiBlocked,
   normalizeEmoji,
 } from "../src/blocklist";
 import { ModerationStoreDO } from "../src/durable-objects/moderation-store";
-import { DEFAULT_BLOCKLIST } from "../src/types";
 
 import assert from "node:assert/strict";
 // @ts-ignore -- The worker typecheck config omits Node built-ins and full node:test types conflict with Workers globals; tsconfig.tests provides the runtime test types.
 import test from "node:test";
 
-test("buildBlocklistConfig materializes global and guild rules", () => {
+test("buildBlocklistConfig materializes guild rules", () => {
   const config = buildBlocklistConfig(
-    [{ normalized_emoji: "✅" }],
     [{ guild_id: "guild-disabled", moderation_enabled: 0 }],
     [{ guild_id: "guild-1", normalized_emoji: "❌" }],
     [{ key: "bot_user_id", value: "bot-1" }]
   );
 
-  assert.equal(isEmojiBlocked("✅", config, "any-guild"), true);
   assert.equal(isEmojiBlocked("❌", config, "guild-1"), true);
   assert.equal(config.guilds["guild-disabled"]?.enabled, false);
   assert.equal(config.botUserId, "bot-1");
@@ -31,7 +27,6 @@ test("buildBlocklistConfig materializes global and guild rules", () => {
 
 test("guild-specific blocklists stay isolated per guild", () => {
   const config = buildBlocklistConfig(
-    [],
     [
       { guild_id: "guild-disabled", moderation_enabled: 0 },
       { guild_id: "guild-1", moderation_enabled: 1 },
@@ -50,32 +45,15 @@ test("guild-specific blocklists stay isolated per guild", () => {
 });
 
 test("missing bot_user_id materializes as an empty string", () => {
-  const config = buildBlocklistConfig([], [], [], []);
+  const config = buildBlocklistConfig([], [], []);
 
   assert.equal(config.botUserId, "");
 });
 
-test("applyEmojiMutation adds uniquely and removes exact matches", () => {
-  const config = buildBlocklistConfig(
-    [{ normalized_emoji: "✅" }],
-    [],
-    [],
-    []
-  );
+test("legacy top-level emojis are ignored when evaluating the blocklist", () => {
+  const config = buildBlocklistConfig([], [], []);
 
-  const added = applyEmojiMutation(config, {
-    scope: "global",
-    action: "add",
-    emoji: "❌",
-  });
-  const removed = applyEmojiMutation(added, {
-    scope: "global",
-    action: "remove",
-    emoji: "✅",
-  });
-
-  assert.deepEqual(added.emojis, ["✅", "❌"]);
-  assert.deepEqual(removed.emojis, ["❌"]);
+  assert.equal(isEmojiBlocked("✅", config, "guild-1"), false);
 });
 
 test("normalizeEmoji handles null and empty input", () => {
@@ -86,7 +64,6 @@ test("normalizeEmoji handles null and empty input", () => {
 
 test("getBlocklistFromStore reads the latest config from the moderation store", async () => {
   const expected = buildBlocklistConfig(
-    [{ normalized_emoji: "✅" }],
     [{ guild_id: "guild-1", moderation_enabled: 1 }],
     [{ guild_id: "guild-1", normalized_emoji: "❌" }],
     [{ key: "bot_user_id", value: "bot-1" }]
@@ -99,71 +76,17 @@ test("getBlocklistFromStore reads the latest config from the moderation store", 
   assert.deepEqual(actual, expected);
 });
 
-test("ModerationStoreDO only seeds default emojis once", async () => {
+test("ModerationStoreDO starts with no globally blocked emojis", async () => {
   const sql = createFakeSql();
   const ctx = { storage: { sql } } as unknown as DurableObjectState;
   const env = { BOT_USER_ID: "bot-1" } as never;
 
   const store = new ModerationStoreDO(ctx, env);
-  await store.fetch(
-    new Request("https://moderation-store/emoji", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        emoji: DEFAULT_BLOCKLIST.emojis[0],
-        action: "remove",
-      }),
-    })
-  );
-
-  const rehydratedStore = new ModerationStoreDO(ctx, env);
-  const response = await rehydratedStore.fetch(
-    new Request("https://moderation-store/config")
-  );
-  const config = (await response.json()) as { emojis: string[] };
-
-  assert.equal(config.emojis.includes(DEFAULT_BLOCKLIST.emojis[0]), false);
-});
-
-test("ModerationStoreDO does not reseed deleted defaults for legacy stores", async () => {
-  const sql = createFakeSql({
-    appConfigEntries: [["bot_user_id", "bot-1"]],
-    globalBlockedEmojis: DEFAULT_BLOCKLIST.emojis.slice(1),
-  });
-  const ctx = { storage: { sql } } as unknown as DurableObjectState;
-  const env = { BOT_USER_ID: "bot-1" } as never;
-
-  const store = new ModerationStoreDO(ctx, env);
   const response = await store.fetch(new Request("https://moderation-store/config"));
-  const config = (await response.json()) as { emojis: string[] };
+  const config = (await response.json()) as { guilds: Record<string, unknown>; botUserId: string };
 
-  assert.equal(config.emojis.includes(DEFAULT_BLOCKLIST.emojis[0]), false);
-});
-
-test("ModerationStoreDO seeds bot user id from env only when missing", async () => {
-  const ctx = {
-    storage: { sql: createFakeSql() },
-  } as unknown as DurableObjectState;
-  const store = new ModerationStoreDO(ctx, { BOT_USER_ID: "seeded-bot-id" } as never);
-  const response = await store.fetch(new Request("https://moderation-store/config"));
-  const config = (await response.json()) as { botUserId: string };
-
-  assert.equal(config.botUserId, "seeded-bot-id");
-});
-
-test("ModerationStoreDO seeds bot user id from env for existing stores when missing", async () => {
-  const ctx = {
-    storage: {
-      sql: createFakeSql({
-        globalBlockedEmojis: [DEFAULT_BLOCKLIST.emojis[0]],
-      }),
-    },
-  } as unknown as DurableObjectState;
-  const store = new ModerationStoreDO(ctx, { BOT_USER_ID: "seeded-bot-id" } as never);
-  const response = await store.fetch(new Request("https://moderation-store/config"));
-  const config = (await response.json()) as { botUserId: string };
-
-  assert.equal(config.botUserId, "seeded-bot-id");
+  assert.deepEqual(config.guilds, {});
+  assert.equal(config.botUserId, "bot-1");
 });
 
 test("ModerationStoreDO preserves stored bot user id across reconstruction", async () => {
@@ -201,17 +124,17 @@ test("ModerationStoreDO maps invalid input to 400 and storage faults to 500", as
   const store = new ModerationStoreDO(ctx, env);
 
   const invalidJsonResponse = await store.fetch(
-    new Request("https://moderation-store/emoji", {
+    new Request("https://moderation-store/guild-emoji", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: "{",
     })
   );
   const invalidInputResponse = await store.fetch(
-    new Request("https://moderation-store/emoji", {
+    new Request("https://moderation-store/guild-emoji", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "remove" }),
+      body: JSON.stringify({ guildId: "guild-1", action: "remove" }),
     })
   );
 
@@ -224,17 +147,18 @@ test("ModerationStoreDO maps invalid input to 400 and storage faults to 500", as
   const originalConsoleError = console.error;
   let storageFailureResponse: Response;
 
-  console.error = () => {};
-  try {
-    storageFailureResponse = await failingStore.fetch(
-      new Request("https://moderation-store/emoji", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          emoji: DEFAULT_BLOCKLIST.emojis[0],
-          action: "remove",
-        }),
-      })
+    console.error = () => {};
+    try {
+      storageFailureResponse = await failingStore.fetch(
+        new Request("https://moderation-store/guild-emoji", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            guildId: "guild-1",
+            emoji: "✅",
+            action: "remove",
+          }),
+        })
     );
   } finally {
     console.error = originalConsoleError;
@@ -301,7 +225,6 @@ test("guild-scoped emoji add and remove", async () => {
   const addBody = (await addResponse.json()) as any;
   // Construct expected full config after add
   const expectedAfterAdd = buildBlocklistConfig(
-    DEFAULT_BLOCKLIST.emojis.map((e) => ({ normalized_emoji: e })),
     [{ guild_id: "guild-1", moderation_enabled: 1 }],
     [{ guild_id: "guild-1", normalized_emoji: "✅" }],
     [{ key: "bot_user_id", value: "bot-1" }]
@@ -325,7 +248,6 @@ test("guild-scoped emoji add and remove", async () => {
   const removeBody = (await removeResponse.json()) as any;
   // Construct expected full config after remove
   const expectedAfterRemove = buildBlocklistConfig(
-    DEFAULT_BLOCKLIST.emojis.map((e) => ({ normalized_emoji: e })),
     [{ guild_id: "guild-1", moderation_enabled: 1 }],
     [],
     [{ key: "bot_user_id", value: "bot-1" }]
@@ -356,7 +278,6 @@ test("guild-scoped remove from untouched guild does not create guild settings", 
   assert.deepEqual(
     await removeResponse.json(),
     buildBlocklistConfig(
-      DEFAULT_BLOCKLIST.emojis.map((e) => ({ normalized_emoji: e })),
       [],
       [],
       [{ key: "bot_user_id", value: "bot-1" }]
@@ -367,7 +288,6 @@ test("guild-scoped remove from untouched guild does not create guild settings", 
   assert.deepEqual(
     await configResponse.json(),
     buildBlocklistConfig(
-      DEFAULT_BLOCKLIST.emojis.map((e) => ({ normalized_emoji: e })),
       [],
       [],
       [{ key: "bot_user_id", value: "bot-1" }]
@@ -769,10 +689,8 @@ test("ModerationStoreDO alarm only removes timed roles after Discord role remova
 function createFakeSql(options?: {
   failOnDelete?: boolean;
   failOnSelectConfig?: boolean;
-  globalBlockedEmojis?: string[];
   appConfigEntries?: Array<[string, string]>;
 }) {
-  const globalBlockedEmojis = new Set<string>(options?.globalBlockedEmojis ?? []);
   const appConfig = new Map<string, string>(options?.appConfigEntries ?? []);
   const guildSettings = new Map<string, number>();
   const guildBlockedEmojis = new Map<string, Set<string>>();
@@ -792,25 +710,6 @@ function createFakeSql(options?: {
   return {
     exec(query: string, ...params: unknown[]) {
       if (query.includes("CREATE TABLE IF NOT EXISTS")) {
-        return [];
-      }
-
-      if (
-        query === "INSERT OR IGNORE INTO global_blocked_emojis(normalized_emoji) VALUES(?)"
-      ) {
-        globalBlockedEmojis.add(params[0] as string);
-        return [];
-      }
-
-      if (
-        query ===
-        "DELETE FROM global_blocked_emojis WHERE normalized_emoji = ?"
-      ) {
-        if (options?.failOnDelete) {
-          throw new Error("storage fault");
-        }
-
-        globalBlockedEmojis.delete(params[0] as string);
         return [];
       }
 
@@ -870,16 +769,6 @@ function createFakeSql(options?: {
         return [];
       }
 
-      if (query === "SELECT normalized_emoji FROM global_blocked_emojis") {
-        if (options?.failOnSelectConfig) {
-          throw new Error("storage fault");
-        }
-
-        return [...globalBlockedEmojis].map((normalized_emoji) => ({
-          normalized_emoji,
-        }));
-      }
-
       if (query === "SELECT guild_id, moderation_enabled FROM guild_settings") {
         if (options?.failOnSelectConfig) {
           throw new Error("storage fault");
@@ -901,10 +790,6 @@ function createFakeSql(options?: {
         }
 
         return rows;
-      }
-
-      if (query === "SELECT 1 FROM global_blocked_emojis LIMIT 1") {
-        return globalBlockedEmojis.size > 0 ? [{ 1: 1 }] : [];
       }
 
       if (query === "SELECT 1 FROM guild_settings LIMIT 1") {

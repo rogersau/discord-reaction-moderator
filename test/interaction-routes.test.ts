@@ -500,7 +500,7 @@ test("worker returns the current server blocklist for /blocklist list", async ()
   ]);
 });
 
-test("worker includes global defaults in /blocklist list", async () => {
+test("worker ignores legacy top-level blocklist entries for /blocklist list", async () => {
   const { publicKeyHex, request } = await createSignedInteractionRequest(
     createApplicationCommand({
       guildId: "guild-123",
@@ -527,7 +527,7 @@ test("worker includes global defaults in /blocklist list", async () => {
   assert.equal(response.status, 200);
   assert.deepEqual(
     await response.json(),
-    buildEphemeralMessage("Blocked emojis in this server:\n- 🏳️‍🌈\n- 🍎")
+    buildEphemeralMessage("No emojis are blocked in this server.")
   );
 });
 

@@ -25,9 +25,9 @@ The required setup is adding your Discord token, configuring the public Discord 
 
 - `ModerationStoreDO` stores blocked emojis and app config in SQLite.
 - `GatewaySessionDO` maintains the Discord Gateway connection, resumes sessions, and applies moderation to `MESSAGE_REACTION_ADD` events.
-- The public Worker exposes `/health`, `/interactions`, `/admin/blocklist`, `/admin/gateway/status`, and `/admin/gateway/start`.
+- The public Worker exposes `/health`, `/interactions`, `/admin/gateway/status`, and `/admin/gateway/start`.
 - Discord slash commands update the current server's blocklist.
-- The `/admin/*` HTTP routes remain the operator surface for global settings and gateway control.
+- The `/admin/*` HTTP routes remain the operator surface for gateway control.
 
 ## Prerequisites
 
@@ -148,46 +148,11 @@ Examples:
 
 Only members with **Administrator** or **Manage Guild** permissions can use the commands.
 
-These commands are **server-local**: they update the blocklist or timed-role assignments for the guild where they are used, not the global operator blocklist. If an emoji is already blocked or already absent, the bot returns an explicit no-op message instead of pretending a change happened.
+These commands are **server-local**: they update the blocklist or timed-role assignments for the guild where they are used. If an emoji is already blocked or already absent, the bot returns an explicit no-op message instead of pretending a change happened.
 
-`/blocklist list` responds ephemerally to the invoker and shows the effective blocked emojis for the current server, including global defaults plus any enabled server-specific entries.
+`/blocklist list` responds ephemerally to the invoker and shows the blocked emojis for the current server.
 
 For timed roles, the role must already exist and be configured in Discord; the bot only adds and removes it on a timer.
-
-## Managing the global blocklist via admin API
-
-The HTTP admin routes are the operator surface for the **global** blocklist. Use them when you want to change default/global moderation behavior across servers.
-
-### View the current blocklist
-
-```bash
-curl https://your-worker-url.workers.dev/admin/blocklist
-```
-
-### Add a blocked emoji
-
-```bash
-curl -X POST https://your-worker-url.workers.dev/admin/blocklist \
-  -H "Content-Type: application/json" \
-  -d '{"emoji":"✅","action":"add"}'
-```
-
-### Remove a blocked emoji
-
-```bash
-curl -X POST https://your-worker-url.workers.dev/admin/blocklist \
-  -H "Content-Type: application/json" \
-  -d '{"emoji":"✅","action":"remove"}'
-```
-
-If admin auth is enabled:
-
-```bash
-curl -X POST https://your-worker-url.workers.dev/admin/blocklist \
-  -H "Authorization: Bearer $ADMIN_AUTH_SECRET" \
-  -H "Content-Type: application/json" \
-  -d '{"emoji":"✅","action":"add"}'
-```
 
 ## Admin API
 
@@ -195,26 +160,10 @@ curl -X POST https://your-worker-url.workers.dev/admin/blocklist \
 | --- | --- | --- |
 | GET | `/health` | Basic health check |
 | POST | `/interactions` | Discord interactions callback endpoint |
-| GET | `/admin/blocklist` | Return the effective moderation config |
-| POST / PUT | `/admin/blocklist` | Add or remove globally blocked emojis |
 | GET | `/admin/gateway/status` | Return current gateway session state |
 | POST | `/admin/gateway/start` | Force an immediate command sync + gateway bootstrap |
 
 If `ADMIN_AUTH_SECRET` is configured, all `/admin/*` routes require `Authorization: Bearer <secret>`.
-
-## Default blocked emojis
-
-These emojis are seeded into a brand-new moderation store:
-
-- 🏳️‍🌈
-- 🏳️‍⚧️
-- 🏳️
-- 🟤
-- 🏴
-- 🏴‍☠️
-- ☣️
-- 🔞
-- 🍎
 
 ## Local validation
 

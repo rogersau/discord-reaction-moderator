@@ -8,6 +8,16 @@ import test from "node:test";
 import { SLASH_COMMAND_DEFINITIONS } from "../src/discord-commands";
 import worker from "../src/index";
 
+test("worker no longer exposes the legacy /admin/blocklist route", async () => {
+  const response = await worker.fetch(
+    new Request("https://worker.example/admin/blocklist"),
+    createEnv(),
+    {} as ExecutionContext
+  );
+
+  assert.equal(response.status, 404);
+});
+
 test("worker proxies /admin/gateway/status to the gateway session durable object", async () => {
   const gatewayFetches: string[] = [];
 

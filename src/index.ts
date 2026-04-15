@@ -41,11 +41,6 @@ export default {
       return new Response("OK", { status: 200 });
     }
 
-    // Admin endpoint to view/update blocklist
-    if (url.pathname === "/admin/blocklist") {
-      return handleAdminRequest(request, env);
-    }
-
     if (
       url.pathname === "/admin/gateway/status" ||
       url.pathname === "/admin/gateway/start"
@@ -73,32 +68,6 @@ export default {
   },
 };
 
-/**
- * Admin endpoint for managing the blocklist.
- * Uses optional bearer token auth when ADMIN_AUTH_SECRET is configured.
- */
-async function handleAdminRequest(request: Request, env: Env): Promise<Response> {
-  if (!isAuthorizedAdminRequest(request, env)) {
-    return new Response("Unauthorized", { status: 401 });
-  }
-
-  const method = request.method;
-  const storeStub = getModerationStoreStub(env);
-
-  if (method === "GET") {
-    return storeStub.fetch("https://moderation-store/config");
-  }
-
-  if (method === "POST" || method === "PUT") {
-    return storeStub.fetch("https://moderation-store/emoji", {
-      method: request.method,
-      headers: { "Content-Type": "application/json" },
-      body: await request.text(),
-    });
-  }
-
-  return new Response("Method not allowed", { status: 405 });
-}
 async function handleGatewayAdminRequest(
   request: Request,
   env: Env
@@ -439,12 +408,7 @@ async function handleApplicationCommand(
         storeStub.fetch("https://moderation-store/config")
       );
       const guildConfig = config.guilds?.[interaction.guild_id];
-      const effectiveEmojis = Array.from(
-        new Set([
-          ...config.emojis,
-          ...(guildConfig?.enabled === false ? [] : guildConfig?.emojis ?? []),
-        ])
-      );
+      const effectiveEmojis = guildConfig?.enabled === false ? [] : guildConfig?.emojis ?? [];
       const content = formatBoundedBulletList(
         "Blocked emojis in this server:",
         "No emojis are blocked in this server.",

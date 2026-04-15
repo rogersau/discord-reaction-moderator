@@ -14,10 +14,6 @@ export interface DiscordReaction {
   user_id: string;
 }
 
-export interface GlobalBlockedEmojiRow {
-  normalized_emoji: string;
-}
-
 export interface GuildSettingRow {
   guild_id: string;
   moderation_enabled: number;
@@ -51,36 +47,13 @@ export interface TimedRoleAssignment {
   expiresAtMs: number;
 }
 
-export interface GlobalEmojiMutation {
-  scope: "global";
-  action: "add" | "remove";
-  emoji: string;
-}
-
 // Effective blocklist config materialized from the moderation store.
 export interface BlocklistConfig {
-  emojis: string[];
   guilds: {
     [guildId: string]: {
       enabled: boolean;
-      emojis: string[];  // Guild-specific overrides
+      emojis: string[];
     };
   };
-  botUserId: string;  // Bot's own user ID to ignore its reactions
+  botUserId: string;
 }
-
-export const DEFAULT_BLOCKLIST: BlocklistConfig = {
-  emojis: [
-    "🏳️‍🌈",  // Rainbow flag
-    "🏳️‍⚧️",  // Trans flag
-    "🏳️",    // White flag
-    "🟤",    // Brown flag (sometimes used as anti flag)
-    "🏴",    // Black flag
-    "🏴‍☠️",  // Pirate flag
-    "☣️",    // Biohazard / various
-    "🔞",    // NSFW
-    "🍎",    // Apple (context-dependent)
-  ],
-  guilds: {},
-  botUserId: "",
-};
