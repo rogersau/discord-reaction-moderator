@@ -211,6 +211,7 @@ export class ModerationStoreDO implements DurableObject {
   }
 
   private async upsertTimedRole(body: TimedRoleAssignment): Promise<void> {
+    const now = Date.now();
     this.sql.exec(
       "INSERT INTO timed_roles(guild_id, user_id, role_id, duration_input, expires_at_ms, created_at_ms, updated_at_ms) VALUES(?, ?, ?, ?, ?, ?, ?) ON CONFLICT(guild_id, user_id, role_id) DO UPDATE SET duration_input = excluded.duration_input, expires_at_ms = excluded.expires_at_ms, updated_at_ms = excluded.updated_at_ms",
       body.guildId,
@@ -218,8 +219,8 @@ export class ModerationStoreDO implements DurableObject {
       body.roleId,
       body.durationInput,
       body.expiresAtMs,
-      body.createdAtMs,
-      body.updatedAtMs
+      now,
+      now
     );
     await this.scheduleNextTimedRoleAlarm();
   }
@@ -338,18 +339,12 @@ function parseTimedRoleUpsert(body: unknown): TimedRoleAssignment {
     throw new ModerationStoreInputError("Missing expiresAtMs");
   }
 
-  const now = Date.now();
-  const createdAtMs = typeof body.createdAtMs === "number" && Number.isFinite(body.createdAtMs) ? body.createdAtMs : now;
-  const updatedAtMs = typeof body.updatedAtMs === "number" && Number.isFinite(body.updatedAtMs) ? body.updatedAtMs : now;
-
   return {
     guildId,
     userId,
     roleId,
     durationInput,
     expiresAtMs,
-    createdAtMs,
-    updatedAtMs,
   };
 }
 
@@ -408,7 +403,5 @@ function mapTimedRoleAssignment(row: TimedRoleRow): TimedRoleAssignment {
     roleId: row.role_id,
     durationInput: row.duration_input,
     expiresAtMs: row.expires_at_ms,
-    createdAtMs: row.created_at_ms,
-    updatedAtMs: row.updated_at_ms,
   };
 }

@@ -141,8 +141,6 @@ async function handleApplicationCommand(interaction: any, store: RuntimeStore): 
       roleId: invocation.roleId,
       durationInput: parsedDuration.durationInput,
       expiresAtMs: parsedDuration.expiresAtMs,
-      createdAtMs: Date.now(),
-      updatedAtMs: Date.now(),
     });
     return Response.json(
       buildEphemeralMessage(

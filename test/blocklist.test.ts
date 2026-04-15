@@ -363,15 +363,15 @@ test("ModerationStoreDO upserts and lists active timed roles by guild", async ()
     new Request("https://moderation-store/timed-roles?guildId=guild-1")
   );
 
-  const assignments = (await listResponse.json()) as any[];
-  assert.equal(assignments.length, 1);
-  assert.equal(assignments[0].guildId, "guild-1");
-  assert.equal(assignments[0].userId, "user-1");
-  assert.equal(assignments[0].roleId, "role-1");
-  assert.equal(assignments[0].durationInput, "1w");
-  assert.equal(assignments[0].expiresAtMs, 1_700_604_800_000);
-  assert.ok(typeof assignments[0].createdAtMs === "number");
-  assert.ok(typeof assignments[0].updatedAtMs === "number");
+  assert.deepEqual(await listResponse.json(), [
+    {
+      guildId: "guild-1",
+      userId: "user-1",
+      roleId: "role-1",
+      durationInput: "1w",
+      expiresAtMs: 1_700_604_800_000,
+    },
+  ]);
   assert.deepEqual(alarms, [1_700_604_800_000]);
 });
 
@@ -448,8 +448,6 @@ test("ModerationStoreDO replaces timed role expiry when upserting the same assig
       roleId: "role-1",
       durationInput: "2h",
       expiresAtMs: 1_700_007_200_000,
-      createdAtMs: 1_700_000_000_000,
-      updatedAtMs: 1_700_000_060_000,
     },
   ]);
   assert.equal(storedRows.length, 1);
@@ -638,8 +636,6 @@ test("ModerationStoreDO alarm only removes timed roles after Discord role remova
         roleId: "role-1",
         durationInput: "5m",
         expiresAtMs: now - 1,
-        createdAtMs: now,
-        updatedAtMs: now,
       },
       {
         guildId: "guild-1",
@@ -647,8 +643,6 @@ test("ModerationStoreDO alarm only removes timed roles after Discord role remova
         roleId: "role-2",
         durationInput: "10m",
         expiresAtMs: now + 60_000,
-        createdAtMs: now,
-        updatedAtMs: now,
       },
     ]);
 
@@ -665,8 +659,6 @@ test("ModerationStoreDO alarm only removes timed roles after Discord role remova
         roleId: "role-2",
         durationInput: "10m",
         expiresAtMs: now + 60_000,
-        createdAtMs: now,
-        updatedAtMs: now,
       },
     ]);
 
