@@ -8,6 +8,17 @@ import {
 import { formatTimedRoleExpiry, parseTimedRoleDuration } from "../timed-roles";
 import type { GatewayController, RuntimeStore } from "./contracts";
 
+const DISCORD_INTERACTION_MAX_AGE_SECONDS = 5 * 60;
+
+interface DiscordInteraction {
+  type: number;
+  guild_id?: string;
+  member?: {
+    permissions?: string;
+  };
+  data?: unknown;
+}
+
 interface RuntimeAppOptions {
   discordPublicKey: string;
   discordBotToken: string;
@@ -27,7 +38,7 @@ export function createRuntimeApp(options: RuntimeAppOptions) {
         return new Response("OK", { status: 200 });
       }
 
-      if (url.pathname === "/admin/gateway/status") {
+      if (request.method === "GET" && url.pathname === "/admin/gateway/status") {
         if (!isAuthorized(request, options.adminAuthSecret)) {
           return new Response("Unauthorized", { status: 401 });
         }
@@ -82,7 +93,7 @@ async function handleInteractionRequest(
     return new Response("Unauthorized", { status: 401 });
   }
 
-  const interaction = JSON.parse(body);
+  const interaction = JSON.parse(body) as DiscordInteraction;
   if (interaction?.type === 1) {
     return Response.json({ type: 1 });
   }
@@ -94,7 +105,7 @@ async function handleInteractionRequest(
   return Response.json(buildEphemeralMessage("Unsupported interaction type."));
 }
 
-async function handleApplicationCommand(interaction: any, store: RuntimeStore): Promise<Response> {
+async function handleApplicationCommand(interaction: DiscordInteraction, store: RuntimeStore): Promise<Response> {
   if (typeof interaction?.guild_id !== "string" || interaction.guild_id.length === 0) {
     return Response.json(buildEphemeralMessage("This command can only be used inside a server."));
   }
@@ -111,12 +122,13 @@ async function handleApplicationCommand(interaction: any, store: RuntimeStore): 
 
   if (invocation.commandName === "blocklist" && invocation.subcommandName === "list") {
     const config = await store.readConfig();
-    const guildEmojis = config.guilds?.[interaction.guild_id]?.emojis ?? [];
+    const guildConfig = config.guilds?.[interaction.guild_id];
+    const effectiveEmojis = guildConfig?.enabled === false ? [] : guildConfig?.emojis ?? [];
     return Response.json(
       buildEphemeralMessage(
-        guildEmojis.length === 0
+        effectiveEmojis.length === 0
           ? "No emojis are blocked in this server."
-          : `Blocked emojis in this server:\n${guildEmojis.map((emoji) => `- ${emoji}`).join("\n")}`
+          : `Blocked emojis in this server:\n${effectiveEmojis.map((emoji) => `- ${emoji}`).join("\n")}`
       )
     );
   }
@@ -231,7 +243,7 @@ function isFreshDiscordTimestamp(timestamp: string): boolean {
     return false;
   }
   const nowSeconds = Math.floor(Date.now() / 1000);
-  return Math.abs(nowSeconds - timestampSeconds) <= 5 * 60;
+  return Math.abs(nowSeconds - timestampSeconds) <= DISCORD_INTERACTION_MAX_AGE_SECONDS;
 }
 
 function isAuthorized(request: Request, secret?: string): boolean {

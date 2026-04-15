@@ -14,7 +14,7 @@ export interface RuntimeStore {
   readConfig(): Promise<BlocklistConfig>;
   applyGuildEmojiMutation(body: { guildId: string; emoji: string; action: "add" | "remove" }): Promise<BlocklistConfig>;
   listTimedRolesByGuild(guildId: string): Promise<TimedRoleAssignment[]>;
-  upsertTimedRole(body: Pick<TimedRoleAssignment, "guildId" | "userId" | "roleId" | "durationInput" | "expiresAtMs">): Promise<void>;
+  upsertTimedRole(body: TimedRoleAssignment): Promise<void>;
   deleteTimedRole(body: { guildId: string; userId: string; roleId: string }): Promise<void>;
   listExpiredTimedRoles(nowMs: number): Promise<TimedRoleAssignment[]>;
   readGatewaySnapshot(): Promise<GatewaySnapshot>;
