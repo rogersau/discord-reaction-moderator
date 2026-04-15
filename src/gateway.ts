@@ -40,14 +40,14 @@ interface GatewayDispatchEnvelope {
   d?: unknown;
 }
 
-export function buildIdentifyPayload(token: string): GatewayFrame<IdentifyData> {
+export function buildIdentifyPayload(token: string, os = "cloudflare"): GatewayFrame<IdentifyData> {
   return {
     op: GATEWAY_OP_IDENTIFY,
     d: {
       token,
       intents: DEFAULT_GATEWAY_INTENTS,
       properties: {
-        os: "cloudflare",
+        os,
         browser: GATEWAY_CLIENT_IDENTITY,
         device: GATEWAY_CLIENT_IDENTITY,
       },
