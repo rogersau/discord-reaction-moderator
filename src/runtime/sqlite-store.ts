@@ -1,11 +1,35 @@
 import Database from "better-sqlite3";
-import type { BlocklistConfig, TimedRoleAssignment } from "../types";
+import type {
+  AppConfigRow,
+  BlocklistConfig,
+  GuildBlockedEmojiRow,
+  GuildSettingRow,
+  TimedRoleAssignment,
+} from "../types";
 import type { GatewaySnapshot, RuntimeStore } from "./contracts";
 import { buildBlocklistConfig } from "../blocklist";
 
 export interface SqliteRuntimeStoreOptions {
   sqlitePath: string;
   botUserId: string;
+}
+
+interface GatewaySessionRow {
+  status: string;
+  session_id: string | null;
+  resume_gateway_url: string | null;
+  last_sequence: number | null;
+  backoff_attempt: number;
+  last_error: string | null;
+  heartbeat_interval_ms: number | null;
+}
+
+interface TimedRoleRowPartial {
+  guild_id: string;
+  user_id: string;
+  role_id: string;
+  duration_input: string;
+  expires_at_ms: number;
 }
 
 export function createSqliteRuntimeStore(options: SqliteRuntimeStoreOptions): RuntimeStore {
@@ -52,54 +76,71 @@ export function createSqliteRuntimeStore(options: SqliteRuntimeStoreOptions): Ru
   );
   insertBotUserId.run("bot_user_id", options.botUserId);
 
+  const selectGuildSettings = db.prepare("SELECT guild_id, moderation_enabled FROM guild_settings");
+  const selectGuildBlockedEmojis = db.prepare("SELECT guild_id, normalized_emoji FROM guild_blocked_emojis");
+  const selectAppConfig = db.prepare("SELECT key, value FROM app_config");
+
+  const insertGuildSetting = db.prepare("INSERT OR IGNORE INTO guild_settings(guild_id, moderation_enabled) VALUES(?, ?)");
+  const insertGuildBlockedEmoji = db.prepare("INSERT OR IGNORE INTO guild_blocked_emojis(guild_id, normalized_emoji) VALUES(?, ?)");
+  const deleteGuildBlockedEmoji = db.prepare("DELETE FROM guild_blocked_emojis WHERE guild_id = ? AND normalized_emoji = ?");
+
+  const selectTimedRolesByGuild = db.prepare(
+    "SELECT guild_id, user_id, role_id, duration_input, expires_at_ms FROM timed_roles WHERE guild_id = ? ORDER BY expires_at_ms ASC"
+  );
+  const upsertTimedRoleStmt = db.prepare(`
+    INSERT INTO timed_roles(guild_id, user_id, role_id, duration_input, expires_at_ms, created_at_ms, updated_at_ms)
+    VALUES(?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(guild_id, user_id, role_id)
+    DO UPDATE SET
+      duration_input = excluded.duration_input,
+      expires_at_ms = excluded.expires_at_ms,
+      updated_at_ms = excluded.updated_at_ms
+  `);
+  const deleteTimedRoleStmt = db.prepare("DELETE FROM timed_roles WHERE guild_id = ? AND user_id = ? AND role_id = ?");
+  const selectExpiredTimedRoles = db.prepare(
+    "SELECT guild_id, user_id, role_id, duration_input, expires_at_ms FROM timed_roles WHERE expires_at_ms <= ? ORDER BY expires_at_ms ASC"
+  );
+
+  const selectGatewaySnapshot = db.prepare("SELECT * FROM gateway_session WHERE id = 1");
+  const upsertGatewaySnapshot = db.prepare(`
+    INSERT INTO gateway_session(id, status, session_id, resume_gateway_url, last_sequence, backoff_attempt, last_error, heartbeat_interval_ms)
+    VALUES(1, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(id)
+    DO UPDATE SET
+      status = excluded.status,
+      session_id = excluded.session_id,
+      resume_gateway_url = excluded.resume_gateway_url,
+      last_sequence = excluded.last_sequence,
+      backoff_attempt = excluded.backoff_attempt,
+      last_error = excluded.last_error,
+      heartbeat_interval_ms = excluded.heartbeat_interval_ms
+  `);
+
   return {
     async readConfig(): Promise<BlocklistConfig> {
-      const guildRows = db.prepare("SELECT guild_id, moderation_enabled FROM guild_settings").all() as Array<{
-        guild_id: string;
-        moderation_enabled: number;
-      }>;
-      const guildEmojiRows = db.prepare("SELECT guild_id, normalized_emoji FROM guild_blocked_emojis").all() as Array<{
-        guild_id: string;
-        normalized_emoji: string;
-      }>;
-      const appConfigRows = db.prepare("SELECT key, value FROM app_config").all() as Array<{
-        key: string;
-        value: string;
-      }>;
+      const guildRows = selectGuildSettings.all() as GuildSettingRow[];
+      const guildEmojiRows = selectGuildBlockedEmojis.all() as GuildBlockedEmojiRow[];
+      const appConfigRows = selectAppConfig.all() as AppConfigRow[];
 
       return buildBlocklistConfig(guildRows, guildEmojiRows, appConfigRows);
     },
 
     async applyGuildEmojiMutation(body: { guildId: string; emoji: string; action: "add" | "remove" }): Promise<BlocklistConfig> {
       if (body.action === "add") {
-        db.prepare("INSERT OR IGNORE INTO guild_settings(guild_id, moderation_enabled) VALUES(?, ?)").run(
-          body.guildId,
-          1
-        );
-        db.prepare("INSERT OR IGNORE INTO guild_blocked_emojis(guild_id, normalized_emoji) VALUES(?, ?)").run(
-          body.guildId,
-          body.emoji
-        );
+        const addEmoji = db.transaction(() => {
+          insertGuildSetting.run(body.guildId, 1);
+          insertGuildBlockedEmoji.run(body.guildId, body.emoji);
+        });
+        addEmoji();
       } else {
-        db.prepare("DELETE FROM guild_blocked_emojis WHERE guild_id = ? AND normalized_emoji = ?").run(
-          body.guildId,
-          body.emoji
-        );
+        deleteGuildBlockedEmoji.run(body.guildId, body.emoji);
       }
 
       return this.readConfig();
     },
 
     async listTimedRolesByGuild(guildId: string): Promise<TimedRoleAssignment[]> {
-      const rows = db.prepare(
-        "SELECT guild_id, user_id, role_id, duration_input, expires_at_ms FROM timed_roles WHERE guild_id = ? ORDER BY expires_at_ms ASC"
-      ).all(guildId) as Array<{
-        guild_id: string;
-        user_id: string;
-        role_id: string;
-        duration_input: string;
-        expires_at_ms: number;
-      }>;
+      const rows = selectTimedRolesByGuild.all(guildId) as TimedRoleRowPartial[];
 
       return rows.map((row) => ({
         guildId: row.guild_id,
@@ -112,9 +153,7 @@ export function createSqliteRuntimeStore(options: SqliteRuntimeStoreOptions): Ru
 
     async upsertTimedRole(body: TimedRoleAssignment): Promise<void> {
       const now = Date.now();
-      db.prepare(
-        "INSERT INTO timed_roles(guild_id, user_id, role_id, duration_input, expires_at_ms, created_at_ms, updated_at_ms) VALUES(?, ?, ?, ?, ?, ?, ?) ON CONFLICT(guild_id, user_id, role_id) DO UPDATE SET duration_input = excluded.duration_input, expires_at_ms = excluded.expires_at_ms, updated_at_ms = excluded.updated_at_ms"
-      ).run(
+      upsertTimedRoleStmt.run(
         body.guildId,
         body.userId,
         body.roleId,
@@ -126,23 +165,11 @@ export function createSqliteRuntimeStore(options: SqliteRuntimeStoreOptions): Ru
     },
 
     async deleteTimedRole(body: { guildId: string; userId: string; roleId: string }): Promise<void> {
-      db.prepare("DELETE FROM timed_roles WHERE guild_id = ? AND user_id = ? AND role_id = ?").run(
-        body.guildId,
-        body.userId,
-        body.roleId
-      );
+      deleteTimedRoleStmt.run(body.guildId, body.userId, body.roleId);
     },
 
     async listExpiredTimedRoles(nowMs: number): Promise<TimedRoleAssignment[]> {
-      const rows = db.prepare(
-        "SELECT guild_id, user_id, role_id, duration_input, expires_at_ms FROM timed_roles WHERE expires_at_ms <= ? ORDER BY expires_at_ms ASC"
-      ).all(nowMs) as Array<{
-        guild_id: string;
-        user_id: string;
-        role_id: string;
-        duration_input: string;
-        expires_at_ms: number;
-      }>;
+      const rows = selectExpiredTimedRoles.all(nowMs) as TimedRoleRowPartial[];
 
       return rows.map((row) => ({
         guildId: row.guild_id,
@@ -154,15 +181,7 @@ export function createSqliteRuntimeStore(options: SqliteRuntimeStoreOptions): Ru
     },
 
     async readGatewaySnapshot(): Promise<GatewaySnapshot> {
-      const row = db.prepare("SELECT * FROM gateway_session WHERE id = 1").get() as {
-        status: string;
-        session_id: string | null;
-        resume_gateway_url: string | null;
-        last_sequence: number | null;
-        backoff_attempt: number;
-        last_error: string | null;
-        heartbeat_interval_ms: number | null;
-      } | undefined;
+      const row = selectGatewaySnapshot.get() as GatewaySessionRow | undefined;
 
       if (!row) {
         return {
@@ -188,18 +207,7 @@ export function createSqliteRuntimeStore(options: SqliteRuntimeStoreOptions): Ru
     },
 
     async writeGatewaySnapshot(snapshot: GatewaySnapshot): Promise<void> {
-      db.prepare(
-        `INSERT INTO gateway_session(id, status, session_id, resume_gateway_url, last_sequence, backoff_attempt, last_error, heartbeat_interval_ms)
-         VALUES(1, ?, ?, ?, ?, ?, ?, ?)
-         ON CONFLICT(id) DO UPDATE SET
-           status = excluded.status,
-           session_id = excluded.session_id,
-           resume_gateway_url = excluded.resume_gateway_url,
-           last_sequence = excluded.last_sequence,
-           backoff_attempt = excluded.backoff_attempt,
-           last_error = excluded.last_error,
-           heartbeat_interval_ms = excluded.heartbeat_interval_ms`
-      ).run(
+      upsertGatewaySnapshot.run(
         snapshot.status,
         snapshot.sessionId,
         snapshot.resumeGatewayUrl,
