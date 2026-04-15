@@ -20,9 +20,8 @@ export function createTimedRoleScheduler(options: TimedRoleSchedulerOptions) {
   return {
     async start(): Promise<void> {
       stopped = false;
-      await runProcessExpiredRoles();
-
       scheduleNextTick();
+      await runProcessExpiredRolesSafely();
     },
 
     stop(): void {
@@ -51,8 +50,16 @@ export function createTimedRoleScheduler(options: TimedRoleSchedulerOptions) {
       }
       timer = null;
       scheduleNextTick();
-      await runProcessExpiredRoles();
+      await runProcessExpiredRolesSafely();
     }, 1000);
+  }
+
+  async function runProcessExpiredRolesSafely(): Promise<void> {
+    try {
+      await runProcessExpiredRoles();
+    } catch (error) {
+      console.error("Failed to scan expired timed roles:", error);
+    }
   }
 
   async function runProcessExpiredRoles(): Promise<void> {

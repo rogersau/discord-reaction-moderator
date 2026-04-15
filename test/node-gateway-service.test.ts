@@ -321,3 +321,109 @@ test("node gateway service handles readConfig failures on reaction dispatch with
     process.off("unhandledRejection", onUnhandledRejection);
   }
 });
+
+test("node gateway service handles snapshot persistence failures without unhandled rejections", async () => {
+  let onError: (() => void) | undefined;
+  const unhandledRejections: unknown[] = [];
+  const onUnhandledRejection = (reason: unknown) => {
+    unhandledRejections.push(reason);
+  };
+  let writeCount = 0;
+
+  const store = {
+    async readConfig() {
+      return { guilds: {}, botUserId: "bot-user-id" };
+    },
+    async readGatewaySnapshot() {
+      return { status: "idle", sessionId: null, resumeGatewayUrl: null, lastSequence: null, backoffAttempt: 0, lastError: null, heartbeatIntervalMs: null };
+    },
+    async writeGatewaySnapshot() {
+      writeCount += 1;
+      if (writeCount > 1) {
+        throw new Error("disk full");
+      }
+    },
+  } as any;
+
+  const gateway = createNodeGatewayService({
+    botToken: "bot-token",
+    store,
+    openWebSocket(_url: string, handlers: any) {
+      onError = handlers.onError;
+      return {
+        send() {},
+        close() {},
+      };
+    },
+    setTimer(_callback: any, _delayMs: number) {
+      return { stop() {} };
+    },
+  });
+
+  process.on("unhandledRejection", onUnhandledRejection);
+
+  try {
+    await gateway.start();
+    onError?.();
+
+    await Promise.resolve();
+    await new Promise((resolve) => setImmediate(resolve));
+
+    assert.deepEqual(
+      unhandledRejections,
+      [],
+      "snapshot write failures should not escape as unhandled rejections"
+    );
+    assert.equal((await gateway.status()).lastError, "Gateway websocket error");
+  } finally {
+    process.off("unhandledRejection", onUnhandledRejection);
+  }
+});
+
+test("node gateway service ignores stale close events from an old socket", async () => {
+  const openedUrls: string[] = [];
+  const closeHandlers: Array<() => void> = [];
+  const messageHandlers: Array<(payload: string) => void> = [];
+  const timerCallbacks: Array<() => void | Promise<void>> = [];
+
+  const store = {
+    async readConfig() {
+      return { guilds: {}, botUserId: "bot-user-id" };
+    },
+    async readGatewaySnapshot() {
+      return { status: "idle", sessionId: null, resumeGatewayUrl: null, lastSequence: null, backoffAttempt: 0, lastError: null, heartbeatIntervalMs: null };
+    },
+    async writeGatewaySnapshot() {},
+  } as any;
+
+  const gateway = createNodeGatewayService({
+    botToken: "bot-token",
+    store,
+    openWebSocket(url: string, handlers: any) {
+      openedUrls.push(url);
+      closeHandlers.push(handlers.onClose);
+      messageHandlers.push(handlers.onMessage);
+      return {
+        send() {},
+        close() {},
+      };
+    },
+    setTimer(callback: any, _delayMs: number) {
+      timerCallbacks.push(callback);
+      return { stop() {} };
+    },
+  });
+
+  await gateway.start();
+  messageHandlers[0]?.(JSON.stringify({ op: 9, d: true }));
+  assert.equal(timerCallbacks.length, 1, "invalid session should schedule reconnect");
+
+  await timerCallbacks[0]?.();
+  assert.equal(openedUrls.length, 2, "reconnect should open a new websocket");
+
+  closeHandlers[0]?.();
+  await gateway.start();
+
+  assert.equal(openedUrls.length, 2, "stale close should not tear down the newer live websocket");
+  assert.equal(timerCallbacks.length, 1, "stale close should not schedule an extra backoff");
+});

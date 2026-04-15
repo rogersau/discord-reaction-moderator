@@ -75,27 +75,30 @@ export function createNodeGatewayService(options: NodeGatewayServiceOptions): Ga
       snapshot.status = shouldResume ? "resuming" : "connecting";
       await options.store.writeGatewaySnapshot(snapshot);
 
-      socket = options.openWebSocket(
+      let openedSocket: WebSocketLike | null = null;
+      openedSocket = options.openWebSocket(
         snapshot.resumeGatewayUrl ?? DEFAULT_GATEWAY_URL,
         {
           onMessage: (payload: string) => {
             void handleSocketMessage(payload);
           },
           onClose: () => {
-            stopHeartbeat();
-            if (socket) {
-              socket = null;
+            if (socket !== openedSocket) {
+              return;
             }
+            stopHeartbeat();
+            socket = null;
             if (snapshot.status !== "idle" && snapshot.status !== "backoff") {
               enterBackoff();
             }
           },
           onError: () => {
             snapshot.lastError = "Gateway websocket error";
-            void options.store.writeGatewaySnapshot(snapshot);
+            void persistSnapshotSafely();
           },
         }
       );
+      socket = openedSocket;
 
       return snapshot;
     })();
@@ -120,7 +123,7 @@ export function createNodeGatewayService(options: NodeGatewayServiceOptions): Ga
 
       if (typeof payload.s === "number") {
         snapshot.lastSequence = payload.s;
-        void options.store.writeGatewaySnapshot(snapshot);
+        void persistSnapshotSafely();
       }
 
       if (payload.op === 10) {
@@ -151,7 +154,7 @@ export function createNodeGatewayService(options: NodeGatewayServiceOptions): Ga
         snapshot.status = "ready";
         snapshot.backoffAttempt = 0;
         snapshot.lastError = null;
-        void options.store.writeGatewaySnapshot(snapshot);
+        void persistSnapshotSafely();
         return;
       }
 
@@ -159,11 +162,11 @@ export function createNodeGatewayService(options: NodeGatewayServiceOptions): Ga
         snapshot.status = "ready";
         snapshot.backoffAttempt = 0;
         snapshot.lastError = null;
-        void options.store.writeGatewaySnapshot(snapshot);
+        void persistSnapshotSafely();
       }
     } catch {
       snapshot.lastError = "Failed to parse gateway message";
-      void options.store.writeGatewaySnapshot(snapshot);
+      void persistSnapshotSafely();
     }
   }
 
@@ -185,7 +188,7 @@ export function createNodeGatewayService(options: NodeGatewayServiceOptions): Ga
           snapshot.lastError = null;
         } catch {
           snapshot.lastError = "Failed to send heartbeat";
-          void options.store.writeGatewaySnapshot(snapshot);
+          void persistSnapshotSafely();
         }
       }
     }, heartbeatIntervalMs);
@@ -211,7 +214,7 @@ export function createNodeGatewayService(options: NodeGatewayServiceOptions): Ga
       snapshot.status = "connecting";
     }
 
-    void options.store.writeGatewaySnapshot(snapshot);
+    void persistSnapshotSafely();
   }
 
   function stopHeartbeat(): void {
@@ -244,7 +247,7 @@ export function createNodeGatewayService(options: NodeGatewayServiceOptions): Ga
     snapshot.status = "backoff";
     snapshot.backoffAttempt += 1;
     snapshot.lastError = `Reconnecting in ${backoffMs}ms`;
-    void options.store.writeGatewaySnapshot(snapshot);
+    void persistSnapshotSafely();
 
     if (backoffTimer) {
       backoffTimer.stop();
@@ -260,7 +263,7 @@ export function createNodeGatewayService(options: NodeGatewayServiceOptions): Ga
       config = await options.store.readConfig();
     } catch {
       snapshot.lastError = "Failed to load moderation config";
-      void options.store.writeGatewaySnapshot(snapshot);
+      void persistSnapshotSafely();
       return;
     }
 
@@ -297,6 +300,14 @@ export function createNodeGatewayService(options: NodeGatewayServiceOptions): Ga
       );
     } catch (error) {
       console.error("Failed to remove reaction:", error);
+    }
+  }
+
+  async function persistSnapshotSafely(): Promise<void> {
+    try {
+      await options.store.writeGatewaySnapshot(snapshot);
+    } catch (error) {
+      console.error("Failed to persist gateway snapshot:", error);
     }
   }
 }

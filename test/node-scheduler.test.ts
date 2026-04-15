@@ -217,3 +217,50 @@ test("timed role scheduler ignores stale timer callbacks after restart", async (
     "stale timer callbacks should not arm extra timers after restart"
   );
 });
+
+test("timed role scheduler retries later when the first startup scan fails", async () => {
+  const removed: Array<{ guildId: string; userId: string; roleId: string }> = [];
+  const timerCallbacks: Array<() => void | Promise<void>> = [];
+  let scanCount = 0;
+
+  const scheduler = createTimedRoleScheduler({
+    now: () => 1_700_000_000_000,
+    store: {
+      async listExpiredTimedRoles() {
+        scanCount += 1;
+        if (scanCount === 1) {
+          throw new Error("database unavailable");
+        }
+        return [{
+          guildId: "guild-1",
+          userId: "user-1",
+          roleId: "role-1",
+          durationInput: "1h",
+          expiresAtMs: 1_699_999_999_000,
+        }];
+      },
+      async deleteTimedRole() {},
+    } as any,
+    removeGuildMemberRole: async (guildId: string, userId: string, roleId: string) => {
+      removed.push({ guildId, userId, roleId });
+    },
+    setTimer(callback: any, _delayMs: number) {
+      timerCallbacks.push(callback);
+      return { stop() {} };
+    },
+  });
+
+  await assert.doesNotReject(async () => {
+    await scheduler.start();
+  });
+
+  assert.equal(timerCallbacks.length, 1, "scheduler should still arm the retry timer after startup failure");
+
+  await timerCallbacks[0]?.();
+
+  assert.deepEqual(
+    removed,
+    [{ guildId: "guild-1", userId: "user-1", roleId: "role-1" }],
+    "scheduler should retry expired role processing on the next tick after a transient startup failure"
+  );
+});
