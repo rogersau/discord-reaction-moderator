@@ -27,6 +27,7 @@
     "src/reaction-moderation.ts",
     "src/timed-roles.ts",
     "src/types.ts",
+    "src/runtime/cloudflare-runtime.ts",
     "src/durable-objects/**/*.ts"
   ]
 }

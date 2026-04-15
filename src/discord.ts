@@ -25,7 +25,7 @@ export async function verifyDiscordSignature(
   try {
     const key = await crypto.subtle.importKey(
       "raw",
-      hexToBytes(publicKeyHex),
+      hexToBuffer(publicKeyHex),
       "Ed25519",
       false,
       ["verify"]
@@ -34,7 +34,7 @@ export async function verifyDiscordSignature(
     return crypto.subtle.verify(
       "Ed25519",
       key,
-      hexToBytes(signatureHex),
+      hexToBuffer(signatureHex),
       new TextEncoder().encode(`${timestamp}${body}`)
     );
   } catch {
@@ -157,7 +157,7 @@ async function mutateGuildMemberRole(
   }
 }
 
-function hexToBytes(hex: string): Uint8Array {
+function hexToBuffer(hex: string): ArrayBuffer {
   if (hex.length === 0 || hex.length % 2 !== 0 || /[^0-9a-f]/i.test(hex)) {
     throw new Error("Invalid hex input");
   }
@@ -166,5 +166,5 @@ function hexToBytes(hex: string): Uint8Array {
   for (let i = 0; i < hex.length; i += 2) {
     bytes[i / 2] = Number.parseInt(hex.slice(i, i + 2), 16);
   }
-  return bytes;
+  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
 }

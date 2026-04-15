@@ -11,5 +11,11 @@
     "types": ["@cloudflare/workers-types"],
     "lib": ["ES2022"]
   },
-  "exclude": ["test/**/*.ts", "dist-tests", "dist-node"]
+  "exclude": [
+    "test/**/*.ts",
+    "dist-tests",
+    "dist-node",
+    "src/runtime/node-*.ts",
+    "src/runtime/sqlite-store.ts"
+  ]
 }
