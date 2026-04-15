@@ -7,7 +7,11 @@ import {
 } from "../gateway";
 import { isEmojiBlocked, normalizeEmoji } from "../blocklist";
 import { deleteReaction } from "../discord";
-import type { GatewayController, GatewaySnapshot, RuntimeStore } from "./contracts";
+import type {
+  GatewaySnapshot,
+  ManagedGatewayController,
+  RuntimeStore,
+} from "./contracts";
 import type { DiscordReaction } from "../types";
 
 const DEFAULT_GATEWAY_URL = "wss://gateway.discord.gg/?v=10&encoding=json";
@@ -41,7 +45,9 @@ interface NodeGatewayServiceOptions {
   setTimer: (callback: () => void | Promise<void>, delayMs: number) => TimerLike;
 }
 
-export function createNodeGatewayService(options: NodeGatewayServiceOptions): GatewayController {
+export function createNodeGatewayService(
+  options: NodeGatewayServiceOptions
+): ManagedGatewayController {
   let snapshot: GatewaySnapshot;
   let socket: WebSocketLike | null = null;
   let heartbeatTimer: any = null;
@@ -51,6 +57,7 @@ export function createNodeGatewayService(options: NodeGatewayServiceOptions): Ga
   return {
     start,
     status,
+    stop,
   };
 
   async function start(): Promise<GatewaySnapshot> {
@@ -121,6 +128,20 @@ export function createNodeGatewayService(options: NodeGatewayServiceOptions): Ga
       snapshot = await options.store.readGatewaySnapshot();
     }
     return snapshot;
+  }
+
+  function stop(): void {
+    stopHeartbeat();
+    if (backoffTimer) {
+      backoffTimer.stop();
+      backoffTimer = null;
+    }
+
+    const currentSocket = socket;
+    socket = null;
+    if (currentSocket) {
+      currentSocket.close();
+    }
   }
 
   async function handleSocketMessage(data: string): Promise<void> {

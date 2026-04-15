@@ -25,3 +25,11 @@ export interface GatewayController {
   start(): Promise<GatewaySnapshot>;
   status(): Promise<GatewaySnapshot>;
 }
+
+export interface ManagedGatewayController extends GatewayController {
+  stop(): void;
+}
+
+export interface ClosableRuntimeStore extends RuntimeStore {
+  close(): void;
+}

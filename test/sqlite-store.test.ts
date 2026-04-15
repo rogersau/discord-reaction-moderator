@@ -202,3 +202,19 @@ test("sqlite runtime store lists expired timed roles with boundary case", async 
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("sqlite runtime store creates parent directories and can be closed", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "runtime-store-"));
+  const sqlitePath = join(dir, "data", "runtime.sqlite");
+
+  try {
+    const store = createSqliteRuntimeStore({ sqlitePath, botUserId: "bot-user-id" });
+
+    const config = await store.readConfig();
+    assert.equal(config.botUserId, "bot-user-id");
+
+    store.close();
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

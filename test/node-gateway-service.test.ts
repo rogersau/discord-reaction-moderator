@@ -535,3 +535,73 @@ test("node gateway service ignores stale error events from an old socket after r
     "stale errors from the old socket should not overwrite the active connection state"
   );
 });
+
+test("node gateway service stop closes the active socket without scheduling reconnect", async () => {
+  let onMessage: ((payload: string) => void) | undefined;
+  let socketClosed = false;
+  let backoffScheduled = false;
+  const intervalToken = { id: "heartbeat-interval" };
+  const originalSetInterval = globalThis.setInterval;
+  const originalClearInterval = globalThis.clearInterval;
+  const clearedIntervals: unknown[] = [];
+
+  globalThis.setInterval = (((_callback: () => void, _delayMs?: number) => {
+    return intervalToken as any;
+  }) as typeof setInterval);
+  globalThis.clearInterval = (((token: unknown) => {
+    clearedIntervals.push(token);
+  }) as typeof clearInterval);
+
+  try {
+    const gateway = createNodeGatewayService({
+      botToken: "bot-token",
+      store: {
+        async readConfig() {
+          return { guilds: {}, botUserId: "bot-user-id" };
+        },
+        async readGatewaySnapshot() {
+          return {
+            status: "idle",
+            sessionId: null,
+            resumeGatewayUrl: null,
+            lastSequence: null,
+            backoffAttempt: 0,
+            lastError: null,
+            heartbeatIntervalMs: null,
+          };
+        },
+        async writeGatewaySnapshot() {},
+      } as any,
+      openWebSocket(_url: string, handlers: any) {
+        onMessage = handlers.onMessage;
+        return {
+          send() {},
+          close() {
+            socketClosed = true;
+            handlers.onClose();
+          },
+        };
+      },
+      setTimer(_callback: any, _delayMs: number) {
+        backoffScheduled = true;
+        return { stop() {} };
+      },
+    });
+
+    await gateway.start();
+    onMessage?.(JSON.stringify({ op: 10, d: { heartbeat_interval: 45000 } }));
+
+    gateway.stop();
+
+    assert.equal(socketClosed, true, "stop should close the active websocket");
+    assert.deepEqual(
+      clearedIntervals,
+      [intervalToken],
+      "stop should clear the active heartbeat interval"
+    );
+    assert.equal(backoffScheduled, false, "stop should not schedule reconnect backoff");
+  } finally {
+    globalThis.setInterval = originalSetInterval;
+    globalThis.clearInterval = originalClearInterval;
+  }
+});

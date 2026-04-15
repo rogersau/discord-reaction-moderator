@@ -1,3 +1,6 @@
+import { mkdirSync } from "node:fs";
+import { dirname } from "node:path";
+
 import Database from "better-sqlite3";
 import type {
   AppConfigRow,
@@ -6,7 +9,7 @@ import type {
   GuildSettingRow,
   TimedRoleAssignment,
 } from "../types";
-import type { GatewaySnapshot, RuntimeStore } from "./contracts";
+ import type { ClosableRuntimeStore, GatewaySnapshot } from "./contracts";
 import { buildBlocklistConfig } from "../blocklist";
 
 export interface SqliteRuntimeStoreOptions {
@@ -32,8 +35,12 @@ interface TimedRoleRowPartial {
   expires_at_ms: number;
 }
 
-export function createSqliteRuntimeStore(options: SqliteRuntimeStoreOptions): RuntimeStore {
+export function createSqliteRuntimeStore(
+  options: SqliteRuntimeStoreOptions
+): ClosableRuntimeStore {
+  mkdirSync(dirname(options.sqlitePath), { recursive: true });
   const db = new Database(options.sqlitePath);
+  let closed = false;
   
   db.exec(`
     CREATE TABLE IF NOT EXISTS guild_settings (
@@ -216,6 +223,13 @@ export function createSqliteRuntimeStore(options: SqliteRuntimeStoreOptions): Ru
         snapshot.lastError,
         snapshot.heartbeatIntervalMs
       );
+    },
+    close(): void {
+      if (closed) {
+        return;
+      }
+      db.close();
+      closed = true;
     },
   };
 }

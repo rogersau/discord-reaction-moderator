@@ -165,6 +165,29 @@ For timed roles, the role must already exist and be configured in Discord; the b
 
 If `ADMIN_AUTH_SECRET` is configured, all `/admin/*` routes require `Authorization: Bearer <secret>`.
 
+## Run outside Cloudflare with Docker
+
+1. Build the image:
+
+   ```bash
+   pnpm run docker:build
+   ```
+
+2. Start the self-contained runtime:
+
+   ```bash
+   docker run --rm -p 8787:8787 \
+     -e DISCORD_BOT_TOKEN=... \
+     -e BOT_USER_ID=... \
+     -e DISCORD_PUBLIC_KEY=... \
+     -e DISCORD_APPLICATION_ID=... \
+     -e SQLITE_PATH=/data/runtime.sqlite \
+     -v "$PWD/data:/data" \
+     discord-automation-workers
+   ```
+
+This container hosts the HTTP API, Discord gateway connection, scheduler, and SQLite database in one process. Windows packaging can build on the same portable runtime later, but it is not part of this phase.
+
 ## Local validation
 
 ```bash
