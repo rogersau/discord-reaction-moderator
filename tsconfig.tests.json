@@ -6,19 +6,10 @@
     "esModuleInterop": true,
     "outDir": "dist-tests",
     "rootDir": ".",
-    "types": ["@cloudflare/workers-types"],
-    "lib": ["ES2022"]
+    "types": ["@cloudflare/workers-types", "node"],
+    "lib": ["ES2022"],
+    "skipLibCheck": true
   },
-  "include": [
-    "src/blocklist.ts",
-    "src/discord.ts",
-    "src/discord-interactions.ts",
-    "src/discord-commands.ts",
-    "src/durable-objects/moderation-store.ts",
-    "src/env.ts",
-    "src/index.ts",
-    "src/types.ts",
-    "test/**/*.test.ts"
-  ],
+  "include": ["src/**/*.ts", "test/**/*.test.ts"],
   "exclude": ["dist-tests"]
 }

@@ -11,12 +11,17 @@
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.node.json --noEmit",
     "build:test": "tsc -p tsconfig.tests.json",
+    "build:node": "tsc -p tsconfig.node.json",
+    "start:node": "node dist-node/src/runtime/node-main.js",
+    "docker:build": "docker build -t discord-automation-workers .",
     "test": "sh -c 'rm -rf dist-tests; pnpm run build:test && node --test dist-tests/test/*.test.js; status=$?; rm -rf dist-tests; exit $status'"
   },
   "dependencies": {
     "@cloudflare/workers-types": "^4.20241106.0",
+    "better-sqlite3": "^11.8.1",
+    "ws": "^8.18.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {

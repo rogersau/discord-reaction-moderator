@@ -1,0 +1,26 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "outDir": "dist-node",
+    "rootDir": ".",
+    "types": ["node"],
+    "lib": ["ES2022", "DOM"],
+    "skipLibCheck": true
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": [
+    "src/index.ts",
+    "src/env.ts",
+    "src/discord.ts",
+    "src/discord-interactions.ts",
+    "src/discord-commands.ts",
+    "src/blocklist.ts",
+    "src/gateway.ts",
+    "src/reaction-moderation.ts",
+    "src/timed-roles.ts",
+    "src/types.ts",
+    "src/durable-objects/**/*.ts"
+  ]
+}
