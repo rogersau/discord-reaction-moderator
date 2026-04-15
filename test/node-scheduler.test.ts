@@ -41,10 +41,10 @@ test("timed role scheduler removes expired roles and deletes successful rows", a
   assert.deepEqual(deleted, [{ guildId: "guild-1", userId: "user-1", roleId: "role-1" }]);
 });
 
-test("timed role scheduler installs recurring timer and processes roles periodically", async () => {
+test("timed role scheduler re-arms a one-shot timer after each tick", async () => {
   const removed: Array<{ guildId: string; userId: string; roleId: string }> = [];
-  let timerCallback: (() => void | Promise<void>) | undefined;
-  let timerDelayMs: number | undefined;
+  const timerCallbacks: Array<() => void | Promise<void>> = [];
+  const timerDelayMs: number[] = [];
 
   const scheduler = createTimedRoleScheduler({
     now: () => 1_700_000_000_000,
@@ -64,23 +64,25 @@ test("timed role scheduler installs recurring timer and processes roles periodic
       removed.push({ guildId, userId, roleId });
     },
     setTimer(callback: any, delayMs: number) {
-      timerCallback = callback;
-      timerDelayMs = delayMs;
+      timerCallbacks.push(callback);
+      timerDelayMs.push(delayMs);
       return { stop() {} };
     },
   });
 
   await scheduler.start();
 
-  assert.ok(timerCallback, "should install timer");
-  assert.equal(timerDelayMs, 1000, "timer should fire every 1000ms");
+  assert.equal(timerCallbacks.length, 1, "should install the first one-shot timer");
+  assert.deepEqual(timerDelayMs, [1000], "timer should fire every 1000ms");
   assert.equal(removed.length, 1, "should process roles on start");
 
-  await timerCallback?.();
+  await timerCallbacks[0]?.();
   assert.equal(removed.length, 2, "should process roles when timer fires");
+  assert.equal(timerCallbacks.length, 2, "should re-arm a new one-shot timer after the first tick");
 
-  await timerCallback?.();
+  await timerCallbacks[1]?.();
   assert.equal(removed.length, 3, "should continue processing on each timer tick");
+  assert.equal(timerCallbacks.length, 3, "should keep re-arming after each tick");
 });
 
 test("timed role scheduler stop cancels the timer", async () => {
@@ -113,7 +115,7 @@ test("timed role scheduler stop cancels the timer", async () => {
 test("timed role scheduler skips overlapping timer passes while a prior run is still active", async () => {
   const removed: Array<{ guildId: string; userId: string; roleId: string }> = [];
   const deleted: Array<{ guildId: string; userId: string; roleId: string }> = [];
-  let timerCallback: (() => void | Promise<void>) | undefined;
+  const timerCallbacks: Array<() => void | Promise<void>> = [];
   let resolveRemoval: (() => void) | undefined;
   const removalBarrier = new Promise<void>((resolve) => {
     resolveRemoval = resolve;
@@ -145,16 +147,18 @@ test("timed role scheduler skips overlapping timer passes while a prior run is s
       await removalBarrier;
     },
     setTimer(callback: any, _delayMs: number) {
-      timerCallback = callback;
+      timerCallbacks.push(callback);
       return { stop() {} };
     },
   });
 
   await scheduler.start();
-  assert.ok(timerCallback, "should install timer");
+  assert.equal(timerCallbacks.length, 1, "should install the first one-shot timer");
 
-  const firstTick = timerCallback?.();
-  const secondTick = timerCallback?.();
+  const firstTick = timerCallbacks[0]?.();
+  assert.equal(timerCallbacks.length, 2, "the first tick should arm the next one-shot timer immediately");
+
+  const secondTick = timerCallbacks[1]?.();
 
   resolveRemoval?.();
 
@@ -169,5 +173,47 @@ test("timed role scheduler skips overlapping timer passes while a prior run is s
     deleted,
     [{ guildId: "guild-1", userId: "user-1", roleId: "role-1" }],
     "overlapping timer ticks should only delete each expired role once"
+  );
+  assert.equal(timerCallbacks.length, 3, "overlapping ticks should keep exactly one future timer armed");
+});
+
+test("timed role scheduler ignores stale timer callbacks after restart", async () => {
+  const timerCallbacks: Array<() => void | Promise<void>> = [];
+  const timers: Array<{ stopped: boolean }> = [];
+
+  const scheduler = createTimedRoleScheduler({
+    now: () => 1_700_000_000_000,
+    store: {
+      async listExpiredTimedRoles() {
+        return [];
+      },
+      async deleteTimedRole() {},
+    } as any,
+    removeGuildMemberRole: async () => {},
+    setTimer(callback: any, _delayMs: number) {
+      const timer = { stopped: false };
+      timers.push(timer);
+      timerCallbacks.push(callback);
+      return {
+        stop() {
+          timer.stopped = true;
+        },
+      };
+    },
+  });
+
+  await scheduler.start();
+  scheduler.stop();
+  await scheduler.start();
+
+  assert.equal(timerCallbacks.length, 2, "restart should replace the previous timer with one current timer");
+  assert.equal(timers[0]?.stopped, true, "stop should cancel the original timer");
+
+  await timerCallbacks[0]?.();
+
+  assert.equal(
+    timerCallbacks.length,
+    2,
+    "stale timer callbacks should not arm extra timers after restart"
   );
 });

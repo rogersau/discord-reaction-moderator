@@ -14,26 +14,46 @@ interface TimedRoleSchedulerOptions {
 export function createTimedRoleScheduler(options: TimedRoleSchedulerOptions) {
   let timer: TimerLike | null = null;
   let processPromise: Promise<void> | null = null;
+  let stopped = false;
+  let timerGeneration = 0;
 
   return {
     async start(): Promise<void> {
+      stopped = false;
       await runProcessExpiredRoles();
-      
-      if (timer) {
-        timer.stop();
-      }
-      timer = options.setTimer(async () => {
-        await runProcessExpiredRoles();
-      }, 1000);
+
+      scheduleNextTick();
     },
 
     stop(): void {
+      stopped = true;
+      timerGeneration += 1;
       if (timer) {
         timer.stop();
         timer = null;
       }
     },
   };
+
+  function scheduleNextTick(): void {
+    if (stopped) {
+      return;
+    }
+
+    if (timer) {
+      timer.stop();
+    }
+
+    const generation = ++timerGeneration;
+    timer = options.setTimer(async () => {
+      if (stopped || generation !== timerGeneration) {
+        return;
+      }
+      timer = null;
+      scheduleNextTick();
+      await runProcessExpiredRoles();
+    }, 1000);
+  }
 
   async function runProcessExpiredRoles(): Promise<void> {
     if (processPromise) {
