@@ -694,7 +694,9 @@ test("worker rolls back timed role persistence when Discord role assignment fail
       assert.equal(response.status, 200);
       assert.deepEqual(
         await response.json(),
-        buildEphemeralMessage("Failed to assign the timed role.")
+        buildEphemeralMessage(
+          "Failed to assign the timed role because Discord is currently unavailable."
+        )
       );
     }
   );
@@ -707,6 +709,58 @@ test("worker rolls back timed role persistence when Discord role assignment fail
     ]
   );
 });
+
+  test("worker explains timed role permission failures from Discord", async () => {
+    const storeCalls: Array<{ input: string; method: string; body: unknown }> = [];
+
+    await withMockedFetch(
+      async () => new Response("Missing Permissions", { status: 403 }),
+      async () => {
+        const { publicKeyHex, request } = await createSignedInteractionRequest(
+          createTimedRoleCommand({
+            guildId: "guild-123",
+            permissions: "8",
+            subcommand: "add",
+            userId: "user-1",
+            roleId: "role-1",
+            duration: "1w",
+          })
+        );
+
+        const response = await worker.fetch(
+          request,
+          createEnv({
+            DISCORD_PUBLIC_KEY: publicKeyHex,
+            moderationFetch(input, init) {
+              storeCalls.push({
+                input: String(input),
+                method: init?.method ?? "GET",
+                body: init?.body ? JSON.parse(String(init.body)) : null,
+              });
+              return Response.json({ ok: true });
+            },
+          }),
+          {} as ExecutionContext
+        );
+
+        assert.equal(response.status, 200);
+        assert.deepEqual(
+          await response.json(),
+          buildEphemeralMessage(
+            "Failed to assign the timed role. Ensure the bot has Manage Roles and that its highest role is above the target role."
+          )
+        );
+      }
+    );
+
+    assert.deepEqual(
+      storeCalls.map((call) => ({ input: call.input, method: call.method })),
+      [
+        { input: "https://moderation-store/timed-role", method: "POST" },
+        { input: "https://moderation-store/timed-role/remove", method: "POST" },
+      ]
+    );
+  });
 
 test("worker reports rollback failure when timed role cleanup cannot be persisted", async () => {
   const storeCalls: Array<{ input: string; method: string; body: unknown }> = [];

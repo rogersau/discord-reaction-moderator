@@ -15,6 +15,7 @@ import {
 } from "./discord-interactions";
 import {
   addGuildMemberRole,
+  DiscordApiError,
   removeGuildMemberRole,
   syncApplicationCommands,
   verifyDiscordSignature,
@@ -27,6 +28,26 @@ export { GatewaySessionDO, ModerationStoreDO };
 
 const DISCORD_INTERACTION_MAX_AGE_SECONDS = 5 * 60;
 const DISCORD_MESSAGE_CONTENT_LIMIT = 2_000;
+
+function describeTimedRoleAssignmentFailure(error: unknown): string {
+  if (!(error instanceof DiscordApiError)) {
+    return "Failed to assign the timed role.";
+  }
+
+  if (error.status === 403) {
+    return "Failed to assign the timed role. Ensure the bot has Manage Roles and that its highest role is above the target role.";
+  }
+
+  if (error.status === 404) {
+    return "Failed to assign the timed role. The member or role could not be found in this server.";
+  }
+
+  if (error.status >= 500) {
+    return "Failed to assign the timed role because Discord is currently unavailable.";
+  }
+
+  return `Failed to assign the timed role (${error.status}).`;
+}
 
 export default {
   async fetch(
@@ -316,7 +337,9 @@ async function handleApplicationCommand(
           );
         }
 
-        return Response.json(buildEphemeralMessage("Failed to assign the timed role."));
+        return Response.json(
+          buildEphemeralMessage(describeTimedRoleAssignmentFailure(error))
+        );
       }
 
       return Response.json(

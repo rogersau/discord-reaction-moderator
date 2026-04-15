@@ -51,7 +51,7 @@ pnpm install
 4. Copy the bot user ID for `BOT_USER_ID`.
 5. Copy the application ID for `DISCORD_APPLICATION_ID`.
 6. Copy the public key for `DISCORD_PUBLIC_KEY`.
-7. Invite the bot with at least the **Manage Messages** permission.
+7. Invite the bot with at least the **Manage Messages** and **Manage Roles** permissions.
 
 The gateway session requests the `GUILDS` and `GUILD_MESSAGE_REACTIONS` intents. No privileged intents are required for the current moderation flow. To use the slash commands, the person invoking them must have **Administrator** or **Manage Guild** in that server.
 
@@ -152,7 +152,7 @@ These commands are **server-local**: they update the blocklist or timed-role ass
 
 `/blocklist list` responds ephemerally to the invoker and shows the blocked emojis for the current server.
 
-For timed roles, the role must already exist and be configured in Discord; the bot only adds and removes it on a timer.
+For timed roles, the role must already exist and be configured in Discord; the bot only adds and removes it on a timer. The bot also needs **Manage Roles**, and its highest role must be above the role it is trying to assign or remove.
 
 ## Admin API
 

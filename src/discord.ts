@@ -5,6 +5,17 @@ import type { DiscordReaction } from "./types";
 
 const DISCORD_API = "https://discord.com/api/v10";
 
+export class DiscordApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+    readonly details: string
+  ) {
+    super(message);
+    this.name = "DiscordApiError";
+  }
+}
+
 export async function verifyDiscordSignature(
   publicKeyHex: string,
   timestamp: string,
@@ -138,7 +149,11 @@ async function mutateGuildMemberRole(
 
   if (!response.ok) {
     const error = await response.text().catch(() => "Unknown error");
-    throw new Error(`Discord API error: ${response.status} ${error}`);
+    throw new DiscordApiError(
+      `Discord API error: ${response.status} ${error}`,
+      response.status,
+      error
+    );
   }
 }
 
