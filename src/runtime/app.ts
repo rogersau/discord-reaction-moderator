@@ -1,5 +1,11 @@
 import { normalizeEmoji } from "../blocklist";
-import { syncApplicationCommands, verifyDiscordSignature } from "../discord";
+import {
+  addGuildMemberRole,
+  DiscordApiError,
+  removeGuildMemberRole,
+  syncApplicationCommands,
+  verifyDiscordSignature,
+} from "../discord";
 import {
   buildEphemeralMessage,
   extractCommandInvocation,
@@ -9,6 +15,7 @@ import { formatTimedRoleExpiry, parseTimedRoleDuration } from "../timed-roles";
 import type { GatewayController, RuntimeStore } from "./contracts";
 
 const DISCORD_INTERACTION_MAX_AGE_SECONDS = 5 * 60;
+const DISCORD_MESSAGE_CONTENT_LIMIT = 2_000;
 
 interface DiscordInteraction {
   type: number;
@@ -99,13 +106,14 @@ async function handleInteractionRequest(
   }
 
   if (interaction?.type === 2) {
-    return handleApplicationCommand(interaction, options.store);
+    return handleApplicationCommand(interaction, options);
   }
 
   return Response.json(buildEphemeralMessage("Unsupported interaction type."));
 }
 
-async function handleApplicationCommand(interaction: DiscordInteraction, store: RuntimeStore): Promise<Response> {
+async function handleApplicationCommand(interaction: DiscordInteraction, options: RuntimeAppOptions): Promise<Response> {
+  const store = options.store;
   if (typeof interaction?.guild_id !== "string" || interaction.guild_id.length === 0) {
     return Response.json(buildEphemeralMessage("This command can only be used inside a server."));
   }
@@ -121,16 +129,20 @@ async function handleApplicationCommand(interaction: DiscordInteraction, store: 
   }
 
   if (invocation.commandName === "blocklist" && invocation.subcommandName === "list") {
-    const config = await store.readConfig();
-    const guildConfig = config.guilds?.[interaction.guild_id];
-    const effectiveEmojis = guildConfig?.enabled === false ? [] : guildConfig?.emojis ?? [];
-    return Response.json(
-      buildEphemeralMessage(
-        effectiveEmojis.length === 0
-          ? "No emojis are blocked in this server."
-          : `Blocked emojis in this server:\n${effectiveEmojis.map((emoji) => `- ${emoji}`).join("\n")}`
-      )
-    );
+    try {
+      const config = await store.readConfig();
+      const guildConfig = config.guilds?.[interaction.guild_id];
+      const effectiveEmojis = guildConfig?.enabled === false ? [] : guildConfig?.emojis ?? [];
+      const content = formatBoundedBulletList(
+        "Blocked emojis in this server:",
+        "No emojis are blocked in this server.",
+        effectiveEmojis
+      );
+      return Response.json(buildEphemeralMessage(content));
+    } catch (error) {
+      console.error("Failed to load moderation config", error);
+      return Response.json(buildEphemeralMessage("Failed to load the server blocklist."));
+    }
   }
 
   if (invocation.commandName === "timedrole" && invocation.subcommandName === "list") {
@@ -138,7 +150,12 @@ async function handleApplicationCommand(interaction: DiscordInteraction, store: 
     const content =
       assignments.length === 0
         ? "No timed roles are active in this server."
-        : `Active timed roles:\n${assignments.map((assignment) => `<@${assignment.userId}> <@&${assignment.roleId}> until ${formatTimedRoleExpiry(assignment.expiresAtMs)}`).join("\n")}`;
+        : `Active timed roles:\n${assignments
+            .map(
+              (assignment) =>
+                `- <@${assignment.userId}> -> <@&${assignment.roleId}> (${assignment.durationInput}, expires ${formatTimedRoleExpiry(assignment.expiresAtMs)})`
+            )
+            .join("\n")}`;
     return Response.json(buildEphemeralMessage(content));
   }
 
@@ -154,9 +171,37 @@ async function handleApplicationCommand(interaction: DiscordInteraction, store: 
       durationInput: parsedDuration.durationInput,
       expiresAtMs: parsedDuration.expiresAtMs,
     });
+
+    try {
+      await addGuildMemberRole(
+        interaction.guild_id,
+        invocation.userId,
+        invocation.roleId,
+        options.discordBotToken
+      );
+    } catch (error) {
+      console.error("Timed role assignment failed", error);
+      try {
+        await store.deleteTimedRole({
+          guildId: interaction.guild_id,
+          userId: invocation.userId,
+          roleId: invocation.roleId,
+        });
+      } catch (rollbackError) {
+        console.error("Timed role rollback failed", rollbackError);
+        return Response.json(
+          buildEphemeralMessage("Failed to assign the timed role, and rollback failed.")
+        );
+      }
+
+      return Response.json(
+        buildEphemeralMessage(describeTimedRoleAssignmentFailure(error))
+      );
+    }
+
     return Response.json(
       buildEphemeralMessage(
-        `Assigned <@&${invocation.roleId}> to <@${invocation.userId}> until ${formatTimedRoleExpiry(parsedDuration.expiresAtMs)}.`
+        `Assigned <@&${invocation.roleId}> to <@${invocation.userId}> for ${invocation.duration} (${formatTimedRoleExpiry(parsedDuration.expiresAtMs)}).`
       )
     );
   }
@@ -173,6 +218,19 @@ async function handleApplicationCommand(interaction: DiscordInteraction, store: 
         )
       );
     }
+
+    try {
+      await removeGuildMemberRole(
+        interaction.guild_id,
+        invocation.userId,
+        invocation.roleId,
+        options.discordBotToken
+      );
+    } catch (error) {
+      console.error("Timed role removal failed", error);
+      return Response.json(buildEphemeralMessage("Failed to remove the timed role."));
+    }
+
     await store.deleteTimedRole({
       guildId: interaction.guild_id,
       userId: invocation.userId,
@@ -188,9 +246,15 @@ async function handleApplicationCommand(interaction: DiscordInteraction, store: 
     if (!normalizedEmoji) {
       return Response.json(buildEphemeralMessage("Invalid emoji."));
     }
-    const config = await store.readConfig();
-    const isAlreadyBlocked =
-      config.guilds?.[interaction.guild_id]?.emojis.includes(normalizedEmoji) ?? false;
+    let isAlreadyBlocked = false;
+    try {
+      const config = await store.readConfig();
+      isAlreadyBlocked =
+        config.guilds?.[interaction.guild_id]?.emojis.includes(normalizedEmoji) ?? false;
+    } catch (error) {
+      console.error("Failed to load moderation config", error);
+      return Response.json(buildEphemeralMessage("Failed to update the server blocklist."));
+    }
     if (isAlreadyBlocked) {
       return Response.json(
         buildEphemeralMessage(`${invocation.emoji} is already blocked in this server.`)
@@ -211,9 +275,15 @@ async function handleApplicationCommand(interaction: DiscordInteraction, store: 
     if (!normalizedEmoji) {
       return Response.json(buildEphemeralMessage("Invalid emoji."));
     }
-    const config = await store.readConfig();
-    const isBlocked =
-      config.guilds?.[interaction.guild_id]?.emojis.includes(normalizedEmoji) ?? false;
+    let isBlocked = false;
+    try {
+      const config = await store.readConfig();
+      isBlocked =
+        config.guilds?.[interaction.guild_id]?.emojis.includes(normalizedEmoji) ?? false;
+    } catch (error) {
+      console.error("Failed to load moderation config", error);
+      return Response.json(buildEphemeralMessage("Failed to update the server blocklist."));
+    }
     if (!isBlocked) {
       return Response.json(
         buildEphemeralMessage(
@@ -251,4 +321,68 @@ function isAuthorized(request: Request, secret?: string): boolean {
     return true;
   }
   return request.headers.get("Authorization") === `Bearer ${secret}`;
+}
+
+function describeTimedRoleAssignmentFailure(error: unknown): string {
+  if (!(error instanceof DiscordApiError)) {
+    return "Failed to assign the timed role.";
+  }
+
+  if (error.status === 403) {
+    return "Failed to assign the timed role. Ensure the bot has Manage Roles and that its highest role is above the target role.";
+  }
+
+  if (error.status === 404) {
+    return "Failed to assign the timed role. The member or role could not be found in this server.";
+  }
+
+  if (error.status >= 500) {
+    return "Failed to assign the timed role because Discord is currently unavailable.";
+  }
+
+  return `Failed to assign the timed role (${error.status}).`;
+}
+
+function formatBoundedBulletList(
+  title: string,
+  emptyMessage: string,
+  items: string[]
+): string {
+  if (items.length === 0) {
+    return emptyMessage;
+  }
+
+  const lines = [title];
+
+  for (let index = 0; index < items.length; index += 1) {
+    const line = `- ${items[index]}`;
+    const remainingAfterLine = items.length - index - 1;
+
+    if (remainingAfterLine === 0) {
+      return [...lines, line].join("\n");
+    }
+
+    const contentWithLine = [...lines, line].join("\n");
+    const summaryLine = `...and ${remainingAfterLine} more.`;
+
+    if (`${contentWithLine}\n${summaryLine}`.length <= DISCORD_MESSAGE_CONTENT_LIMIT) {
+      lines.push(line);
+      continue;
+    }
+
+    let omittedCount = items.length - index;
+    while (lines.length > 1) {
+      const truncatedContent = [...lines, `...and ${omittedCount} more.`].join("\n");
+      if (truncatedContent.length <= DISCORD_MESSAGE_CONTENT_LIMIT) {
+        return truncatedContent;
+      }
+
+      lines.pop();
+      omittedCount += 1;
+    }
+
+    return `${title}\n...and ${items.length} more.`;
+  }
+
+  return lines.join("\n");
 }
