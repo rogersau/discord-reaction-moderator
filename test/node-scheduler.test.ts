@@ -109,3 +109,65 @@ test("timed role scheduler stop cancels the timer", async () => {
 
   assert.equal(stopped, true, "should call stop on the timer");
 });
+
+test("timed role scheduler skips overlapping timer passes while a prior run is still active", async () => {
+  const removed: Array<{ guildId: string; userId: string; roleId: string }> = [];
+  const deleted: Array<{ guildId: string; userId: string; roleId: string }> = [];
+  let timerCallback: (() => void | Promise<void>) | undefined;
+  let resolveRemoval: (() => void) | undefined;
+  const removalBarrier = new Promise<void>((resolve) => {
+    resolveRemoval = resolve;
+  });
+  let listCalls = 0;
+
+  const scheduler = createTimedRoleScheduler({
+    now: () => 1_700_000_000_000,
+    store: {
+      async listExpiredTimedRoles() {
+        listCalls += 1;
+        if (listCalls === 1) {
+          return [];
+        }
+        return [{
+          guildId: "guild-1",
+          userId: "user-1",
+          roleId: "role-1",
+          durationInput: "1h",
+          expiresAtMs: 1_699_999_999_000,
+        }];
+      },
+      async deleteTimedRole(body: any) {
+        deleted.push(body);
+      },
+    } as any,
+    removeGuildMemberRole: async (guildId: string, userId: string, roleId: string) => {
+      removed.push({ guildId, userId, roleId });
+      await removalBarrier;
+    },
+    setTimer(callback: any, _delayMs: number) {
+      timerCallback = callback;
+      return { stop() {} };
+    },
+  });
+
+  await scheduler.start();
+  assert.ok(timerCallback, "should install timer");
+
+  const firstTick = timerCallback?.();
+  const secondTick = timerCallback?.();
+
+  resolveRemoval?.();
+
+  await Promise.all([firstTick, secondTick]);
+
+  assert.deepEqual(
+    removed,
+    [{ guildId: "guild-1", userId: "user-1", roleId: "role-1" }],
+    "overlapping timer ticks should only remove each expired role once"
+  );
+  assert.deepEqual(
+    deleted,
+    [{ guildId: "guild-1", userId: "user-1", roleId: "role-1" }],
+    "overlapping timer ticks should only delete each expired role once"
+  );
+});

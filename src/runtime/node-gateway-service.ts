@@ -46,6 +46,7 @@ export function createNodeGatewayService(options: NodeGatewayServiceOptions): Ga
   let socket: WebSocketLike | null = null;
   let heartbeatTimer: any = null;
   let backoffTimer: TimerLike | null = null;
+  let startPromise: Promise<GatewaySnapshot> | null = null;
 
   return {
     start,
@@ -53,45 +54,57 @@ export function createNodeGatewayService(options: NodeGatewayServiceOptions): Ga
   };
 
   async function start(): Promise<GatewaySnapshot> {
-    if (!snapshot) {
-      snapshot = await options.store.readGatewaySnapshot();
+    if (startPromise) {
+      return startPromise;
     }
 
-    if (socket !== null) {
-      return snapshot;
-    }
-
-    const shouldResume =
-      snapshot.sessionId !== null &&
-      snapshot.resumeGatewayUrl !== null &&
-      snapshot.lastSequence !== null;
-
-    snapshot.status = shouldResume ? "resuming" : "connecting";
-    await options.store.writeGatewaySnapshot(snapshot);
-
-    socket = options.openWebSocket(
-      snapshot.resumeGatewayUrl ?? DEFAULT_GATEWAY_URL,
-      {
-        onMessage: (payload: string) => {
-          void handleSocketMessage(payload);
-        },
-        onClose: () => {
-          stopHeartbeat();
-          if (socket) {
-            socket = null;
-          }
-          if (snapshot.status !== "idle" && snapshot.status !== "backoff") {
-            enterBackoff();
-          }
-        },
-        onError: () => {
-          snapshot.lastError = "Gateway websocket error";
-          void options.store.writeGatewaySnapshot(snapshot);
-        },
+    startPromise = (async () => {
+      if (!snapshot) {
+        snapshot = await options.store.readGatewaySnapshot();
       }
-    );
 
-    return snapshot;
+      if (socket !== null) {
+        return snapshot;
+      }
+
+      const shouldResume =
+        snapshot.sessionId !== null &&
+        snapshot.resumeGatewayUrl !== null &&
+        snapshot.lastSequence !== null;
+
+      snapshot.status = shouldResume ? "resuming" : "connecting";
+      await options.store.writeGatewaySnapshot(snapshot);
+
+      socket = options.openWebSocket(
+        snapshot.resumeGatewayUrl ?? DEFAULT_GATEWAY_URL,
+        {
+          onMessage: (payload: string) => {
+            void handleSocketMessage(payload);
+          },
+          onClose: () => {
+            stopHeartbeat();
+            if (socket) {
+              socket = null;
+            }
+            if (snapshot.status !== "idle" && snapshot.status !== "backoff") {
+              enterBackoff();
+            }
+          },
+          onError: () => {
+            snapshot.lastError = "Gateway websocket error";
+            void options.store.writeGatewaySnapshot(snapshot);
+          },
+        }
+      );
+
+      return snapshot;
+    })();
+
+    try {
+      return await startPromise;
+    } finally {
+      startPromise = null;
+    }
   }
 
   async function status(): Promise<GatewaySnapshot> {
@@ -242,7 +255,14 @@ export function createNodeGatewayService(options: NodeGatewayServiceOptions): Ga
   }
 
   async function moderateReaction(reaction: DiscordReaction): Promise<void> {
-    const config = await options.store.readConfig();
+    let config;
+    try {
+      config = await options.store.readConfig();
+    } catch {
+      snapshot.lastError = "Failed to load moderation config";
+      void options.store.writeGatewaySnapshot(snapshot);
+      return;
+    }
 
     const emojiName = normalizeEmoji(reaction.emoji.name);
     let emojiId: string;
