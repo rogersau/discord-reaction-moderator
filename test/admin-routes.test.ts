@@ -231,6 +231,7 @@ test("worker keeps routing /admin/gateway/status through the shared runtime laye
 
 function createEnv(options?: {
   ADMIN_AUTH_SECRET?: string;
+  ADMIN_UI_PASSWORD?: string;
   DISCORD_APPLICATION_ID?: string;
   gatewayFetch?: (input: Request | string | URL, init?: RequestInit) => Response;
 }) {
@@ -240,6 +241,7 @@ function createEnv(options?: {
     DISCORD_PUBLIC_KEY: "a".repeat(64),
     DISCORD_APPLICATION_ID: options?.DISCORD_APPLICATION_ID,
     ADMIN_AUTH_SECRET: options?.ADMIN_AUTH_SECRET,
+    ADMIN_UI_PASSWORD: options?.ADMIN_UI_PASSWORD,
     MODERATION_STORE_DO: {
       idFromName() {
         return "moderation-store-id" as never;
@@ -264,3 +266,27 @@ function createEnv(options?: {
     } as never,
   } as never;
 }
+
+test("worker returns 404 for /admin/api/* when ADMIN_UI_PASSWORD is not configured", async () => {
+  const response = await worker.fetch(
+    new Request("https://worker.example/admin/api/gateway/status"),
+    createEnv(),
+    {} as ExecutionContext
+  );
+
+  assert.equal(response.status, 404);
+  const body = await response.json() as { error: string };
+  assert.equal(body.error, "Admin API is not configured.");
+});
+
+test("worker returns 401 for /admin/api/* when ADMIN_UI_PASSWORD is set but no valid session", async () => {
+  const response = await worker.fetch(
+    new Request("https://worker.example/admin/api/gateway/status"),
+    createEnv({ ADMIN_UI_PASSWORD: "secret" }),
+    {} as ExecutionContext
+  );
+
+  assert.equal(response.status, 401);
+  const body = await response.json() as { error: string };
+  assert.equal(body.error, "Unauthorized");
+});
