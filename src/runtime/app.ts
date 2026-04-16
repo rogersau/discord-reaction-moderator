@@ -1,4 +1,5 @@
 import { ADMIN_ASSETS, ADMIN_LOGIN_HTML } from "./admin-bundle";
+import type { AppConfigMutation } from "./admin-types";
 import {
   ADMIN_SESSION_COOKIE_NAME,
   createAdminSessionCookie,
@@ -44,6 +45,8 @@ interface RuntimeAppOptions {
   store: RuntimeStore;
   gateway: GatewayController;
 }
+
+class AdminApiInputError extends Error {}
 
 export function createRuntimeApp(options: RuntimeAppOptions) {
   return {
@@ -126,8 +129,12 @@ export function createRuntimeApp(options: RuntimeAppOptions) {
         }
 
         if (request.method === "POST" && url.pathname === "/admin/api/config") {
-          const body = await request.json() as { key: string; value: string };
-          await options.store.upsertAppConfig(body);
+          const parsedBody = await parseJsonBody(request, parseAppConfigMutation);
+          if (!parsedBody.ok) {
+            return parsedBody.response;
+          }
+
+          await options.store.upsertAppConfig(parsedBody.value);
           return Response.json({ ok: true });
         }
 
@@ -142,8 +149,12 @@ export function createRuntimeApp(options: RuntimeAppOptions) {
         }
 
         if (request.method === "POST" && url.pathname === "/admin/api/blocklist") {
-          const body = await request.json() as { guildId: string; emoji: string; action: "add" | "remove" };
-          const config = await options.store.applyGuildEmojiMutation(body);
+          const parsedBody = await parseJsonBody(request, parseGuildEmojiMutation);
+          if (!parsedBody.ok) {
+            return parsedBody.response;
+          }
+
+          const config = await options.store.applyGuildEmojiMutation(parsedBody.value);
           return Response.json(config);
         }
 
@@ -449,7 +460,7 @@ async function isAuthorized(
   request: Request,
   options: Pick<RuntimeAppOptions, "adminAuthSecret" | "adminSessionSecret" | "adminUiPassword">
 ): Promise<boolean> {
-  if (isBearerAuthorized(request, options.adminAuthSecret)) {
+  if (await isBearerAuthorized(request, options.adminAuthSecret)) {
     return true;
   }
 
@@ -460,8 +471,17 @@ async function isAuthorized(
   return !options.adminAuthSecret && !options.adminUiPassword;
 }
 
-function isBearerAuthorized(request: Request, secret?: string): boolean {
-  return !!secret && request.headers.get("Authorization") === `Bearer ${secret}`;
+async function isBearerAuthorized(request: Request, secret?: string): Promise<boolean> {
+  if (!secret) {
+    return false;
+  }
+
+  const authorization = request.headers.get("Authorization");
+  if (typeof authorization !== "string" || !authorization.startsWith("Bearer ")) {
+    return false;
+  }
+
+  return isValidAdminPassword(authorization.slice("Bearer ".length), secret);
 }
 
 async function isAdminUiAuthorized(
@@ -499,6 +519,77 @@ function redirect(location: string, headersInit?: HeadersInit): Response {
   const headers = new Headers(headersInit);
   headers.set("location", location);
   return new Response(null, { status: 302, headers });
+}
+
+async function parseJsonBody<T>(
+  request: Request,
+  parse: (body: unknown) => T
+): Promise<{ ok: true; value: T } | { ok: false; response: Response }> {
+  try {
+    return { ok: true, value: parse(await request.json()) };
+  } catch (error) {
+    if (error instanceof SyntaxError || error instanceof AdminApiInputError) {
+      return {
+        ok: false,
+        response: Response.json(
+          { error: error.message || "Invalid JSON body" },
+          { status: 400 }
+        ),
+      };
+    }
+
+    throw error;
+  }
+}
+
+function parseAppConfigMutation(body: unknown): AppConfigMutation {
+  if (
+    !isRecord(body) ||
+    typeof body.key !== "string" ||
+    body.key.length === 0 ||
+    typeof body.value !== "string"
+  ) {
+    throw new AdminApiInputError("Missing app config key or value");
+  }
+
+  return {
+    key: body.key,
+    value: body.value,
+  };
+}
+
+function parseGuildEmojiMutation(
+  body: unknown
+): { guildId: string; emoji: string; action: "add" | "remove" } {
+  if (!isRecord(body)) {
+    throw new AdminApiInputError("Invalid JSON body");
+  }
+
+  const guildId = body.guildId;
+  const emoji = normalizeEmoji(asOptionalString(body.emoji));
+  const action = body.action;
+
+  if (typeof guildId !== "string" || guildId.length === 0 || !emoji || typeof action !== "string") {
+    throw new AdminApiInputError("Missing guildId, emoji or action");
+  }
+
+  if (action !== "add" && action !== "remove") {
+    throw new AdminApiInputError("Invalid action. Use 'add' or 'remove'");
+  }
+
+  return {
+    guildId,
+    emoji,
+    action,
+  };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function asOptionalString(value: unknown): string | null {
+  return typeof value === "string" ? value : null;
 }
 
 function describeTimedRoleAssignmentFailure(error: unknown): string {

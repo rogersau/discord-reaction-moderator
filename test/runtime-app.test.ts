@@ -323,6 +323,69 @@ test("createRuntimeApp returns dashboard data and blocklist mutations through se
   assert.deepEqual(calls, ["config:bot_user_id:new-bot-id", "blocklist:guild-1:🚫:add"]);
 });
 
+test("createRuntimeApp rejects malformed POST /admin/api/config bodies with 400 JSON", async () => {
+  const calls: string[] = [];
+  const app = createRuntimeApp({
+    discordPublicKey: "a".repeat(64),
+    discordBotToken: "bot-token",
+    adminUiPassword: "let-me-in",
+    adminSessionSecret: "session-secret",
+    verifyDiscordRequest: async () => true,
+    store: {
+      async upsertAppConfig() {
+        calls.push("config");
+      },
+    } as unknown as RuntimeStore,
+    gateway: {} as GatewayController,
+  });
+
+  const cookie = await createAdminSessionCookie("session-secret");
+
+  const response = await app.fetch(
+    new Request("https://runtime.example/admin/api/config", {
+      method: "POST",
+      headers: { cookie, "content-type": "application/json" },
+      body: JSON.stringify({ key: "bot_user_id" }),
+    })
+  );
+
+  assert.equal(response.status, 400);
+  assert.deepEqual(await response.json(), { error: "Missing app config key or value" });
+  assert.deepEqual(calls, []);
+});
+
+test("createRuntimeApp rejects malformed POST /admin/api/blocklist bodies with 400 JSON", async () => {
+  const calls: string[] = [];
+  const app = createRuntimeApp({
+    discordPublicKey: "a".repeat(64),
+    discordBotToken: "bot-token",
+    adminUiPassword: "let-me-in",
+    adminSessionSecret: "session-secret",
+    verifyDiscordRequest: async () => true,
+    store: {
+      async applyGuildEmojiMutation() {
+        calls.push("blocklist");
+        return { guilds: {}, botUserId: "bot-user-id" };
+      },
+    } as unknown as RuntimeStore,
+    gateway: {} as GatewayController,
+  });
+
+  const cookie = await createAdminSessionCookie("session-secret");
+
+  const response = await app.fetch(
+    new Request("https://runtime.example/admin/api/blocklist", {
+      method: "POST",
+      headers: { cookie, "content-type": "application/json" },
+      body: JSON.stringify({ guildId: "guild-1", emoji: "🚫", action: "block" }),
+    })
+  );
+
+  assert.equal(response.status, 400);
+  assert.deepEqual(await response.json(), { error: "Invalid action. Use 'add' or 'remove'" });
+  assert.deepEqual(calls, []);
+});
+
 test("createRuntimeApp rejects unauthenticated /admin/api/* requests with 401 JSON", async () => {
   const app = createRuntimeApp({
     discordPublicKey: "a".repeat(64),
