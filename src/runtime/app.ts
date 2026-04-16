@@ -32,7 +32,6 @@ interface RuntimeAppOptions {
   discordBotToken: string;
   discordApplicationId?: string;
   adminAuthSecret?: string;
-  adminUiPassword?: string;
   verifyDiscordRequest?: (timestamp: string, body: string, signature: string) => Promise<boolean>;
   store: RuntimeStore;
   gateway: GatewayController;

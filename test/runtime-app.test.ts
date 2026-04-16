@@ -12,7 +12,6 @@ test("createRuntimeApp serves the admin login shell and static assets", async ()
   const app = createRuntimeApp({
     discordPublicKey: "a".repeat(64),
     discordBotToken: "bot-token",
-    adminUiPassword: "let-me-in",
     verifyDiscordRequest: async () => true,
     store: {} as RuntimeStore,
     gateway: {} as GatewayController,
