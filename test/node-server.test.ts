@@ -150,17 +150,17 @@ async function requestServer(
       },
       (response) => {
         let body = "";
-      response.setEncoding("utf8");
-      response.on("data", (chunk) => {
-        body += chunk;
-      });
-      response.on("end", () =>
-        resolve({
-          statusCode: response.statusCode ?? 0,
-          headers: response.headers,
-          body,
-        })
-      );
+        response.setEncoding("utf8");
+        response.on("data", (chunk) => {
+          body += chunk;
+        });
+        response.on("end", () =>
+          resolve({
+            statusCode: response.statusCode ?? 0,
+            headers: response.headers,
+            body,
+          })
+        );
       }
     );
     req.on("error", reject);
