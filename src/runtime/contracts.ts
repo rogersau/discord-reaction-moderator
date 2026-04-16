@@ -1,4 +1,5 @@
 import type { BlocklistConfig, TimedRoleAssignment } from "../types";
+import type { AppConfigMutation } from "./admin-types";
 
 export interface GatewaySnapshot {
   status: "idle" | "connecting" | "ready" | "resuming" | "backoff";
@@ -12,6 +13,7 @@ export interface GatewaySnapshot {
 
 export interface RuntimeStore {
   readConfig(): Promise<BlocklistConfig>;
+  upsertAppConfig(body: AppConfigMutation): Promise<void>;
   applyGuildEmojiMutation(body: { guildId: string; emoji: string; action: "add" | "remove" }): Promise<BlocklistConfig>;
   listTimedRolesByGuild(guildId: string): Promise<TimedRoleAssignment[]>;
   upsertTimedRole(body: TimedRoleAssignment): Promise<void>;

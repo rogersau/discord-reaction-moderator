@@ -1,6 +1,7 @@
 import { createRuntimeApp } from "./app";
 import { getModerationStoreStub } from "../reaction-moderation";
 import type { Env } from "../env";
+import type { AppConfigMutation } from "./admin-types";
 
 export function createCloudflareRuntime(env: Env) {
   const gatewayStub = env.GATEWAY_SESSION_DO.get(
@@ -13,10 +14,21 @@ export function createCloudflareRuntime(env: Env) {
     discordBotToken: env.DISCORD_BOT_TOKEN,
     discordApplicationId: env.DISCORD_APPLICATION_ID,
     adminAuthSecret: env.ADMIN_AUTH_SECRET,
+    adminSessionSecret: env.ADMIN_AUTH_SECRET ?? env.ADMIN_UI_PASSWORD,
+    adminUiPassword: env.ADMIN_UI_PASSWORD,
     store: {
       async readConfig() {
         const response = await storeStub.fetch("https://moderation-store/config");
         return response.json();
+      },
+      async upsertAppConfig(body: AppConfigMutation) {
+        const response = await storeStub.fetch("https://moderation-store/app-config", {
+          method: "POST",
+          body: JSON.stringify(body),
+        });
+        if (!response.ok) {
+          throw new Error(`Failed to upsert app config: ${response.status} ${await response.text()}`);
+        }
       },
       async applyGuildEmojiMutation(body) {
         const response = await storeStub.fetch("https://moderation-store/guild-emoji", {

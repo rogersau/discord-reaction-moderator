@@ -62,6 +62,8 @@ async function main(): Promise<void> {
     discordBotToken: config.discordBotToken,
     discordApplicationId: config.discordApplicationId,
     adminAuthSecret: config.adminAuthSecret,
+    adminSessionSecret: config.adminSessionSecret,
+    adminUiPassword: config.adminUiPassword,
     store,
     gateway,
   });

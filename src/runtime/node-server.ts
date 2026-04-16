@@ -57,7 +57,12 @@ export async function startNodeRuntimeServer(
 
 function buildRequestUrl(request: IncomingMessage): string {
   const host = request.headers.host ?? "127.0.0.1";
-  return `http://${host}${request.url ?? "/"}`;
+  const protocolHeader = request.headers["x-forwarded-proto"];
+  const protocol = Array.isArray(protocolHeader)
+    ? protocolHeader[0]
+    : protocolHeader;
+
+  return `${protocol === "https" ? "https" : "http"}://${host}${request.url ?? "/"}`;
 }
 
 function toHeaders(request: IncomingMessage): Headers {

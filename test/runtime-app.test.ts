@@ -29,6 +29,71 @@ test("createRuntimeApp serves the admin login shell and static assets", async ()
   assert.match(assetResponse.headers.get("content-type") ?? "", /javascript/);
 });
 
+test("createRuntimeApp redirects unauthenticated admin requests and sets a session cookie on login", async () => {
+  const configWrites: Array<{ key: string; value: string }> = [];
+  const app = createRuntimeApp({
+    discordPublicKey: "a".repeat(64),
+    discordBotToken: "bot-token",
+    adminUiPassword: "let-me-in",
+    adminSessionSecret: "session-secret",
+    verifyDiscordRequest: async () => true,
+    store: {
+      async readConfig() {
+        return { guilds: {}, botUserId: "bot-user-id" };
+      },
+      async upsertAppConfig(body: { key: string; value: string }) {
+        configWrites.push(body);
+      },
+    } as unknown as RuntimeStore,
+    gateway: {} as GatewayController,
+  });
+
+  const unauthenticated = await app.fetch(new Request("https://runtime.example/admin"));
+  assert.equal(unauthenticated.status, 302);
+  assert.equal(unauthenticated.headers.get("location"), "/admin/login");
+
+  const loginResponse = await app.fetch(
+    new Request("https://runtime.example/admin/login", {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      body: "password=let-me-in",
+    })
+  );
+
+  assert.equal(loginResponse.status, 302);
+  assert.equal(loginResponse.headers.get("location"), "/admin");
+  assert.match(loginResponse.headers.get("set-cookie") ?? "", /admin_session=/);
+  assert.deepEqual(configWrites, []);
+});
+
+test("createRuntimeApp rejects invalid admin login passwords", async () => {
+  const app = createRuntimeApp({
+    discordPublicKey: "a".repeat(64),
+    discordBotToken: "bot-token",
+    adminUiPassword: "let-me-in",
+    adminSessionSecret: "session-secret",
+    verifyDiscordRequest: async () => true,
+    store: {
+      async readConfig() {
+        return { guilds: {}, botUserId: "bot-user-id" };
+      },
+      async upsertAppConfig() {},
+    } as unknown as RuntimeStore,
+    gateway: {} as GatewayController,
+  });
+
+  const loginResponse = await app.fetch(
+    new Request("https://runtime.example/admin/login", {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      body: "password=wrong-password",
+    })
+  );
+
+  assert.equal(loginResponse.status, 401);
+  assert.equal(loginResponse.headers.get("set-cookie"), null);
+});
+
 test("createRuntimeApp handles health checks", async () => {
   const app = createRuntimeApp({
     discordPublicKey: "a".repeat(64),
@@ -195,4 +260,3 @@ test("createRuntimeApp handles /admin/gateway/status via GET", async () => {
   });
   assert.deepEqual(calls, ["status"]);
 });
-

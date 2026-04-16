@@ -13,6 +13,7 @@ test("loadNodeRuntimeConfig returns the validated portable runtime config", () =
     DISCORD_PUBLIC_KEY: "a".repeat(64),
     DISCORD_APPLICATION_ID: "application-id",
     ADMIN_AUTH_SECRET: "admin-secret",
+    ADMIN_UI_PASSWORD: "let-me-in",
     PORT: "8787",
     SQLITE_PATH: "./data/runtime.sqlite",
   });
@@ -23,6 +24,8 @@ test("loadNodeRuntimeConfig returns the validated portable runtime config", () =
     discordPublicKey: "a".repeat(64),
     discordApplicationId: "application-id",
     adminAuthSecret: "admin-secret",
+    adminSessionSecret: "admin-secret",
+    adminUiPassword: "let-me-in",
     port: 8787,
     sqlitePath: "./data/runtime.sqlite",
   });
@@ -43,9 +46,26 @@ test("loadNodeRuntimeConfig accepts valid config with optional fields omitted", 
     discordPublicKey: "a".repeat(64),
     discordApplicationId: undefined,
     adminAuthSecret: undefined,
+    adminSessionSecret: undefined,
+    adminUiPassword: undefined,
     port: 8787,
     sqlitePath: "./data/runtime.sqlite",
   });
+});
+
+test("loadNodeRuntimeConfig falls back to ADMIN_UI_PASSWORD for admin session signing", () => {
+  const config = loadNodeRuntimeConfig({
+    DISCORD_BOT_TOKEN: "bot-token",
+    BOT_USER_ID: "bot-user-id",
+    DISCORD_PUBLIC_KEY: "a".repeat(64),
+    ADMIN_UI_PASSWORD: "let-me-in",
+    PORT: "8787",
+    SQLITE_PATH: "./data/runtime.sqlite",
+  });
+
+  assert.equal(config.adminAuthSecret, undefined);
+  assert.equal(config.adminSessionSecret, "let-me-in");
+  assert.equal(config.adminUiPassword, "let-me-in");
 });
 
 test("loadNodeRuntimeConfig rejects missing required values", () => {

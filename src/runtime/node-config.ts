@@ -4,6 +4,8 @@ export interface NodeRuntimeConfig {
   discordPublicKey: string;
   discordApplicationId?: string;
   adminAuthSecret?: string;
+  adminSessionSecret?: string;
+  adminUiPassword?: string;
   port: number;
   sqlitePath: string;
 }
@@ -26,6 +28,8 @@ export function loadNodeRuntimeConfig(env: Record<string, string | undefined>): 
     discordPublicKey,
     discordApplicationId: env.DISCORD_APPLICATION_ID,
     adminAuthSecret: env.ADMIN_AUTH_SECRET,
+    adminSessionSecret: env.ADMIN_AUTH_SECRET ?? env.ADMIN_UI_PASSWORD,
+    adminUiPassword: env.ADMIN_UI_PASSWORD,
     port,
     sqlitePath,
   };

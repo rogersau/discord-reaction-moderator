@@ -1,4 +1,9 @@
 import { ADMIN_ASSETS, ADMIN_LOGIN_HTML } from "./admin-bundle";
+import {
+  createAdminSessionCookie,
+  hasValidAdminSession,
+  isValidAdminPassword,
+} from "./admin-auth";
 import { normalizeEmoji } from "../blocklist";
 import {
   addGuildMemberRole,
@@ -32,6 +37,8 @@ interface RuntimeAppOptions {
   discordBotToken: string;
   discordApplicationId?: string;
   adminAuthSecret?: string;
+  adminSessionSecret?: string;
+  adminUiPassword?: string;
   verifyDiscordRequest?: (timestamp: string, body: string, signature: string) => Promise<boolean>;
   store: RuntimeStore;
   gateway: GatewayController;
@@ -47,10 +54,21 @@ export function createRuntimeApp(options: RuntimeAppOptions) {
       }
 
       if (request.method === "GET" && url.pathname === "/admin/login") {
-        return new Response(ADMIN_LOGIN_HTML, {
-          status: 200,
-          headers: { "content-type": "text/html; charset=utf-8" },
-        });
+        if (options.adminUiPassword && (await isAdminUiAuthorized(request, options))) {
+          return redirect("/admin");
+        }
+        return renderAdminShell();
+      }
+
+      if (request.method === "POST" && url.pathname === "/admin/login") {
+        return handleAdminLogin(request, options);
+      }
+
+      if (request.method === "GET" && url.pathname === "/admin") {
+        if (!(await isAdminUiAuthorized(request, options))) {
+          return redirect("/admin/login");
+        }
+        return renderAdminShell();
       }
 
       if (request.method === "GET" && url.pathname.startsWith("/admin/assets/")) {
@@ -66,14 +84,14 @@ export function createRuntimeApp(options: RuntimeAppOptions) {
       }
 
       if (request.method === "GET" && url.pathname === "/admin/gateway/status") {
-        if (!isAuthorized(request, options.adminAuthSecret)) {
+        if (!(await isAuthorized(request, options))) {
           return new Response("Unauthorized", { status: 401 });
         }
         return Response.json(await options.gateway.status());
       }
 
       if (request.method === "POST" && url.pathname === "/admin/gateway/start") {
-        if (!isAuthorized(request, options.adminAuthSecret)) {
+        if (!(await isAuthorized(request, options))) {
           return new Response("Unauthorized", { status: 401 });
         }
         return Response.json(await bootstrap());
@@ -98,6 +116,34 @@ export function createRuntimeApp(options: RuntimeAppOptions) {
     }
     return options.gateway.start();
   }
+}
+
+function renderAdminShell(): Response {
+  return new Response(ADMIN_LOGIN_HTML, {
+    status: 200,
+    headers: { "content-type": "text/html; charset=utf-8" },
+  });
+}
+
+async function handleAdminLogin(
+  request: Request,
+  options: RuntimeAppOptions
+): Promise<Response> {
+  if (!options.adminUiPassword || !options.adminSessionSecret) {
+    return new Response("Admin login is not configured.", { status: 404 });
+  }
+
+  const formData = await request.formData();
+  if (!(await isValidAdminPassword(formData.get("password"), options.adminUiPassword))) {
+    return new Response("Unauthorized", { status: 401 });
+  }
+
+  return redirect("/admin", {
+    "set-cookie": await createAdminSessionCookie(
+      options.adminSessionSecret,
+      { secure: new URL(request.url).protocol === "https:" }
+    ),
+  });
 }
 
 async function handleInteractionRequest(
@@ -343,11 +389,44 @@ function isFreshDiscordTimestamp(timestamp: string): boolean {
   return Math.abs(nowSeconds - timestampSeconds) <= DISCORD_INTERACTION_MAX_AGE_SECONDS;
 }
 
-function isAuthorized(request: Request, secret?: string): boolean {
-  if (!secret) {
+async function isAuthorized(
+  request: Request,
+  options: Pick<RuntimeAppOptions, "adminAuthSecret" | "adminSessionSecret" | "adminUiPassword">
+): Promise<boolean> {
+  if (isBearerAuthorized(request, options.adminAuthSecret)) {
     return true;
   }
-  return request.headers.get("Authorization") === `Bearer ${secret}`;
+
+  if (options.adminUiPassword && options.adminSessionSecret) {
+    return hasValidAdminSession(request, options.adminSessionSecret);
+  }
+
+  return !options.adminAuthSecret && !options.adminUiPassword;
+}
+
+function isBearerAuthorized(request: Request, secret?: string): boolean {
+  return !!secret && request.headers.get("Authorization") === `Bearer ${secret}`;
+}
+
+async function isAdminUiAuthorized(
+  request: Request,
+  options: Pick<RuntimeAppOptions, "adminSessionSecret" | "adminUiPassword">
+): Promise<boolean> {
+  if (!options.adminUiPassword) {
+    return true;
+  }
+
+  if (!options.adminSessionSecret) {
+    return false;
+  }
+
+  return hasValidAdminSession(request, options.adminSessionSecret);
+}
+
+function redirect(location: string, headersInit?: HeadersInit): Response {
+  const headers = new Headers(headersInit);
+  headers.set("location", location);
+  return new Response(null, { status: 302, headers });
 }
 
 function describeTimedRoleAssignmentFailure(error: unknown): string {

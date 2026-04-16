@@ -9,7 +9,8 @@ import type {
   GuildSettingRow,
   TimedRoleAssignment,
 } from "../types";
- import type { ClosableRuntimeStore, GatewaySnapshot } from "./contracts";
+import type { ClosableRuntimeStore, GatewaySnapshot } from "./contracts";
+import type { AppConfigMutation } from "./admin-types";
 import { buildBlocklistConfig } from "../blocklist";
 
 export interface SqliteRuntimeStoreOptions {
@@ -90,6 +91,12 @@ export function createSqliteRuntimeStore(
   const insertGuildSetting = db.prepare("INSERT OR IGNORE INTO guild_settings(guild_id, moderation_enabled) VALUES(?, ?)");
   const insertGuildBlockedEmoji = db.prepare("INSERT OR IGNORE INTO guild_blocked_emojis(guild_id, normalized_emoji) VALUES(?, ?)");
   const deleteGuildBlockedEmoji = db.prepare("DELETE FROM guild_blocked_emojis WHERE guild_id = ? AND normalized_emoji = ?");
+  const upsertAppConfigStmt = db.prepare(`
+    INSERT INTO app_config(key, value)
+    VALUES(?, ?)
+    ON CONFLICT(key)
+    DO UPDATE SET value = excluded.value
+  `);
 
   const selectTimedRolesByGuild = db.prepare(
     "SELECT guild_id, user_id, role_id, duration_input, expires_at_ms FROM timed_roles WHERE guild_id = ? ORDER BY expires_at_ms ASC"
@@ -130,6 +137,10 @@ export function createSqliteRuntimeStore(
       const appConfigRows = selectAppConfig.all() as AppConfigRow[];
 
       return buildBlocklistConfig(guildRows, guildEmojiRows, appConfigRows);
+    },
+
+    async upsertAppConfig(body: AppConfigMutation): Promise<void> {
+      upsertAppConfigStmt.run(body.key, body.value);
     },
 
     async applyGuildEmojiMutation(body: { guildId: string; emoji: string; action: "add" | "remove" }): Promise<BlocklistConfig> {
