@@ -322,3 +322,42 @@ test("createRuntimeApp returns dashboard data and blocklist mutations through se
   assert.equal(blocklistResponse.status, 200);
   assert.deepEqual(calls, ["config:bot_user_id:new-bot-id", "blocklist:guild-1:🚫:add"]);
 });
+
+test("createRuntimeApp rejects unauthenticated /admin/api/* requests with 401 JSON", async () => {
+  const app = createRuntimeApp({
+    discordPublicKey: "a".repeat(64),
+    discordBotToken: "bot-token",
+    adminUiPassword: "let-me-in",
+    adminSessionSecret: "session-secret",
+    verifyDiscordRequest: async () => true,
+    store: {} as RuntimeStore,
+    gateway: {} as GatewayController,
+  });
+
+  const response = await app.fetch(
+    new Request("https://runtime.example/admin/api/gateway/status")
+  );
+  assert.equal(response.status, 401);
+  const body = await response.json() as { error: string };
+  assert.equal(body.error, "Unauthorized");
+});
+
+test("createRuntimeApp serves admin shell with data-authenticated for authenticated /admin GET", async () => {
+  const app = createRuntimeApp({
+    discordPublicKey: "a".repeat(64),
+    discordBotToken: "bot-token",
+    adminUiPassword: "let-me-in",
+    adminSessionSecret: "session-secret",
+    verifyDiscordRequest: async () => true,
+    store: {} as RuntimeStore,
+    gateway: {} as GatewayController,
+  });
+
+  const cookie = await createAdminSessionCookie("session-secret");
+
+  const response = await app.fetch(
+    new Request("https://runtime.example/admin", { headers: { cookie } })
+  );
+  assert.equal(response.status, 200);
+  assert.match(await response.text(), /data-authenticated="true"/);
+});

@@ -60,7 +60,7 @@ export default function App({ initialAuthenticated = false }: Props) {
             variant="outline"
             onClick={async () => {
               await fetch("/admin/logout", { method: "POST" });
-              setAuthenticated(false);
+              window.location.href = "/admin/login";
             }}
           >
             Sign out

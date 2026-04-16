@@ -1,5 +1,6 @@
 import { ADMIN_ASSETS, ADMIN_LOGIN_HTML } from "./admin-bundle";
 import {
+  ADMIN_SESSION_COOKIE_NAME,
   createAdminSessionCookie,
   hasValidAdminSession,
   isValidAdminPassword,
@@ -64,6 +65,16 @@ export function createRuntimeApp(options: RuntimeAppOptions) {
         return handleAdminLogin(request, options);
       }
 
+      if (request.method === "POST" && url.pathname === "/admin/logout") {
+        return new Response(null, {
+          status: 302,
+          headers: {
+            location: "/admin/login",
+            "set-cookie": `${ADMIN_SESSION_COOKIE_NAME}=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax`,
+          },
+        });
+      }
+
       if (request.method === "GET" && url.pathname === "/admin") {
         if (!(await isAdminUiAuthorized(request, options))) {
           return redirect("/admin/login");
@@ -106,7 +117,7 @@ export function createRuntimeApp(options: RuntimeAppOptions) {
         }
 
         if (request.method === "POST" && url.pathname === "/admin/api/gateway/start") {
-          return Response.json(await options.gateway.start());
+          return Response.json(await bootstrap());
         }
 
         if (request.method === "POST" && url.pathname === "/admin/api/config") {
