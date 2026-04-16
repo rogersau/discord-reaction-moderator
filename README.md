@@ -16,7 +16,7 @@ A Cloudflare-first suite of Discord automation workers built on **SQLite-backed 
 - **Signed `/interactions` endpoint** for Discord interactions
 - **Automatic slash command sync** before each bootstrap when `DISCORD_APPLICATION_ID` is set
 - **Automatic gateway bootstrap** on a scheduled trigger after deploy
-- **Operator/admin HTTP APIs** for global blocklist reads/writes and gateway status/start
+- **Protected Admin UI** at `/admin/login` and `/admin` for gateway status/bootstrap, app config edits, and guild blocklist management by guild ID
 - **No KV namespace setup** and no external reaction relay required
 
 The required setup is adding your Discord token, configuring the public Discord application values, and registering the Worker URL as the Discord interactions endpoint.
@@ -25,9 +25,9 @@ The required setup is adding your Discord token, configuring the public Discord 
 
 - `ModerationStoreDO` stores blocked emojis and app config in SQLite.
 - `GatewaySessionDO` maintains the Discord Gateway connection, resumes sessions, and applies moderation to `MESSAGE_REACTION_ADD` events.
-- The public Worker exposes `/health`, `/interactions`, `/admin/gateway/status`, and `/admin/gateway/start`.
+- The public Worker exposes `/health`, `/interactions`, `/admin/login`, and the protected `/admin` dashboard.
 - Discord slash commands update the current server's blocklist.
-- The `/admin/*` HTTP routes remain the operator surface for gateway control.
+- The shared runtime serves the same admin routes in Cloudflare and the portable Node/Docker deployment.
 
 ## Prerequisites
 
@@ -71,7 +71,10 @@ Then add the runtime secrets:
 ```bash
 wrangler secret put DISCORD_BOT_TOKEN
 
-# Optional: require bearer auth for admin routes.
+# Required: enable the admin dashboard login at /admin/login.
+wrangler secret put ADMIN_UI_PASSWORD
+
+# Optional: require bearer auth for legacy admin routes.
 wrangler secret put ADMIN_AUTH_SECRET
 ```
 
@@ -102,21 +105,19 @@ Discord will validate the endpoint using `DISCORD_PUBLIC_KEY`. This is a one-tim
 
 After `DISCORD_BOT_TOKEN` is present, the scheduled bootstrap will start the gateway session automatically within five minutes. If `DISCORD_APPLICATION_ID` is also configured, the Worker first syncs `SLASH_COMMAND_DEFINITIONS` to Discord with the application commands REST API and then starts the gateway session.
 
-To check status:
+Open the admin dashboard:
 
-```bash
-curl https://your-worker-url.workers.dev/admin/gateway/status
-```
+1. Visit `https://your-worker-url.workers.dev/admin/login`
+2. Sign in with the password you stored in `ADMIN_UI_PASSWORD`
+3. Use the dashboard to:
+   - check gateway status
+   - trigger an immediate bootstrap/command sync
+   - edit app config values
+   - manage a guild blocklist by guild ID
 
-To force an immediate start instead of waiting for the next scheduled bootstrap:
+The dashboard replaces ad-hoc `curl` commands as the supported operator surface for runtime administration.
 
-```bash
-curl -X POST https://your-worker-url.workers.dev/admin/gateway/start
-```
-
-That admin bootstrap path uses the same command-sync-first flow as the scheduled bootstrap, so it is the fastest way to force a command re-sync after updating configuration.
-
-If `ADMIN_AUTH_SECRET` is configured, include it as a bearer token on admin requests:
+If `ADMIN_AUTH_SECRET` is configured for legacy automation, include it as a bearer token on the underlying admin routes:
 
 ```bash
 curl https://your-worker-url.workers.dev/admin/gateway/status \
@@ -154,16 +155,19 @@ These commands are **server-local**: they update the blocklist or timed-role ass
 
 For timed roles, the role must already exist and be configured in Discord; the bot only adds and removes it on a timer. The bot also needs **Manage Roles**, and its highest role must be above the role it is trying to assign or remove.
 
-## Admin API
+## Admin UI and operator routes
 
 | Method | Endpoint | Description |
 | --- | --- | --- |
 | GET | `/health` | Basic health check |
 | POST | `/interactions` | Discord interactions callback endpoint |
-| GET | `/admin/gateway/status` | Return current gateway session state |
-| POST | `/admin/gateway/start` | Force an immediate command sync + gateway bootstrap |
+| GET | `/admin/login` | Render the admin login page |
+| GET | `/admin` | Render the authenticated admin dashboard |
+| GET | `/admin/gateway/status` | Legacy runtime endpoint used by the dashboard for gateway state |
+| POST | `/admin/gateway/start` | Legacy runtime endpoint used by the dashboard to force bootstrap |
+| GET/POST | `/admin/api/*` | Session-protected dashboard APIs for gateway, config, and guild blocklist operations |
 
-If `ADMIN_AUTH_SECRET` is configured, all `/admin/*` routes require `Authorization: Bearer <secret>`.
+Set `ADMIN_UI_PASSWORD` to enable the supported browser-based operator workflow. The dashboard is the supported interface for gateway status/bootstrap, app config edits, and guild blocklist management by guild ID. If `ADMIN_AUTH_SECRET` is configured, bearer auth still applies to the legacy `/admin/gateway/*` routes.
 
 ## Run outside Cloudflare with Docker
 
@@ -176,15 +180,16 @@ If `ADMIN_AUTH_SECRET` is configured, all `/admin/*` routes require `Authorizati
 2. Start the self-contained runtime:
 
    ```bash
-   docker run --rm -p 8787:8787 \
-     -e DISCORD_BOT_TOKEN=... \
-     -e BOT_USER_ID=... \
-     -e DISCORD_PUBLIC_KEY=... \
-     -e DISCORD_APPLICATION_ID=... \
-     -e SQLITE_PATH=/data/runtime.sqlite \
-     -v "$PWD/data:/data" \
-     discord-automation-workers
-   ```
+    docker run --rm -p 8787:8787 \
+      -e DISCORD_BOT_TOKEN=... \
+      -e BOT_USER_ID=... \
+      -e DISCORD_PUBLIC_KEY=... \
+      -e DISCORD_APPLICATION_ID=... \
+      -e ADMIN_UI_PASSWORD=... \
+      -e SQLITE_PATH=/data/runtime.sqlite \
+      -v "$PWD/data:/data" \
+      discord-automation-workers
+    ```
 
 This container hosts the HTTP API, Discord gateway connection, scheduler, and SQLite database in one process. Windows packaging can build on the same portable runtime later, but it is not part of this phase.
 

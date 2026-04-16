@@ -12,6 +12,9 @@ crons = ["*/5 * * * *"]
 
 # Discord Credentials (set as secrets, not here)
 # wrangler secret put DISCORD_BOT_TOKEN
+# wrangler secret put ADMIN_UI_PASSWORD
+# Optional for bearer-protected legacy admin routes:
+# wrangler secret put ADMIN_AUTH_SECRET
 
 [[durable_objects.bindings]]
 name = "MODERATION_STORE_DO"

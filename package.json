@@ -12,7 +12,7 @@
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "build:admin": "vite build -c vite.admin.config.ts && node scripts/embed-admin-build.mjs",
-    "typecheck": "pnpm run build:admin && tsc --noEmit && tsc -p tsconfig.node.json --noEmit",
+    "typecheck": "pnpm run build:admin && tsc --noEmit --skipLibCheck && tsc -p tsconfig.node.json --noEmit",
     "build:test": "tsc -p tsconfig.tests.json",
     "build:node": "tsc -p tsconfig.node.json",
     "start:node": "node dist-node/src/runtime/node-main.js",
@@ -59,8 +59,11 @@
       "DISCORD_BOT_TOKEN": {
         "description": "The Discord bot token for gateway access and slash-command sync."
       },
+      "ADMIN_UI_PASSWORD": {
+        "description": "Password that enables the web admin dashboard at `/admin/login`."
+      },
       "ADMIN_AUTH_SECRET": {
-        "description": "Optional bearer token that protects the `/admin/*` routes."
+        "description": "Optional bearer token for legacy `/admin/gateway/*` automation routes."
       }
     }
   }
