@@ -70,6 +70,7 @@ export interface DiscordMessageResource {
 }
 
 export interface DiscordMessageListItem extends DiscordMessageResource {
+  timestamp: string;
   author: {
     id: string;
     username: string;
