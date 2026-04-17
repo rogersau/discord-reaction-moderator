@@ -9,8 +9,8 @@ const Alert = React.forwardRef<
     ref={ref}
     role="alert"
     className={cn(
-      "relative w-full rounded-lg border p-4",
-      variant === "destructive" && "border-destructive/50 text-destructive",
+      "relative w-full rounded-2xl border border-border/80 bg-background/70 p-4 text-foreground",
+      variant === "destructive" && "border-destructive/40 bg-destructive/10",
       className
     )}
     {...props}

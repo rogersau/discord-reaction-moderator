@@ -1,16 +1,18 @@
 import { createRuntimeApp } from "./app";
 import { getModerationStoreStub } from "../reaction-moderation";
+import { assertValidDiscordPublicKey } from "../discord";
 import type { Env } from "../env";
 import type { AppConfigMutation } from "./admin-types";
 
 export function createCloudflareRuntime(env: Env) {
+  const discordPublicKey = assertValidDiscordPublicKey(env.DISCORD_PUBLIC_KEY);
   const gatewayStub = env.GATEWAY_SESSION_DO.get(
     env.GATEWAY_SESSION_DO.idFromName("gateway-session")
   );
   const storeStub = getModerationStoreStub(env);
 
   return createRuntimeApp({
-    discordPublicKey: env.DISCORD_PUBLIC_KEY,
+    discordPublicKey,
     discordBotToken: env.DISCORD_BOT_TOKEN,
     discordApplicationId: env.DISCORD_APPLICATION_ID,
     adminAuthSecret: env.ADMIN_AUTH_SECRET,

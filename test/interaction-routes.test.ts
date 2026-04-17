@@ -61,6 +61,17 @@ test("worker rejects interactions with a stale Discord timestamp", async () => {
   assert.equal(await response.text(), "Unauthorized");
 });
 
+test("worker rejects malformed Discord public key configuration before handling requests", async () => {
+  await assert.rejects(
+    worker.fetch(
+      new Request("https://worker.example/health"),
+      createEnv({ DISCORD_PUBLIC_KEY: `${"a".repeat(63)}y` }),
+      {} as ExecutionContext
+    ),
+    /DISCORD_PUBLIC_KEY must be a 64-character hex string/
+  );
+});
+
 test("worker rejects slash commands from members without guild admin permissions", async () => {
   const storeCalls: Array<{ input: string; method: string; body: unknown }> = [];
   const { publicKeyHex, request } = await createSignedInteractionRequest(

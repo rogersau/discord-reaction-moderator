@@ -102,3 +102,17 @@ test("loadNodeRuntimeConfig rejects out-of-range port", () => {
     /PORT must be a valid port number/
   );
 });
+
+test("loadNodeRuntimeConfig rejects malformed Discord public keys", () => {
+  assert.throws(
+    () =>
+      loadNodeRuntimeConfig({
+        DISCORD_BOT_TOKEN: "bot-token",
+        BOT_USER_ID: "bot-user-id",
+        DISCORD_PUBLIC_KEY: `${"a".repeat(63)}y`,
+        PORT: "8787",
+        SQLITE_PATH: "./data/runtime.sqlite",
+      }),
+    /DISCORD_PUBLIC_KEY must be a 64-character hex string/
+  );
+});

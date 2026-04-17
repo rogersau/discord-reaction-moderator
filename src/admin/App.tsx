@@ -3,6 +3,8 @@ import {
   startGatewayStatusMonitor,
   type GatewayStatusMonitor,
 } from "../admin-gateway-monitor";
+import { cn } from "./lib/utils";
+import { Alert, AlertDescription } from "./components/ui/alert";
 import { Button } from "./components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./components/ui/card";
 import { Input } from "./components/ui/input";
@@ -139,91 +141,159 @@ export default function App({ initialAuthenticated = false }: Props) {
   }
 
   if (authenticated) {
+    const totalTimedRoles = overview
+      ? overview.guilds.reduce((sum, guild) => sum + guild.timedRoles.length, 0)
+      : null;
+
     return (
-      <main className="p-8 space-y-8">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold">Admin Dashboard</h1>
-          <Button
-            variant="outline"
-            onClick={async () => {
-              await fetch("/admin/logout", { method: "POST" });
-              window.location.href = "/admin/login";
-            }}
-          >
-            Sign out
-          </Button>
-        </div>
-
-        <section>
-          <h2 className="text-xl font-semibold mb-2">Gateway</h2>
-          <Card>
-            <CardContent className="pt-4 space-y-4">
-              <div className="flex gap-2 flex-wrap">
-                <Button size="sm" onClick={handleGatewayStart}>Start gateway</Button>
-                <Button size="sm" variant="outline" onClick={() => void loadOverview()}>
-                  Refresh dashboard
-                </Button>
-              </div>
-              {gatewayError && <p className="text-sm text-red-600">{gatewayError}</p>}
-              {gatewayStatus ? (
-                <GatewayDetails status={gatewayStatus} />
-              ) : (
-                <p>Loading gateway status…</p>
-              )}
-            </CardContent>
-          </Card>
-        </section>
-
-        <section>
-          <h2 className="text-xl font-semibold mb-2">Stored Server Data</h2>
-          <Card>
-            <CardContent className="pt-4 space-y-4">
-              {overviewError && <p className="text-sm text-red-600">{overviewError}</p>}
-              {overview ? (
-                overview.guilds.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    No blocklists or timed roles are stored yet.
+      <main className="min-h-screen">
+        <div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
+          <header className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-card/90 p-6 shadow-[0_32px_90px_-44px_rgba(5,10,25,1)] backdrop-blur sm:p-8">
+            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/70 to-transparent" />
+            <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-[0.32em] text-primary/80">
+                    Operations Console
                   </p>
-                ) : (
-                  <div className="space-y-4">
-                    {overview.guilds.map((guild) => (
-                      <GuildOverviewCard key={guild.guildId} guild={guild} />
-                    ))}
+                  <div className="space-y-2">
+                    <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+                      Admin Dashboard
+                    </h1>
+                    <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
+                      Monitor gateway health, review stored guild state, and manage moderation
+                      controls from a single dark workspace.
+                    </p>
                   </div>
-                )
-              ) : (
-                <p>Loading stored server data…</p>
-              )}
-            </CardContent>
-          </Card>
-        </section>
+                </div>
+                <div className="flex flex-wrap gap-3">
+                  <SummaryChip
+                    label="Gateway"
+                    value={gatewayStatus?.status ?? "Loading"}
+                    tone={getStatusTone(gatewayStatus?.status ?? null)}
+                  />
+                  <SummaryChip
+                    label="Stored guilds"
+                    value={overview ? String(overview.guilds.length) : "-"}
+                  />
+                  <SummaryChip
+                    label="Timed roles"
+                    value={totalTimedRoles === null ? "-" : String(totalTimedRoles)}
+                  />
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                className="w-full sm:w-auto"
+                onClick={async () => {
+                  await fetch("/admin/logout", { method: "POST" });
+                  window.location.href = "/admin/login";
+                }}
+              >
+                Sign out
+              </Button>
+            </div>
+          </header>
 
-        <section>
-          <h2 className="text-xl font-semibold mb-2">Blocklist</h2>
-          <Card>
-            <CardContent className="pt-4">
-              <BlocklistEditor onUpdated={loadOverview} />
-            </CardContent>
-          </Card>
-        </section>
+          <div className="grid gap-6 2xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
+            <section className="space-y-4">
+              <SectionHeading
+                title="Gateway"
+                description="Start the session and watch live telemetry from the Discord gateway."
+              />
+              <Card>
+                <CardContent className="space-y-5 pt-6">
+                  <div className="flex flex-wrap gap-2">
+                    <Button size="sm" onClick={handleGatewayStart}>Start gateway</Button>
+                    <Button size="sm" variant="outline" onClick={() => void loadOverview()}>
+                      Refresh dashboard
+                    </Button>
+                  </div>
+                  {gatewayError && (
+                    <Alert variant="destructive">
+                      <AlertDescription>{gatewayError}</AlertDescription>
+                    </Alert>
+                  )}
+                  {gatewayStatus ? (
+                    <GatewayDetails status={gatewayStatus} />
+                  ) : (
+                    <EmptyState message="Loading gateway status..." />
+                  )}
+                </CardContent>
+              </Card>
+            </section>
 
-        <section>
-          <h2 className="text-xl font-semibold mb-2">Timed Roles</h2>
-          <Card>
-            <CardContent className="pt-4">
-              <TimedRolesEditor onUpdated={loadOverview} />
-            </CardContent>
-          </Card>
-        </section>
+            <section className="space-y-4">
+              <SectionHeading
+                title="Stored Server Data"
+                description="Review blocklist coverage and active timed roles across connected guilds."
+              />
+              <Card>
+                <CardContent className="space-y-4 pt-6">
+                  {overviewError && (
+                    <Alert variant="destructive">
+                      <AlertDescription>{overviewError}</AlertDescription>
+                    </Alert>
+                  )}
+                  {overview ? (
+                    overview.guilds.length === 0 ? (
+                      <EmptyState message="No blocklists or timed roles are stored yet." />
+                    ) : (
+                      <div className="space-y-4">
+                        {overview.guilds.map((guild) => (
+                          <GuildOverviewCard key={guild.guildId} guild={guild} />
+                        ))}
+                      </div>
+                    )
+                  ) : (
+                    <EmptyState message="Loading stored server data..." />
+                  )}
+                </CardContent>
+              </Card>
+            </section>
+          </div>
+
+          <div className="grid gap-6">
+            <section className="space-y-4">
+              <SectionHeading
+                title="Blocklist"
+                description="Load the guild blocklist, then add or remove blocked reaction emoji."
+              />
+              <Card>
+                <CardContent className="pt-6">
+                  <BlocklistEditor onUpdated={loadOverview} />
+                </CardContent>
+              </Card>
+            </section>
+
+            <section className="space-y-4">
+              <SectionHeading
+                title="Timed Roles"
+                description="Inspect scheduled role assignments and issue new ones without leaving the dashboard."
+              />
+              <Card>
+                <CardContent className="pt-6">
+                  <TimedRolesEditor onUpdated={loadOverview} />
+                </CardContent>
+              </Card>
+            </section>
+          </div>
+        </div>
       </main>
     );
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center p-4">
-      <Card className="w-full max-w-sm">
+    <main className="flex min-h-screen items-center justify-center p-4 sm:p-6">
+      <Card className="w-full max-w-md overflow-hidden">
         <CardHeader>
+          <p className="text-xs font-semibold uppercase tracking-[0.32em] text-primary/80">
+            Operations Console
+          </p>
           <CardTitle>Admin Login</CardTitle>
+          <p className="text-sm leading-6 text-muted-foreground">
+            Use the admin secret to access gateway controls, blocklists, and timed roles.
+          </p>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
@@ -242,7 +312,9 @@ export default function App({ initialAuthenticated = false }: Props) {
               Sign in
             </Button>
             {loginError && (
-              <p className="text-sm text-red-600 text-center">Incorrect password. Please try again.</p>
+              <Alert variant="destructive">
+                <AlertDescription>Incorrect password. Please try again.</AlertDescription>
+              </Alert>
             )}
           </div>
         </CardContent>
@@ -252,30 +324,72 @@ export default function App({ initialAuthenticated = false }: Props) {
 }
 
 function GatewayDetails({ status }: { status: GatewayStatus }) {
+  const details = [
+    ["Session ID", status.sessionId ?? "Not established"],
+    ["Last sequence", status.lastSequence ?? "None"],
+    ["Heartbeat interval", formatHeartbeatInterval(status.heartbeatIntervalMs)],
+    ["Backoff attempt", String(status.backoffAttempt)],
+    ["Resume URL", status.resumeGatewayUrl ?? "Default gateway URL"],
+    ["Last error", status.lastError ?? "None"],
+  ] satisfies Array<[string, string | number]>;
+
   return (
-    <div className="grid gap-2 text-sm">
-      <p>Status: <strong>{status.status}</strong></p>
-      <p>Session ID: {status.sessionId ?? "Not established"}</p>
-      <p>Last sequence: {status.lastSequence ?? "None"}</p>
-      <p>Heartbeat interval: {formatHeartbeatInterval(status.heartbeatIntervalMs)}</p>
-      <p>Backoff attempt: {status.backoffAttempt}</p>
-      <p>Resume URL: {status.resumeGatewayUrl ?? "Default gateway URL"}</p>
-      <p>Last error: {status.lastError ?? "None"}</p>
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-primary/15 bg-primary/10 px-4 py-3">
+        <span className="text-xs font-semibold uppercase tracking-[0.28em] text-primary/80">
+          Current state
+        </span>
+        <StatusBadge status={status.status} />
+        <p className="text-sm text-muted-foreground">
+          {status.lastError
+            ? "The gateway reported an error. Review the details below."
+            : "Session telemetry is available and up to date."}
+        </p>
+      </div>
+      <dl className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        {details.map(([label, value]) => (
+          <div key={label} className="rounded-2xl border border-border/70 bg-background/55 p-4">
+            <dt className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+              {label}
+            </dt>
+            <dd className="mt-2 text-sm font-medium text-foreground">{value}</dd>
+          </div>
+        ))}
+      </dl>
     </div>
   );
 }
 
 function GuildOverviewCard({ guild }: { guild: AdminOverviewGuild }) {
   return (
-    <div className="rounded-lg border p-4 space-y-3">
-      <div>
-        <h3 className="font-semibold">{guild.guildId}</h3>
-        <p className="text-sm text-muted-foreground">
+    <div className="rounded-2xl border border-border/70 bg-background/55 p-4 space-y-4">
+      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary/75">Guild</p>
+          <h3 className="mt-2 text-lg font-semibold tracking-tight">{guild.guildId}</h3>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Stored moderation data for this server.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <span className="rounded-full border border-border/70 bg-card/80 px-3 py-1 text-xs font-medium text-foreground">
+            {guild.emojis.length} blocked emoji{guild.emojis.length === 1 ? "" : "s"}
+          </span>
+          <span className="rounded-full border border-border/70 bg-card/80 px-3 py-1 text-xs font-medium text-foreground">
+            {guild.timedRoles.length} timed role{guild.timedRoles.length === 1 ? "" : "s"}
+          </span>
+        </div>
+      </div>
+      <div className="rounded-2xl border border-border/70 bg-card/50 p-4">
+        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+          Blocked Emoji
+        </p>
+        <p className="mt-2 text-sm text-muted-foreground">
           Blocked emojis: {guild.emojis.length === 0 ? "None" : guild.emojis.join(" ")}
         </p>
       </div>
       {guild.timedRoles.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No timed roles are active in this guild.</p>
+        <EmptyState message="No timed roles are active in this guild." />
       ) : (
         <Table>
           <TableHeader>
@@ -339,43 +453,72 @@ function BlocklistEditor({ onUpdated }: { onUpdated: () => Promise<void> }) {
   }
 
   return (
-    <div className="space-y-2">
-      <div className="flex gap-2 items-end flex-wrap">
-        <div className="space-y-1">
-          <Label htmlFor="bl-guild">Guild ID</Label>
-          <Input
-            id="bl-guild"
-            value={guildId}
-            onChange={(e) => { setGuildId(e.target.value); setCurrentEmojis(null); }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                void loadBlocklist(guildId);
-              }
-            }}
-          />
+    <div className="space-y-4">
+      <EditorPanel>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-[minmax(0,1.45fr)_minmax(0,1.05fr)_minmax(14rem,0.95fr)]">
+          <FormField label="Guild ID" htmlFor="bl-guild">
+            <Input
+              id="bl-guild"
+              value={guildId}
+              onChange={(e) => { setGuildId(e.target.value); setCurrentEmojis(null); }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  void loadBlocklist(guildId);
+                }
+              }}
+            />
+          </FormField>
+          <FormField label="Emoji" htmlFor="bl-emoji">
+            <Input id="bl-emoji" value={emoji} onChange={(e) => setEmoji(e.target.value)} />
+          </FormField>
+          <FormField label="Action">
+            <div className="grid grid-cols-2 gap-2 rounded-2xl border border-border/70 bg-background/55 p-1.5">
+              <Button
+                size="sm"
+                variant={action === "add" ? "default" : "outline"}
+                onClick={() => setAction("add")}
+              >
+                Add
+              </Button>
+              <Button
+                size="sm"
+                variant={action === "remove" ? "default" : "outline"}
+                onClick={() => setAction("remove")}
+              >
+                Remove
+              </Button>
+            </div>
+          </FormField>
         </div>
-        <div className="space-y-1">
-          <Label htmlFor="bl-emoji">Emoji</Label>
-          <Input id="bl-emoji" value={emoji} onChange={(e) => setEmoji(e.target.value)} />
-        </div>
-        <div className="space-y-1">
-          <Label>Action</Label>
-          <div className="flex gap-1">
-            <Button size="sm" variant={action === "add" ? "default" : "outline"} onClick={() => setAction("add")}>Add</Button>
-            <Button size="sm" variant={action === "remove" ? "default" : "outline"} onClick={() => setAction("remove")}>Remove</Button>
-          </div>
-        </div>
-        <Button size="sm" variant="outline" disabled={!trimmedGuildId} onClick={() => void loadBlocklist(guildId)}>Load blocklist</Button>
-        <Button size="sm" onClick={handleSubmit}>Apply</Button>
-      </div>
+        <EditorActions>
+          <Button
+            size="sm"
+            className="w-full sm:w-auto sm:min-w-[11rem]"
+            variant="outline"
+            disabled={!trimmedGuildId}
+            onClick={() => void loadBlocklist(guildId)}
+          >
+            Load blocklist
+          </Button>
+          <Button size="sm" className="w-full sm:w-auto sm:min-w-[10rem]" onClick={handleSubmit}>
+            Apply
+          </Button>
+        </EditorActions>
+      </EditorPanel>
       {currentEmojis !== null && (
-        <p className="text-sm text-muted-foreground">
-          {currentEmojis.length === 0
-            ? "No emojis currently blocked in this guild."
-            : `Currently blocked: ${currentEmojis.join(" ")}`}
-        </p>
+        <div className="rounded-2xl border border-border/70 bg-background/55 p-4">
+          <p className="text-sm text-muted-foreground">
+            {currentEmojis.length === 0
+              ? "No emojis currently blocked in this guild."
+              : `Currently blocked: ${currentEmojis.join(" ")}`}
+          </p>
+        </div>
       )}
-      {result && <p className="text-sm">{result}</p>}
+      {result && (
+        <Alert className="border-primary/20 bg-primary/10">
+          <AlertDescription>{result}</AlertDescription>
+        </Alert>
+      )}
     </div>
   );
 }
@@ -465,42 +608,52 @@ function TimedRolesEditor({ onUpdated }: { onUpdated: () => Promise<void> }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex gap-2 items-end flex-wrap">
-        <div className="space-y-1">
-          <Label htmlFor="tr-guild">Guild ID</Label>
-          <Input
-            id="tr-guild"
-            value={guildId}
-            onChange={(e) => {
-              setGuildId(e.target.value);
-              setAssignments(null);
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                void loadAssignments(guildId);
-              }
-            }}
-          />
+      <EditorPanel>
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(8rem,0.8fr)]">
+          <FormField label="Guild ID" htmlFor="tr-guild">
+            <Input
+              id="tr-guild"
+              value={guildId}
+              onChange={(e) => {
+                setGuildId(e.target.value);
+                setAssignments(null);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  void loadAssignments(guildId);
+                }
+              }}
+            />
+          </FormField>
+          <FormField label="User ID" htmlFor="tr-user">
+            <Input id="tr-user" value={userId} onChange={(e) => setUserId(e.target.value)} />
+          </FormField>
+          <FormField label="Role ID" htmlFor="tr-role">
+            <Input id="tr-role" value={roleId} onChange={(e) => setRoleId(e.target.value)} />
+          </FormField>
+          <FormField label="Duration" htmlFor="tr-duration">
+            <Input id="tr-duration" value={duration} onChange={(e) => setDuration(e.target.value)} />
+          </FormField>
         </div>
-        <div className="space-y-1">
-          <Label htmlFor="tr-user">User ID</Label>
-          <Input id="tr-user" value={userId} onChange={(e) => setUserId(e.target.value)} />
-        </div>
-        <div className="space-y-1">
-          <Label htmlFor="tr-role">Role ID</Label>
-          <Input id="tr-role" value={roleId} onChange={(e) => setRoleId(e.target.value)} />
-        </div>
-        <div className="space-y-1">
-          <Label htmlFor="tr-duration">Duration</Label>
-          <Input id="tr-duration" value={duration} onChange={(e) => setDuration(e.target.value)} />
-        </div>
-        <Button size="sm" variant="outline" disabled={!trimmedGuildId} onClick={() => void loadAssignments(guildId)}>Load timed roles</Button>
-        <Button size="sm" onClick={() => void handleAdd()}>Add timed role</Button>
-      </div>
+        <EditorActions>
+          <Button
+            size="sm"
+            className="w-full sm:w-auto sm:min-w-[12rem]"
+            variant="outline"
+            disabled={!trimmedGuildId}
+            onClick={() => void loadAssignments(guildId)}
+          >
+            Load timed roles
+          </Button>
+          <Button size="sm" className="w-full sm:w-auto sm:min-w-[12rem]" onClick={() => void handleAdd()}>
+            Add timed role
+          </Button>
+        </EditorActions>
+      </EditorPanel>
 
       {assignments !== null && (
         assignments.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No timed roles are active in this guild.</p>
+          <EmptyState message="No timed roles are active in this guild." />
         ) : (
           <Table>
             <TableHeader>
@@ -535,10 +688,141 @@ function TimedRolesEditor({ onUpdated }: { onUpdated: () => Promise<void> }) {
         )
       )}
 
-      {message && <p className="text-sm text-green-600">{message}</p>}
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {message && (
+        <Alert className="border-primary/20 bg-primary/10">
+          <AlertDescription>{message}</AlertDescription>
+        </Alert>
+      )}
+      {error && (
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
     </div>
   );
+}
+
+function SectionHeading({ title, description }: { title: string; description: string }) {
+  return (
+    <div className="space-y-1.5 px-1">
+      <h2 className="text-xl font-semibold tracking-tight">{title}</h2>
+      <p className="text-sm leading-6 text-muted-foreground">{description}</p>
+    </div>
+  );
+}
+
+function EditorPanel({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="space-y-5 rounded-[1.75rem] border border-border/70 bg-background/30 p-5 lg:p-6">
+      {children}
+    </div>
+  );
+}
+
+function FormField({
+  label,
+  htmlFor,
+  children,
+}: {
+  label: string;
+  htmlFor?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="min-w-0 space-y-2.5">
+      <Label
+        htmlFor={htmlFor}
+        className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground"
+      >
+        {label}
+      </Label>
+      {children}
+    </div>
+  );
+}
+
+function EditorActions({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex flex-col gap-3 border-t border-border/70 pt-5 sm:flex-row sm:items-center sm:justify-end">
+      {children}
+    </div>
+  );
+}
+
+function SummaryChip({
+  label,
+  value,
+  tone = "neutral",
+}: {
+  label: string;
+  value: string;
+  tone?: StatusTone;
+}) {
+  return (
+    <div
+      className={cn(
+        "min-w-[8.75rem] rounded-2xl border px-4 py-3",
+        tone === "success" && "border-emerald-400/20 bg-emerald-400/10",
+        tone === "warning" && "border-amber-400/20 bg-amber-400/10",
+        tone === "danger" && "border-destructive/25 bg-destructive/10",
+        tone === "neutral" && "border-border/70 bg-background/45"
+      )}
+    >
+      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+        {label}
+      </p>
+      <p className="mt-2 text-sm font-semibold text-foreground">{value}</p>
+    </div>
+  );
+}
+
+function EmptyState({ message }: { message: string }) {
+  return (
+    <div className="rounded-2xl border border-dashed border-border/70 bg-background/40 px-4 py-5 text-sm text-muted-foreground">
+      {message}
+    </div>
+  );
+}
+
+function StatusBadge({ status }: { status: string }) {
+  const tone = getStatusTone(status);
+
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em]",
+        tone === "success" && "border-emerald-400/25 bg-emerald-400/15 text-emerald-100",
+        tone === "warning" && "border-amber-400/25 bg-amber-400/15 text-amber-100",
+        tone === "danger" && "border-destructive/30 bg-destructive/15 text-rose-100",
+        tone === "neutral" && "border-border/70 bg-background/70 text-foreground"
+      )}
+    >
+      {status}
+    </span>
+  );
+}
+
+type StatusTone = "success" | "warning" | "danger" | "neutral";
+
+function getStatusTone(status: string | null): StatusTone {
+  if (!status) {
+    return "neutral";
+  }
+
+  const normalized = status.toLowerCase();
+  if (normalized.includes("ready") || normalized.includes("connected") || normalized.includes("active")) {
+    return "success";
+  }
+
+  if (normalized.includes("error") || normalized.includes("fail") || normalized.includes("closed")) {
+    return "danger";
+  }
+
+  if (normalized.includes("backoff") || normalized.includes("start") || normalized.includes("connect")) {
+    return "warning";
+  }
+
+  return "neutral";
 }
 
 async function readJsonOrThrow<T>(input: RequestInfo | URL, init?: RequestInit): Promise<T> {

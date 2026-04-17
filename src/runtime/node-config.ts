@@ -1,3 +1,5 @@
+import { assertValidDiscordPublicKey } from "../discord";
+
 export interface NodeRuntimeConfig {
   discordBotToken: string;
   botUserId: string;
@@ -13,7 +15,7 @@ export interface NodeRuntimeConfig {
 export function loadNodeRuntimeConfig(env: Record<string, string | undefined>): NodeRuntimeConfig {
   const discordBotToken = requireValue(env, "DISCORD_BOT_TOKEN");
   const botUserId = requireValue(env, "BOT_USER_ID");
-  const discordPublicKey = requireValue(env, "DISCORD_PUBLIC_KEY");
+  const discordPublicKey = assertValidDiscordPublicKey(requireValue(env, "DISCORD_PUBLIC_KEY"));
   const sqlitePath = requireValue(env, "SQLITE_PATH");
   const portText = env.PORT ?? "8787";
   const port = Number.parseInt(portText, 10);

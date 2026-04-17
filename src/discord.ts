@@ -16,6 +16,13 @@ export class DiscordApiError extends Error {
   }
 }
 
+export function assertValidDiscordPublicKey(publicKeyHex: string): string {
+  if (!/^[0-9a-f]{64}$/i.test(publicKeyHex)) {
+    throw new Error("DISCORD_PUBLIC_KEY must be a 64-character hex string");
+  }
+  return publicKeyHex;
+}
+
 export async function verifyDiscordSignature(
   publicKeyHex: string,
   timestamp: string,
