@@ -17,8 +17,8 @@ export class DiscordApiError extends Error {
 }
 
 export interface GuildTicketResources {
-  channels: unknown[];
-  roles: unknown[];
+  channels: DiscordChannelResource[];
+  roles: DiscordRoleResource[];
 }
 
 export interface CreateTicketChannelInput {
@@ -31,8 +31,51 @@ export interface CreateTicketChannelInput {
 
 export interface CreateChannelMessageInput {
   content?: string;
-  embeds?: unknown[];
-  allowed_mentions?: unknown;
+  embeds?: DiscordEmbed[];
+  allowed_mentions?: DiscordAllowedMentions;
+}
+
+export interface DiscordChannelResource {
+  id: string;
+  name: string;
+  type: number;
+  parent_id: string | null;
+  position: number | null;
+}
+
+export interface DiscordRoleResource {
+  id: string;
+  name: string;
+  permissions: string;
+  position: number;
+}
+
+export interface DiscordAllowedMentions {
+  parse?: Array<"roles" | "users" | "everyone">;
+  roles?: string[];
+  users?: string[];
+  replied_user?: boolean;
+}
+
+export interface DiscordEmbed {
+  title?: string;
+  description?: string;
+  color?: number;
+}
+
+export interface DiscordMessageResource {
+  id: string;
+  channel_id: string;
+  content: string;
+}
+
+export interface DiscordMessageListItem extends DiscordMessageResource {
+  author: {
+    id: string;
+    username: string;
+    discriminator: string;
+    global_name: string | null;
+  };
 }
 
 export function assertValidDiscordPublicKey(publicKeyHex: string): string {
@@ -95,13 +138,13 @@ export async function listGuildTicketResources(
   botToken: string
 ): Promise<GuildTicketResources> {
   const [channels, roles] = await Promise.all([
-    discordGetJson(`${DISCORD_API}/guilds/${guildId}/channels`, botToken),
-    discordGetJson(`${DISCORD_API}/guilds/${guildId}/roles`, botToken),
+    discordGetJson<DiscordChannelResource[]>(`${DISCORD_API}/guilds/${guildId}/channels`, botToken),
+    discordGetJson<DiscordRoleResource[]>(`${DISCORD_API}/guilds/${guildId}/roles`, botToken),
   ]);
 
   return {
-    channels: Array.isArray(channels) ? channels : [],
-    roles: Array.isArray(roles) ? roles : [],
+    channels,
+    roles,
   };
 }
 
@@ -153,7 +196,7 @@ export async function createChannelMessage(
   channelId: string,
   body: CreateChannelMessageInput,
   botToken: string
-): Promise<{ id: string }> {
+): Promise<DiscordMessageResource> {
   const response = await fetch(`${DISCORD_API}/channels/${channelId}/messages`, {
     method: "POST",
     headers: {
@@ -163,20 +206,22 @@ export async function createChannelMessage(
     body: JSON.stringify(body),
   });
 
-  return await parseDiscordJson<{ id: string }>(response, "Failed to create channel message");
+  return await parseDiscordJson<DiscordMessageResource>(response, "Failed to create channel message");
 }
 
 export async function listChannelMessages(
   channelId: string,
   botToken: string
-): Promise<unknown[]> {
+): Promise<DiscordMessageListItem[]> {
   const response = await discordRequest(
     `${DISCORD_API}/channels/${channelId}/messages`,
     "GET",
     botToken
   );
-  const data = await parseDiscordJson<unknown[]>(response, "Failed to list channel messages");
-  return Array.isArray(data) ? data : [];
+  return await parseDiscordJson<DiscordMessageListItem[]>(
+    response,
+    "Failed to list channel messages"
+  );
 }
 
 export async function deleteChannel(channelId: string, botToken: string): Promise<void> {
@@ -188,7 +233,7 @@ export async function uploadTranscriptToChannel(
   filename: string,
   transcriptBody: string,
   botToken: string
-): Promise<{ id: string }> {
+): Promise<DiscordMessageResource> {
   const form = new FormData();
   form.set(
     "payload_json",
@@ -206,7 +251,7 @@ export async function uploadTranscriptToChannel(
     body: form,
   });
 
-  return await parseDiscordJson<{ id: string }>(response, "Failed to upload transcript");
+  return await parseDiscordJson<DiscordMessageResource>(response, "Failed to upload transcript");
 }
 
 /**
@@ -319,9 +364,9 @@ async function discordRequest(url: string, method: string, botToken: string): Pr
   return response;
 }
 
-async function discordGetJson(url: string, botToken: string): Promise<unknown> {
+async function discordGetJson<T>(url: string, botToken: string): Promise<T> {
   const response = await discordRequest(url, "GET", botToken);
-  return await parseDiscordJson<unknown>(response, "Failed to parse Discord response");
+  return await parseDiscordJson<T>(response, "Failed to parse Discord response");
 }
 
 async function parseDiscordJson<T>(response: Response, message: string): Promise<T> {
