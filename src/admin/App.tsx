@@ -467,15 +467,26 @@ function getStatusTone(status: string | null): StatusTone {
 async function readJsonOrThrow<T>(input: RequestInfo | URL, init?: RequestInit): Promise<T> {
   const response = await fetch(input, init);
   if (!response.ok) {
-    const message = (await response.text()) || `${response.status} ${response.statusText}`;
-    throw new Error(message);
+    const rawMessage = (await response.text()) || `${response.status} ${response.statusText}`;
+    throw new Error(describeError(new Error(rawMessage)));
   }
 
   return response.json() as Promise<T>;
 }
 
-function describeError(error: unknown): string {
-  return error instanceof Error ? error.message : "Unexpected dashboard error";
+export function describeError(error: unknown): string {
+  if (!(error instanceof Error)) {
+    return "Unexpected dashboard error";
+  }
+
+  return looksLikeHtmlError(error.message)
+    ? "Discord lookup failed right now."
+    : error.message;
+}
+
+function looksLikeHtmlError(value: string): boolean {
+  const normalized = value.trim().toLowerCase();
+  return normalized.startsWith("<!doctype html") || normalized.startsWith("<html");
 }
 
 function formatHeartbeatInterval(intervalMs: number | null): string {

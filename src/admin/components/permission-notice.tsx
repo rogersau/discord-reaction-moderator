@@ -38,11 +38,7 @@ export function PermissionNotice({
 
     void (async () => {
       try {
-        const response = await fetch(requestPath);
-        const body = (await response.json()) as AdminPermissionCheckResponse & { error?: string };
-        if (!response.ok) {
-          throw new Error(body.error ?? `Permission check failed (${response.status})`);
-        }
+        const body = await readPermissionResponse(requestPath);
         if (!cancelled) {
           setState({ kind: "ready", checks: body.checks });
         }
@@ -61,47 +57,92 @@ export function PermissionNotice({
     };
   }, [feature, trimmedGuildId]);
 
+  if (state.kind === "idle" || state.kind === "loading") {
+    return null;
+  }
+
+  if (state.kind === "error") {
+    return (
+      <Alert variant="destructive">
+        <AlertDescription>{state.message}</AlertDescription>
+      </Alert>
+    );
+  }
+
+  const failingChecks = state.checks.filter((check) => check.status !== "ok");
+  if (failingChecks.length === 0) {
+    return null;
+  }
+
   return (
     <Alert className="border-amber-500/30 bg-amber-500/10">
       <AlertDescription className="space-y-3">
         <div className="space-y-1">
           <p className="text-sm font-medium text-foreground">Permission check</p>
           <p className="text-sm text-muted-foreground">
-            {state.kind === "idle"
-              ? "Select a server to run a live Discord permission check."
-              : state.kind === "loading"
-                ? "Checking the bot's current Discord permissions for this server."
-                : state.kind === "error"
-                  ? state.message
-                  : state.checks.length === 0
-                    ? "No live Discord permission issues were found for this feature."
-                    : "Live Discord permission results for the selected server."}
+            The bot is missing one or more required Discord permissions for this server.
           </p>
         </div>
-        {state.kind === "ready" && state.checks.length > 0 ? (
-          <div className="space-y-3">
-            <div className="flex flex-wrap gap-2">
-              {state.checks.map((check) => (
-                <span
-                  key={check.label}
-                  className={getBadgeClassName(check.status)}
-                >
-                  {check.label}
-                </span>
-              ))}
-            </div>
-            <div className="space-y-1">
-              {state.checks.map((check) => (
-                <p key={`${check.label}:detail`} className="text-sm text-muted-foreground">
-                  {check.detail}
-                </p>
-              ))}
-            </div>
+        <div className="space-y-3">
+          <div className="flex flex-wrap gap-2">
+            {failingChecks.map((check) => (
+              <span
+                key={check.label}
+                className={getBadgeClassName(check.status)}
+              >
+                {check.label}
+              </span>
+            ))}
           </div>
-        ) : null}
+          <div className="space-y-1">
+            {failingChecks.map((check) => (
+              <p key={`${check.label}:detail`} className="text-sm text-muted-foreground">
+                {check.detail}
+              </p>
+            ))}
+          </div>
+        </div>
       </AlertDescription>
     </Alert>
   );
+}
+
+async function readPermissionResponse(path: string): Promise<AdminPermissionCheckResponse> {
+  const response = await fetch(path);
+  const rawBody = await response.text();
+  const parsedBody = parsePermissionBody(rawBody);
+
+  if (!response.ok) {
+    throw new Error(
+      parsedBody?.error ??
+      (looksLikeHtmlError(rawBody)
+        ? "Permission check failed right now."
+        : rawBody || `Permission check failed (${response.status})`)
+    );
+  }
+
+  if (!parsedBody) {
+    throw new Error("Failed to parse permission checks.");
+  }
+
+  return parsedBody;
+}
+
+function parsePermissionBody(rawBody: string): (AdminPermissionCheckResponse & { error?: string }) | null {
+  if (!rawBody) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(rawBody) as AdminPermissionCheckResponse & { error?: string };
+  } catch {
+    return null;
+  }
+}
+
+function looksLikeHtmlError(value: string): boolean {
+  const normalized = value.trim().toLowerCase();
+  return normalized.startsWith("<!doctype html") || normalized.startsWith("<html");
 }
 
 function getBadgeClassName(status: AdminPermissionCheck["status"]) {

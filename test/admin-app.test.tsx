@@ -132,8 +132,8 @@ test("authenticated admin dashboard renders the blocklist workspace on /admin/bl
   assert.match(html, /id="sidebar-guild-query"/);
   assert.match(html, /Load blocklist/i);
   assert.match(html, /Apply/i);
-  assert.match(html, /live Discord permission check/i);
-  assert.doesNotMatch(html, /Manage Messages/i);
+  assert.doesNotMatch(html, /Permission check/i);
+  assert.doesNotMatch(html, /live Discord permission check/i);
   assert.doesNotMatch(html, /id="bl-guild-query"/);
   assert.doesNotMatch(html, /Add timed role/i);
   assert.doesNotMatch(html, /Load ticket panel/i);
@@ -149,7 +149,8 @@ test("authenticated admin dashboard renders the timed roles workspace on /admin/
   assert.match(html, /Load timed roles/i);
   assert.match(html, /Add timed role/i);
   assert.match(html, /Duration/i);
-  assert.match(html, /live Discord permission check/i);
+  assert.doesNotMatch(html, /Permission check/i);
+  assert.doesNotMatch(html, /live Discord permission check/i);
   assert.doesNotMatch(html, /Manage Roles/i);
   assert.doesNotMatch(html, /highest role/i);
   assert.doesNotMatch(html, /id="tr-guild-query"/);
@@ -164,7 +165,8 @@ test("authenticated admin dashboard renders the tickets workspace on /admin/tick
   assert.match(html, /id="sidebar-guild-query"/);
   assert.match(html, /Load ticket panel/i);
   assert.match(html, /Ticket Panels|Tickets/i);
-  assert.match(html, /live Discord permission check/i);
+  assert.doesNotMatch(html, /Permission check/i);
+  assert.doesNotMatch(html, /live Discord permission check/i);
   assert.doesNotMatch(html, /channel access/i);
   assert.doesNotMatch(html, /support roles/i);
   assert.doesNotMatch(html, /id="tp-guild-query"/);
@@ -281,6 +283,18 @@ test("combineDashboardErrors preserves both overview and gateway failures", () =
   assert.equal(combineDashboardErrors(null, "Gateway failed."), "Gateway failed.");
   assert.equal(combineDashboardErrors("Overview failed.", null), "Overview failed.");
   assert.equal(combineDashboardErrors(null, null), null);
+});
+
+test("describeError collapses HTML worker failures into a friendly dashboard message", () => {
+  const helper = (AdminAppModule as Record<string, unknown>).describeError;
+
+  assert.equal(typeof helper, "function");
+  const describeError = helper as (error: unknown) => string;
+
+  assert.equal(
+    describeError(new Error("<!DOCTYPE html><html><head><title>Worker threw exception</title></head></html>")),
+    "Discord lookup failed right now."
+  );
 });
 
 

@@ -142,13 +142,7 @@ export function buildTicketPermissionChecks(
   panel: TicketPanelConfig | null
 ): AdminPermissionCheck[] {
   if (!panel) {
-    return [
-      {
-        label: "Ticket panel configuration",
-        status: "warning",
-        detail: "No ticket panel is configured for this server yet, so ticket channel and support-role checks have not run.",
-      },
-    ];
+    return [];
   }
 
   const basePermissions = getBaseGuildPermissions(context);
