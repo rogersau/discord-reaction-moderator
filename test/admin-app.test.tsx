@@ -152,6 +152,22 @@ test("getAdminLoginRequestPath preserves the current deep-link query", () => {
   assert.equal(getAdminLoginRequestPath("/admin/login", ""), "/admin/login");
 });
 
+test("getAdminLoginNavigationTarget follows redirected dashboard responses", () => {
+  const helper = (AdminAppModule as Record<string, unknown>).getAdminLoginNavigationTarget;
+
+  assert.equal(typeof helper, "function");
+  const getAdminLoginNavigationTarget = helper as (responseUrl: string, redirected: boolean) => string | null;
+
+  assert.equal(
+    getAdminLoginNavigationTarget("https://runtime.example/admin/gateway", true),
+    "/admin/gateway"
+  );
+  assert.equal(
+    getAdminLoginNavigationTarget("https://runtime.example/admin/login?next=%2Fadmin%2Fgateway", false),
+    null
+  );
+});
+
 test("getDashboardPageDataPolicy scopes loads to the active page", () => {
   const helper = (AdminAppModule as Record<string, unknown>).getDashboardPageDataPolicy;
 

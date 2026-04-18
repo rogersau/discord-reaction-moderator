@@ -185,6 +185,12 @@ export default function App({
       body: `password=${encodeURIComponent(password)}`,
       redirect: "follow",
     });
+    const navigationTarget = getAdminLoginNavigationTarget(res.url, res.redirected);
+    if (navigationTarget && typeof window !== "undefined") {
+      window.location.assign(navigationTarget);
+      return;
+    }
+
     if (res.ok || res.redirected) {
       setAuthenticated(true);
     } else {
@@ -296,6 +302,14 @@ export function getAdminLoginRequestPath(pathname: string, search: string): stri
   }
 
   return search ? `${pathname}${search}` : pathname;
+}
+
+export function getAdminLoginNavigationTarget(responseUrl: string, redirected: boolean): string | null {
+  if (!redirected) {
+    return null;
+  }
+
+  return normalizeAdminDashboardPath(new URL(responseUrl).pathname);
 }
 
 export function getDashboardPageDataPolicy(path: string) {
