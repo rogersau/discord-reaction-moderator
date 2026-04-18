@@ -27,7 +27,6 @@ The required setup is adding your Discord token, configuring the public Discord 
 - `GatewaySessionDO` maintains the Discord Gateway connection, resumes sessions, and applies moderation to `MESSAGE_REACTION_ADD` events.
 - The public Worker exposes `/health`, `/interactions`, `/admin/login`, and the protected `/admin` dashboard.
 - Discord slash commands update the current server's blocklist.
-- The shared runtime serves the same admin routes in Cloudflare and the portable Node/Docker deployment.
 
 ## Prerequisites
 
@@ -206,29 +205,9 @@ For timed roles, the role must already exist and be configured in Discord; the b
 
 Set `ADMIN_UI_PASSWORD` to enable the supported browser-based operator workflow. The dashboard is the supported interface for gateway status/bootstrap, reviewing stored guild state, guild blocklist management, and timed-role management by guild ID. If `ADMIN_AUTH_SECRET` is configured, bearer auth still applies to the legacy `/admin/gateway/*` routes.
 
-## Run outside Cloudflare with Docker
+## Hosting model
 
-1. Build the image:
-
-   ```bash
-   pnpm run docker:build
-   ```
-
-2. Start the self-contained runtime:
-
-   ```bash
-    docker run --rm -p 8787:8787 \
-      -e DISCORD_BOT_TOKEN=... \
-      -e BOT_USER_ID=... \
-      -e DISCORD_PUBLIC_KEY=... \
-      -e DISCORD_APPLICATION_ID=... \
-      -e ADMIN_UI_PASSWORD=... \
-      -e SQLITE_PATH=/data/runtime.sqlite \
-      -v "$PWD/data:/data" \
-      discord-automation-workers
-    ```
-
-This container hosts the HTTP API, Discord gateway connection, scheduler, and SQLite database in one process. Windows packaging can build on the same portable runtime later, but it is not part of this phase.
+This project targets Cloudflare Workers and Durable Objects only. Standalone Node and Docker hosting are no longer supported deployment paths.
 
 ## Local validation
 
