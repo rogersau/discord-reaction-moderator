@@ -386,16 +386,14 @@ export function createRuntimeApp(options: RuntimeAppOptions) {
   const _publicRoutes = createPublicRoutes();
   // Admin routes: /admin/login, /admin/logout, /admin/api/*, admin dashboard
   const _adminRoutes = createAdminRoutes({
-    adminAuthSecret: options.adminAuthSecret,
     adminSessionSecret: options.adminSessionSecret,
     adminUiPassword: options.adminUiPassword,
-    discordBotToken: options.discordBotToken,
-    store: options.store,
-    gateway: options.gateway,
     handleAdminApiRequest,
     redirect,
     getAdminLoginLocation,
-    bootstrap,
+    renderAdminShell,
+    isAdminUiAuthorized,
+    requireAdminSession,
   });
   // Interaction routes: /interactions
   const _interactionRoutes = createInteractionRoutes({
@@ -404,6 +402,7 @@ export function createRuntimeApp(options: RuntimeAppOptions) {
     verifyDiscordRequest: options.verifyDiscordRequest,
     store: options.store,
     gateway: options.gateway,
+    handleInteractionRequest,
   });
 
   return {

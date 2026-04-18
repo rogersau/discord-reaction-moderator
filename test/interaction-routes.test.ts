@@ -1340,6 +1340,13 @@ test("createInteractionRoutes handles Discord PING interactions through route mo
     verifyDiscordRequest: async () => true,
     store: {} as never,
     gateway: {} as never,
+    handleInteractionRequest: async (request) => {
+      const body = JSON.parse(await request.text());
+      if (body?.type === 1) {
+        return Response.json({ type: 1 });
+      }
+      return Response.json({ error: "Unsupported" }, { status: 400 });
+    },
   });
 
   const { request } = await createSignedInteractionRequest({ type: 1 });

@@ -1,9 +1,3 @@
-import type { GatewayController, RuntimeStore } from "../runtime/contracts";
-import {
-  renderAdminShell,
-  isAdminUiAuthorized,
-  requireAdminSession,
-} from "../runtime/app";
 import { ADMIN_ASSETS } from "../runtime/admin-bundle";
 import {
   ADMIN_SESSION_COOKIE_NAME,
@@ -16,16 +10,14 @@ import {
 } from "../admin/dashboard-routes";
 
 export interface AdminRouteOptions {
-  adminAuthSecret?: string;
   adminSessionSecret?: string;
   adminUiPassword?: string;
-  discordBotToken: string;
-  store: RuntimeStore;
-  gateway: GatewayController;
   handleAdminApiRequest: (request: Request, url: URL) => Promise<Response | null>;
   redirect: (location: string, headers?: Record<string, string>) => Response;
   getAdminLoginLocation: (pathname: string) => string;
-  bootstrap: () => Promise<unknown>;
+  renderAdminShell: (withAuth?: boolean, pathname?: string, search?: string) => Response;
+  isAdminUiAuthorized: (request: Request, options: Pick<AdminRouteOptions, "adminSessionSecret" | "adminUiPassword">) => Promise<boolean>;
+  requireAdminSession: (request: Request, options: Pick<AdminRouteOptions, "adminSessionSecret" | "getAdminLoginLocation">) => Promise<Response | null>;
 }
 
 export interface RouteHandler {
@@ -63,10 +55,10 @@ export function createAdminRoutes(options: AdminRouteOptions): RouteHandler {
 
     // Admin login GET
     if (request.method === "GET" && url.pathname === "/admin/login") {
-      if (options.adminUiPassword && (await isAdminUiAuthorized(request, options))) {
+      if (options.adminUiPassword && (await options.isAdminUiAuthorized(request, options))) {
         return options.redirect("/admin");
       }
-      return renderAdminShell();
+      return options.renderAdminShell();
     }
 
     // Admin login POST
@@ -87,10 +79,10 @@ export function createAdminRoutes(options: AdminRouteOptions): RouteHandler {
 
     // Admin dashboard paths
     if (request.method === "GET" && isAdminDashboardPath(url.pathname)) {
-      if (!(await isAdminUiAuthorized(request, options))) {
+      if (!(await options.isAdminUiAuthorized(request, options))) {
         return options.redirect(options.getAdminLoginLocation(url.pathname));
       }
-      return renderAdminShell(true, normalizeAdminDashboardPath(url.pathname), url.search);
+      return options.renderAdminShell(true, normalizeAdminDashboardPath(url.pathname), url.search);
     }
 
     // Admin assets
@@ -108,7 +100,7 @@ export function createAdminRoutes(options: AdminRouteOptions): RouteHandler {
 
     // Admin API routes
     if (url.pathname.startsWith("/admin/api/")) {
-      const sessionUnauthorized = await requireAdminSession(request, options);
+      const sessionUnauthorized = await options.requireAdminSession(request, options);
       if (sessionUnauthorized) return sessionUnauthorized;
 
       return options.handleAdminApiRequest(request, url);

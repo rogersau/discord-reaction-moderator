@@ -1,5 +1,4 @@
 import type { GatewayController, RuntimeStore } from "../runtime/contracts";
-import { handleInteractionRequest } from "../runtime/app";
 
 export interface InteractionRouteOptions {
   discordPublicKey: string;
@@ -7,6 +6,7 @@ export interface InteractionRouteOptions {
   verifyDiscordRequest?: (timestamp: string, body: string, signature: string) => Promise<boolean>;
   store: RuntimeStore;
   gateway: GatewayController;
+  handleInteractionRequest: (request: Request, options: Pick<InteractionRouteOptions, "discordPublicKey" | "discordBotToken" | "verifyDiscordRequest" | "store" | "gateway">) => Promise<Response>;
 }
 
 export interface RouteHandler {
@@ -18,7 +18,7 @@ export function createInteractionRoutes(options: InteractionRouteOptions): Route
     const url = new URL(request.url);
 
     if (request.method === "POST" && url.pathname === "/interactions") {
-      return handleInteractionRequest(request, options);
+      return options.handleInteractionRequest(request, options);
     }
 
     return null;
