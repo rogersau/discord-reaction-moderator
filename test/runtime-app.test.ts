@@ -1350,6 +1350,68 @@ test("createRuntimeApp rolls back ticket creation when the opening message fails
   }
 });
 
+test("createRuntimeApp returns an ephemeral failure when ticket channel creation fails", async () => {
+  const originalFetch = globalThis.fetch;
+  let createTicketInstanceCalls = 0;
+  const panel = createTicketPanelConfig();
+
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+    const method = init?.method ?? "GET";
+
+    if (url.endsWith("/guilds/guild-1/channels") && method === "POST") {
+      return new Response("boom", { status: 500 });
+    }
+
+    throw new Error(`Unexpected Discord call: ${method} ${url}`);
+  }) as typeof fetch;
+
+  try {
+    const app = createRuntimeApp({
+      discordPublicKey: "a".repeat(64),
+      discordBotToken: "bot-token",
+      verifyDiscordRequest: async () => true,
+      store: {
+        async readConfig() {
+          return { guilds: {}, botUserId: "bot-user-id" };
+        },
+        async readTicketPanelConfig(guildId: string) {
+          return guildId === "guild-1" ? panel : null;
+        },
+        async createTicketInstance() {
+          createTicketInstanceCalls += 1;
+        },
+      } as unknown as RuntimeStore,
+      gateway: {} as GatewayController,
+    });
+
+    const submitResponse = await app.fetch(
+      createInteractionRequest({
+        type: 5,
+        guild_id: "guild-1",
+        member: { user: { id: "user-1" }, roles: [] },
+        data: {
+          custom_id: buildTicketOpenCustomId("appeals"),
+          components: [
+            {
+              type: 1,
+              components: [{ type: 4, custom_id: "reason", value: "Need help" }],
+            },
+          ],
+        },
+      })
+    );
+    assert.equal(submitResponse.status, 200);
+    assert.deepEqual(await submitResponse.json(), {
+      type: 4,
+      data: { flags: 64, content: "Failed to create your ticket." },
+    });
+    assert.equal(createTicketInstanceCalls, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("createRuntimeApp keeps the ticket open and posts an in-channel error when transcript upload fails", async () => {
   const originalFetch = globalThis.fetch;
   const closeCalls: Array<{
@@ -1485,6 +1547,110 @@ test("createRuntimeApp keeps the ticket open and posts an in-channel error when 
         "Failed to upload the transcript for this ticket. The ticket will remain open so support staff can retry closing it.",
     });
   } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("createRuntimeApp reports partial success when ticket close cleanup fails", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalDateNow = Date.now;
+  const closeCalls: Array<{
+    guildId: string;
+    channelId: string;
+    closedByUserId: string;
+    closedAtMs: number;
+    transcriptMessageId: string | null;
+  }> = [];
+  const panel = createTicketPanelConfig();
+  const openTicket: TicketInstance = {
+    guildId: "guild-1",
+    channelId: "ticket-channel-1",
+    ticketTypeId: "appeals",
+    ticketTypeLabel: "Appeal",
+    openerUserId: "user-1",
+    supportRoleId: "role-1",
+    status: "open",
+    answers: [],
+    openedAtMs: 1_700_000_000_000,
+    closedAtMs: null,
+    closedByUserId: null,
+    transcriptMessageId: null,
+  };
+
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+    const method = init?.method ?? "GET";
+
+    if (url.endsWith("/channels/ticket-channel-1/messages?limit=100") && method === "GET") {
+      return Response.json([]);
+    }
+
+    if (url.endsWith("/channels/transcript-channel/messages") && method === "POST") {
+      return Response.json({ id: "transcript-message-1", channel_id: "transcript-channel", content: "" });
+    }
+
+    if (url.endsWith("/channels/ticket-channel-1") && method === "DELETE") {
+      return new Response("boom", { status: 500 });
+    }
+
+    throw new Error(`Unexpected Discord call: ${method} ${url}`);
+  }) as typeof fetch;
+
+  try {
+    Date.now = () => 1_700_000_000_000;
+    const app = createRuntimeApp({
+      discordPublicKey: "a".repeat(64),
+      discordBotToken: "bot-token",
+      verifyDiscordRequest: async () => true,
+      store: {
+        async readTicketPanelConfig(guildId: string) {
+          return guildId === "guild-1" ? panel : null;
+        },
+        async readOpenTicketByChannel(guildId: string, channelId: string) {
+          return guildId === "guild-1" && channelId === "ticket-channel-1" ? openTicket : null;
+        },
+        async closeTicketInstance(body: {
+          guildId: string;
+          channelId: string;
+          closedByUserId: string;
+          closedAtMs: number;
+          transcriptMessageId: string | null;
+        }) {
+          closeCalls.push(body);
+        },
+      } as unknown as RuntimeStore,
+      gateway: {} as GatewayController,
+    });
+
+    const closeResponse = await app.fetch(
+      createInteractionRequest({
+        type: 3,
+        guild_id: "guild-1",
+        channel_id: "ticket-channel-1",
+        member: { user: { id: "user-1" }, roles: [] },
+        data: { custom_id: buildTicketCloseCustomId("ticket-channel-1") },
+      })
+    );
+    assert.equal(closeResponse.status, 200);
+    assert.deepEqual(await closeResponse.json(), {
+      type: 4,
+      data: {
+        flags: 64,
+        content:
+          "Closed ticket and uploaded the transcript, but failed to delete the channel. Please clean it up manually.",
+      },
+    });
+    assert.deepEqual(closeCalls, [
+      {
+        guildId: "guild-1",
+        channelId: "ticket-channel-1",
+        closedByUserId: "user-1",
+        closedAtMs: 1_700_000_000_000,
+        transcriptMessageId: "transcript-message-1",
+      },
+    ]);
+  } finally {
+    Date.now = originalDateNow;
     globalThis.fetch = originalFetch;
   }
 });
