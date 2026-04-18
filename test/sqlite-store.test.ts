@@ -338,6 +338,39 @@ test("sqlite runtime store rejects duplicate ticket instances", async () => {
   }
 });
 
+test("sqlite runtime store deletes ticket instances for rollback", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "runtime-store-"));
+  const sqlitePath = join(dir, "runtime.sqlite");
+
+  try {
+    const store = createSqliteRuntimeStore({ sqlitePath, botUserId: "bot-user-id" });
+
+    await store.createTicketInstance({
+      guildId: "guild-1",
+      channelId: "ticket-channel-1",
+      ticketTypeId: "appeals",
+      ticketTypeLabel: "Appeal",
+      openerUserId: "user-1",
+      supportRoleId: "role-1",
+      status: "open",
+      answers: [],
+      openedAtMs: 1000,
+      closedAtMs: null,
+      closedByUserId: null,
+      transcriptMessageId: null,
+    });
+
+    await store.deleteTicketInstance({
+      guildId: "guild-1",
+      channelId: "ticket-channel-1",
+    });
+
+    assert.equal(await store.readOpenTicketByChannel("guild-1", "ticket-channel-1"), null);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test("sqlite runtime store rejects closing a missing ticket", async () => {
   const dir = mkdtempSync(join(tmpdir(), "runtime-store-"));
   const sqlitePath = join(dir, "runtime.sqlite");

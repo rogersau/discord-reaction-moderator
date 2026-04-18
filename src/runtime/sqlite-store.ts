@@ -189,6 +189,9 @@ export function createSqliteRuntimeStore(
     FROM ticket_instances
     WHERE guild_id = ? AND channel_id = ? AND status = 'open'
   `);
+  const deleteTicketInstanceStmt = db.prepare(
+    "DELETE FROM ticket_instances WHERE guild_id = ? AND channel_id = ?"
+  );
   const closeTicketInstanceStmt = db.prepare(`
     UPDATE ticket_instances
     SET status = 'closed',
@@ -295,6 +298,10 @@ export function createSqliteRuntimeStore(
         instance.closedByUserId,
         instance.transcriptMessageId
       );
+    },
+
+    async deleteTicketInstance(body: { guildId: string; channelId: string }): Promise<void> {
+      deleteTicketInstanceStmt.run(body.guildId, body.channelId);
     },
 
     async readOpenTicketByChannel(guildId: string, channelId: string): Promise<TicketInstance | null> {

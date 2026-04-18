@@ -72,3 +72,52 @@ test("ticket panel editor shows friendly Discord names instead of raw IDs", () =
   assert.match(html, />ticket-transcripts</);
   assert.doesNotMatch(html, />category-1</);
 });
+
+test("ticket panel editor renders controls for editing ticket types and modal questions", () => {
+  const html = renderToString(
+    <TicketPanelEditor
+      guildResources={{
+        guildId: "guild-1",
+        roles: [{ id: "role-1", name: "Support" }],
+        categories: [{ id: "category-1", name: "Open Tickets" }],
+        textChannels: [{ id: "transcript-1", name: "ticket-transcripts" }],
+      }}
+      value={{
+        guildId: "guild-1",
+        panelChannelId: "panel-channel-1",
+        categoryChannelId: "category-1",
+        transcriptChannelId: "transcript-1",
+        panelMessageId: null,
+        ticketTypes: [
+          {
+            id: "appeals",
+            label: "Appeal",
+            emoji: "🧾",
+            buttonStyle: "primary",
+            supportRoleId: "role-1",
+            channelNamePrefix: "appeal",
+            questions: [
+              {
+                id: "reason",
+                label: "Why are you opening this ticket?",
+                style: "paragraph",
+                placeholder: "Explain the issue",
+                required: true,
+              },
+            ],
+          },
+        ],
+      }}
+      onChange={() => {}}
+      onSave={async () => {}}
+      onPublish={async () => {}}
+    />
+  );
+
+  assert.match(html, /Add ticket type/);
+  assert.match(html, /Add question/);
+  assert.match(html, /Ticket type label/);
+  assert.match(html, /Support role/);
+  assert.match(html, /Why are you opening this ticket\?/);
+  assert.match(html, />Support</);
+});

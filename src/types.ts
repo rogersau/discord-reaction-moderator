@@ -75,7 +75,7 @@ export interface TicketTypeConfig {
   label: string;
   emoji: string | null;
   buttonStyle: TicketButtonStyle;
-  supportRoleId: string | null;
+  supportRoleId: string;
   channelNamePrefix: string;
   questions: TicketQuestion[];
 }

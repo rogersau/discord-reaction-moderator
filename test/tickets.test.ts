@@ -97,7 +97,7 @@ test("extractTicketAnswersFromModal reads submitted modal fields", () => {
   ]);
 });
 
-test("renderTicketTranscript includes answers and messages", () => {
+test("renderTicketTranscript includes ticket metadata, answers, and chronological messages", () => {
   const transcript = renderTicketTranscript(
     {
       guildId: "guild-1",
@@ -117,6 +117,12 @@ test("renderTicketTranscript includes answers and messages", () => {
     },
     [
       {
+        authorId: "staff-1",
+        authorTag: "Support#0002",
+        content: "First reply",
+        createdAtMs: 1_700_000_000_400,
+      },
+      {
         authorId: "user-1",
         authorTag: "User#0001",
         content: "Hello",
@@ -125,8 +131,14 @@ test("renderTicketTranscript includes answers and messages", () => {
     ]
   );
 
-  assert.match(transcript, /Ticket: Appeal/);
+  assert.match(transcript, /Guild: guild-1/);
+  assert.match(transcript, /Ticket Type: Appeal \(appeals\)/);
+  assert.match(transcript, /Opened by: user-1/);
+  assert.match(transcript, /Opened at: /);
+  assert.match(transcript, /Closed at: /);
+  assert.match(transcript, /Closed by: staff-1/);
   assert.match(transcript, /Reason: I need help/);
-  assert.match(transcript, /User#0001/);
-  assert.match(transcript, /Hello/);
+  assert.match(transcript, /Support#0002: First reply/);
+  assert.match(transcript, /User#0001: Hello/);
+  assert.ok(transcript.indexOf("Support#0002: First reply") < transcript.indexOf("User#0001: Hello"));
 });

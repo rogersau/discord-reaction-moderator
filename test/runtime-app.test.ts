@@ -730,8 +730,10 @@ test("createRuntimeApp exposes ticket admin APIs through session auth and publis
     if (url.endsWith("/guilds/guild-1/channels")) {
       return Response.json([
         { id: "category-1", name: "Tickets", type: 4, parent_id: null, position: 1 },
-        { id: "text-1", name: "general", type: 0, parent_id: null, position: 2 },
-        { id: "voice-1", name: "voice", type: 2, parent_id: null, position: 3 },
+        { id: "panel-channel", name: "ticket-panel", type: 0, parent_id: null, position: 2 },
+        { id: "transcript-channel", name: "ticket-transcripts", type: 0, parent_id: null, position: 3 },
+        { id: "text-1", name: "general", type: 0, parent_id: null, position: 4 },
+        { id: "voice-1", name: "voice", type: 2, parent_id: null, position: 5 },
       ]);
     }
 
@@ -793,6 +795,65 @@ test("createRuntimeApp exposes ticket admin APIs through session auth and publis
     assert.deepEqual(await invalidPublishResponse.json(), { error: "Missing guildId" });
 
     const panel: TicketPanelConfig = createTicketPanelConfig();
+    const invalidSupportRoleResponse = await app.fetch(
+      new Request("https://runtime.example/admin/api/tickets/panel", {
+        method: "POST",
+        headers: { cookie, "content-type": "application/json" },
+        body: JSON.stringify({
+          ...panel,
+          ticketTypes: [
+            {
+              ...panel.ticketTypes[0],
+              supportRoleId: null,
+            },
+          ],
+        }),
+      })
+    );
+    assert.equal(invalidSupportRoleResponse.status, 400);
+    assert.deepEqual(await invalidSupportRoleResponse.json(), {
+      error: "Missing ticketTypes[0].supportRoleId",
+    });
+    const duplicateTicketTypeResponse = await app.fetch(
+      new Request("https://runtime.example/admin/api/tickets/panel", {
+        method: "POST",
+        headers: { cookie, "content-type": "application/json" },
+        body: JSON.stringify({
+          ...panel,
+          ticketTypes: [panel.ticketTypes[0], { ...panel.ticketTypes[0], label: "Appeal Copy" }],
+        }),
+      })
+    );
+    assert.equal(duplicateTicketTypeResponse.status, 400);
+    assert.deepEqual(await duplicateTicketTypeResponse.json(), {
+      error: "Duplicate ticketTypes[1].id",
+    });
+    const tooManyQuestionsResponse = await app.fetch(
+      new Request("https://runtime.example/admin/api/tickets/panel", {
+        method: "POST",
+        headers: { cookie, "content-type": "application/json" },
+        body: JSON.stringify({
+          ...panel,
+          ticketTypes: [
+            {
+              ...panel.ticketTypes[0],
+              questions: Array.from({ length: 6 }, (_, index) => ({
+                id: `question-${index + 1}`,
+                label: `Question ${index + 1}`,
+                style: "short",
+                placeholder: null,
+                required: true,
+              })),
+            },
+          ],
+        }),
+      })
+    );
+    assert.equal(tooManyQuestionsResponse.status, 400);
+    assert.deepEqual(await tooManyQuestionsResponse.json(), {
+      error: "ticketTypes[0].questions cannot exceed 5 entries",
+    });
+
     const saveResponse = await app.fetch(
       new Request("https://runtime.example/admin/api/tickets/panel", {
         method: "POST",
@@ -824,7 +885,11 @@ test("createRuntimeApp exposes ticket admin APIs through session auth and publis
         { id: "role-2", name: "Helpers" },
       ],
       categories: [{ id: "category-1", name: "Tickets" }],
-      textChannels: [{ id: "text-1", name: "general" }],
+      textChannels: [
+        { id: "panel-channel", name: "ticket-panel" },
+        { id: "transcript-channel", name: "ticket-transcripts" },
+        { id: "text-1", name: "general" },
+      ],
     });
 
     const publishResponse = await app.fetch(
@@ -880,6 +945,73 @@ test("createRuntimeApp exposes ticket admin APIs through session auth and publis
   }
 });
 
+test("createRuntimeApp rejects ticket panel publish when referenced Discord targets are stale", async () => {
+  const originalFetch = globalThis.fetch;
+  let storedPanel: TicketPanelConfig | null = {
+    ...createTicketPanelConfig(),
+    panelChannelId: "missing-panel-channel",
+    transcriptChannelId: "missing-transcript-channel",
+    ticketTypes: [
+      {
+        ...createTicketPanelConfig().ticketTypes[0]!,
+        supportRoleId: "missing-role",
+      },
+    ],
+  };
+
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+
+    if (url.endsWith("/guilds/guild-1/channels")) {
+      return Response.json([
+        { id: "category-1", name: "Tickets", type: 4, parent_id: null, position: 1 },
+        { id: "panel-channel", name: "ticket-panel", type: 0, parent_id: null, position: 2 },
+      ]);
+    }
+
+    if (url.endsWith("/guilds/guild-1/roles")) {
+      return Response.json([{ id: "role-1", name: "Support", permissions: "0", position: 1 }]);
+    }
+
+    throw new Error(`Unexpected Discord call: ${url}`);
+  }) as typeof fetch;
+
+  try {
+    const app = createRuntimeApp({
+      discordPublicKey: "a".repeat(64),
+      discordBotToken: "bot-token",
+      adminUiPassword: "let-me-in",
+      adminSessionSecret: "session-secret",
+      verifyDiscordRequest: async () => true,
+      store: {
+        async readTicketPanelConfig(guildId: string) {
+          return storedPanel?.guildId === guildId ? storedPanel : null;
+        },
+        async upsertTicketPanelConfig(panel: TicketPanelConfig) {
+          storedPanel = panel;
+        },
+      } as unknown as RuntimeStore,
+      gateway: {} as GatewayController,
+    });
+
+    const cookie = await createAdminSessionCookie("session-secret");
+    const publishResponse = await app.fetch(
+      new Request("https://runtime.example/admin/api/tickets/panel/publish", {
+        method: "POST",
+        headers: { cookie, "content-type": "application/json" },
+        body: JSON.stringify({ guildId: "guild-1" }),
+      })
+    );
+    assert.equal(publishResponse.status, 400);
+    assert.deepEqual(await publishResponse.json(), {
+      error:
+        "Ticket panel config references missing Discord targets: panelChannelId missing-panel-channel, transcriptChannelId missing-transcript-channel, ticketTypes[0].supportRoleId missing-role",
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("createRuntimeApp handles ticket open modal submit and close interactions", async () => {
   const originalFetch = globalThis.fetch;
   const originalDateNow = Date.now;
@@ -920,8 +1052,20 @@ test("createRuntimeApp handles ticket open modal submit and close interactions",
       return Response.json({ id: "opening-message-1", channel_id: "ticket-channel-1", content: "" });
     }
 
-    if (url.endsWith("/channels/ticket-channel-1/messages") && method === "GET") {
+    if (url.endsWith("/channels/ticket-channel-1/messages?limit=100") && method === "GET") {
       return Response.json([
+        {
+          id: "message-2",
+          channel_id: "ticket-channel-1",
+          content: "Support reply",
+          timestamp: "2024-01-01T00:00:01.000Z",
+          author: {
+            id: "staff-1",
+            username: "mod",
+            discriminator: "0002",
+            global_name: "Support",
+          },
+        },
         {
           id: "message-1",
           channel_id: "ticket-channel-1",
@@ -954,6 +1098,9 @@ test("createRuntimeApp handles ticket open modal submit and close interactions",
       discordBotToken: "bot-token",
       verifyDiscordRequest: async () => true,
       store: {
+        async readConfig() {
+          return { guilds: {}, botUserId: "bot-user-id" };
+        },
         async readTicketPanelConfig(guildId: string) {
           return guildId === "guild-1" ? panel : null;
         },
@@ -1036,7 +1183,8 @@ test("createRuntimeApp handles ticket open modal submit and close interactions",
       (call) => call.method === "POST" && call.url.endsWith("/channels/ticket-channel-1/messages")
     );
     assert.deepEqual(openMessageCall?.body, {
-      content: "<@user-1> created a new Appeal ticket.",
+      content:
+        "<@user-1> opened a new ticket.\nTicket Type: Appeal (appeals)\nOpened by: <@user-1>\nSubmitted Answers:\n- Why are you opening this ticket?: Need help",
       allowed_mentions: { users: ["user-1"] },
       components: [
         {
@@ -1095,20 +1243,248 @@ test("createRuntimeApp handles ticket open modal submit and close interactions",
       ? ((transcriptCall.body as { transcript: FormDataEntryValue | null }).transcript as File | null)
       : null;
     assert.ok(transcriptFile instanceof File);
-    assert.equal(await transcriptFile?.text(), `# Ticket: Appeal
-Ticket ID: appeals
+    assert.equal(await transcriptFile?.text(), `# Ticket Transcript
+Guild: guild-1
+Ticket Type: Appeal (appeals)
 Channel: ticket-channel-1
 Opened by: user-1
-Status: open
+Support Role: role-1
+Status: closed
+Opened at: 2023-11-14T22:13:20.000Z
+Closed at: 2023-11-14T22:13:20.000Z
+Closed by: user-1
 
 ## Answers
 - Why are you opening this ticket?: Need help
 
 ## Messages
 [2024-01-01T00:00:00.000Z] Alice: Need help
+[2024-01-01T00:00:01.000Z] Support: Support reply
 `);
   } finally {
     Date.now = originalDateNow;
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("createRuntimeApp rolls back ticket creation when the opening message fails", async () => {
+  const originalFetch = globalThis.fetch;
+  const createdInstances: TicketInstance[] = [];
+  const deletedInstances: Array<{ guildId: string; channelId: string }> = [];
+  const discordCalls: Array<{ method: string; url: string; body: unknown }> = [];
+  const panel = createTicketPanelConfig();
+
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+    const method = init?.method ?? "GET";
+    const body = typeof init?.body === "string" ? JSON.parse(init.body) : null;
+    discordCalls.push({ method, url, body });
+
+    if (url.endsWith("/guilds/guild-1/channels") && method === "POST") {
+      return Response.json({ id: "ticket-channel-1" });
+    }
+
+    if (url.endsWith("/channels/ticket-channel-1/messages") && method === "POST") {
+      return new Response("boom", { status: 500 });
+    }
+
+    if (url.endsWith("/channels/ticket-channel-1") && method === "DELETE") {
+      return new Response(null, { status: 204 });
+    }
+
+    throw new Error(`Unexpected Discord call: ${method} ${url}`);
+  }) as typeof fetch;
+
+  try {
+    const app = createRuntimeApp({
+      discordPublicKey: "a".repeat(64),
+      discordBotToken: "bot-token",
+      verifyDiscordRequest: async () => true,
+      store: {
+        async readConfig() {
+          return { guilds: {}, botUserId: "bot-user-id" };
+        },
+        async readTicketPanelConfig(guildId: string) {
+          return guildId === "guild-1" ? panel : null;
+        },
+        async createTicketInstance(instance: TicketInstance) {
+          createdInstances.push(instance);
+        },
+        async deleteTicketInstance(body: { guildId: string; channelId: string }) {
+          deletedInstances.push(body);
+        },
+      } as unknown as RuntimeStore,
+      gateway: {} as GatewayController,
+    });
+
+    const submitResponse = await app.fetch(
+      createInteractionRequest({
+        type: 5,
+        guild_id: "guild-1",
+        member: { user: { id: "user-1" }, roles: [] },
+        data: {
+          custom_id: buildTicketOpenCustomId("appeals"),
+          components: [
+            {
+              type: 1,
+              components: [{ type: 4, custom_id: "reason", value: "Need help" }],
+            },
+          ],
+        },
+      })
+    );
+    assert.equal(submitResponse.status, 200);
+    assert.deepEqual(await submitResponse.json(), {
+      type: 4,
+      data: { flags: 64, content: "Failed to create your ticket." },
+    });
+    assert.equal(createdInstances.length, 1);
+    assert.deepEqual(deletedInstances, [{ guildId: "guild-1", channelId: "ticket-channel-1" }]);
+    assert.ok(
+      discordCalls.some(
+        (call) => call.method === "DELETE" && call.url.endsWith("/channels/ticket-channel-1")
+      )
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("createRuntimeApp keeps the ticket open and posts an in-channel error when transcript upload fails", async () => {
+  const originalFetch = globalThis.fetch;
+  const closeCalls: Array<{
+    guildId: string;
+    channelId: string;
+    closedByUserId: string;
+    closedAtMs: number;
+    transcriptMessageId: string | null;
+  }> = [];
+  const discordCalls: Array<{ method: string; url: string; body: unknown }> = [];
+  const panel = createTicketPanelConfig();
+  const openTicket: TicketInstance = {
+    guildId: "guild-1",
+    channelId: "ticket-channel-1",
+    ticketTypeId: "appeals",
+    ticketTypeLabel: "Appeal",
+    openerUserId: "user-1",
+    supportRoleId: "role-1",
+    status: "open",
+    answers: [
+      {
+        questionId: "reason",
+        label: "Why are you opening this ticket?",
+        value: "Need help",
+      },
+    ],
+    openedAtMs: 1_700_000_000_000,
+    closedAtMs: null,
+    closedByUserId: null,
+    transcriptMessageId: null,
+  };
+
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+    const method = init?.method ?? "GET";
+    let body: unknown = null;
+
+    if (typeof init?.body === "string") {
+      body = JSON.parse(init.body);
+    } else if (init?.body instanceof FormData) {
+      body = {
+        payload_json: init.body.get("payload_json"),
+        transcript: init.body.get("files[0]"),
+      };
+    }
+
+    discordCalls.push({ method, url, body });
+
+    if (url.endsWith("/channels/ticket-channel-1/messages?limit=100") && method === "GET") {
+      return Response.json([
+        {
+          id: "message-1",
+          channel_id: "ticket-channel-1",
+          content: "Need help",
+          timestamp: "2024-01-01T00:00:00.000Z",
+          author: {
+            id: "user-1",
+            username: "alice",
+            discriminator: "0001",
+            global_name: "Alice",
+          },
+        },
+      ]);
+    }
+
+    if (url.endsWith("/channels/transcript-channel/messages") && method === "POST") {
+      return new Response("boom", { status: 500 });
+    }
+
+    if (url.endsWith("/channels/ticket-channel-1/messages") && method === "POST") {
+      return Response.json({ id: "warning-message-1", channel_id: "ticket-channel-1", content: "" });
+    }
+
+    throw new Error(`Unexpected Discord call: ${method} ${url}`);
+  }) as typeof fetch;
+
+  try {
+    const app = createRuntimeApp({
+      discordPublicKey: "a".repeat(64),
+      discordBotToken: "bot-token",
+      verifyDiscordRequest: async () => true,
+      store: {
+        async readTicketPanelConfig(guildId: string) {
+          return guildId === "guild-1" ? panel : null;
+        },
+        async readOpenTicketByChannel(guildId: string, channelId: string) {
+          return guildId === "guild-1" && channelId === "ticket-channel-1" ? openTicket : null;
+        },
+        async closeTicketInstance(body: {
+          guildId: string;
+          channelId: string;
+          closedByUserId: string;
+          closedAtMs: number;
+          transcriptMessageId: string | null;
+        }) {
+          closeCalls.push(body);
+        },
+      } as unknown as RuntimeStore,
+      gateway: {} as GatewayController,
+    });
+
+    const closeResponse = await app.fetch(
+      createInteractionRequest({
+        type: 3,
+        guild_id: "guild-1",
+        channel_id: "ticket-channel-1",
+        member: { user: { id: "user-1" }, roles: [] },
+        data: { custom_id: buildTicketCloseCustomId("ticket-channel-1") },
+      })
+    );
+    assert.equal(closeResponse.status, 200);
+    assert.deepEqual(await closeResponse.json(), {
+      type: 4,
+      data: {
+        flags: 64,
+        content:
+          "Failed to upload the transcript. The ticket is still open, and a warning was posted in the channel.",
+      },
+    });
+    assert.deepEqual(closeCalls, []);
+    assert.ok(
+      !discordCalls.some(
+        (call) => call.method === "DELETE" && call.url.endsWith("/channels/ticket-channel-1")
+      )
+    );
+    const warningCall =
+      [...discordCalls]
+        .reverse()
+        .find((call) => call.method === "POST" && call.url.endsWith("/channels/ticket-channel-1/messages")) ??
+      null;
+    assert.deepEqual(warningCall?.body, {
+      content:
+        "Failed to upload the transcript for this ticket. The ticket will remain open so support staff can retry closing it.",
+    });
+  } finally {
     globalThis.fetch = originalFetch;
   }
 });

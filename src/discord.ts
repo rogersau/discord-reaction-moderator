@@ -25,8 +25,9 @@ export interface CreateTicketChannelInput {
   guildId: string;
   name: string;
   parentId: string | null;
+  botUserId: string;
   openerUserId: string;
-  supportRoleId: string | null;
+  supportRoleId: string;
 }
 
 export interface CreateChannelMessageInput {
@@ -171,21 +172,23 @@ export async function createTicketChannel(
           allow: "0",
         },
         {
+          id: input.botUserId,
+          type: 1,
+          allow: "1024",
+          deny: "0",
+        },
+        {
           id: input.openerUserId,
           type: 1,
           allow: "1024",
           deny: "0",
         },
-        ...(input.supportRoleId
-          ? [
-              {
-                id: input.supportRoleId,
-                type: 0,
-                allow: "1024",
-                deny: "0",
-              },
-            ]
-          : []),
+        {
+          id: input.supportRoleId,
+          type: 0,
+          allow: "1024",
+          deny: "0",
+        },
       ],
     }),
   });
@@ -212,10 +215,17 @@ export async function createChannelMessage(
 
 export async function listChannelMessages(
   channelId: string,
-  botToken: string
+  botToken: string,
+  options?: { before?: string; limit?: number }
 ): Promise<DiscordMessageListItem[]> {
+  const url = new URL(`${DISCORD_API}/channels/${channelId}/messages`);
+  url.searchParams.set("limit", String(options?.limit ?? 50));
+  if (options?.before) {
+    url.searchParams.set("before", options.before);
+  }
+
   const response = await discordRequest(
-    `${DISCORD_API}/channels/${channelId}/messages`,
+    url.toString(),
     "GET",
     botToken
   );

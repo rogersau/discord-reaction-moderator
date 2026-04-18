@@ -64,6 +64,15 @@ export function createCloudflareRuntime(env: Env) {
           throw new Error(`Failed to create ticket instance: ${response.status} ${await response.text()}`);
         }
       },
+      async deleteTicketInstance(body: { guildId: string; channelId: string }) {
+        const response = await storeStub.fetch("https://moderation-store/ticket-instance/delete", {
+          method: "POST",
+          body: JSON.stringify(body),
+        });
+        if (!response.ok) {
+          throw new Error(`Failed to delete ticket instance: ${response.status} ${await response.text()}`);
+        }
+      },
       async readOpenTicketByChannel(guildId, channelId) {
         const response = await storeStub.fetch(
           `https://moderation-store/ticket-instance/open?guildId=${encodeURIComponent(guildId)}&channelId=${encodeURIComponent(channelId)}`

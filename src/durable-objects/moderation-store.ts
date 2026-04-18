@@ -178,6 +178,16 @@ export class ModerationStoreDO implements DurableObject {
       }
     }
 
+    if (request.method === "POST" && url.pathname === "/ticket-instance/delete") {
+      try {
+        const body = parseTicketDeleteRequest(await request.json());
+        await this.deleteTicketInstance(body.guildId, body.channelId);
+        return Response.json({ ok: true });
+      } catch (error) {
+        return this.errorResponse(error);
+      }
+    }
+
     if (request.method === "POST" && url.pathname === "/ticket-instance/close") {
       try {
         const body = parseTicketCloseRequest(await request.json());
@@ -314,6 +324,10 @@ export class ModerationStoreDO implements DurableObject {
       instance.closedByUserId,
       instance.transcriptMessageId
     );
+  }
+
+  private async deleteTicketInstance(guildId: string, channelId: string): Promise<void> {
+    this.sql.exec("DELETE FROM ticket_instances WHERE guild_id = ? AND channel_id = ?", guildId, channelId);
   }
 
   private async readOpenTicketByChannel(guildId: string, channelId: string): Promise<TicketInstance | null> {
@@ -605,22 +619,40 @@ function parseTicketCloseRequest(body: unknown): {
   };
 }
 
+function parseTicketDeleteRequest(body: unknown): { guildId: string; channelId: string } {
+  if (!isRecord(body)) {
+    throw new ModerationStoreInputError("Invalid JSON body");
+  }
+
+  return {
+    guildId: asRequiredString(body.guildId, "guildId"),
+    channelId: asRequiredString(body.channelId, "channelId"),
+  };
+}
+
 function parseTicketTypes(value: unknown): TicketPanelConfig["ticketTypes"] {
   if (!Array.isArray(value)) {
     throw new ModerationStoreInputError("Missing ticketTypes");
   }
 
+  const seenIds = new Set<string>();
   return value.map((ticketType, index) => {
     if (!isRecord(ticketType)) {
       throw new ModerationStoreInputError(`Invalid ticketTypes[${index}]`);
     }
 
+    const id = asRequiredString(ticketType.id, `ticketTypes[${index}].id`);
+    if (seenIds.has(id)) {
+      throw new ModerationStoreInputError(`Duplicate ticketTypes[${index}].id`);
+    }
+    seenIds.add(id);
+
     return {
-      id: asRequiredString(ticketType.id, `ticketTypes[${index}].id`),
+      id,
       label: asRequiredString(ticketType.label, `ticketTypes[${index}].label`),
       emoji: asNullableString(ticketType.emoji, `ticketTypes[${index}].emoji`),
       buttonStyle: asTicketButtonStyle(ticketType.buttonStyle),
-      supportRoleId: asNullableString(ticketType.supportRoleId, `ticketTypes[${index}].supportRoleId`),
+      supportRoleId: asRequiredString(ticketType.supportRoleId, `ticketTypes[${index}].supportRoleId`),
       channelNamePrefix: asRequiredString(ticketType.channelNamePrefix, `ticketTypes[${index}].channelNamePrefix`),
       questions: parseTicketQuestions(ticketType.questions, index),
     };
@@ -630,6 +662,9 @@ function parseTicketTypes(value: unknown): TicketPanelConfig["ticketTypes"] {
 function parseTicketQuestions(value: unknown, ticketTypeIndex: number): TicketPanelConfig["ticketTypes"][number]["questions"] {
   if (!Array.isArray(value)) {
     throw new ModerationStoreInputError(`Missing ticketTypes[${ticketTypeIndex}].questions`);
+  }
+  if (value.length > 5) {
+    throw new ModerationStoreInputError(`ticketTypes[${ticketTypeIndex}].questions cannot exceed 5 entries`);
   }
 
   return value.map((question, questionIndex) => {

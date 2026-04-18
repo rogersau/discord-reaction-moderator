@@ -12,6 +12,7 @@ import {
   createTicketChannel,
   deleteChannel,
   DiscordApiError,
+  type GuildTicketResources,
   listChannelMessages,
   listGuildTicketResources,
   removeGuildMemberRole,
@@ -239,7 +240,31 @@ export function createRuntimeApp(options: RuntimeAppOptions) {
             return Response.json({ error: "Ticket panel config not found." }, { status: 404 });
           }
 
-          const panelMessageId = await publishTicketPanel(panel, options.discordBotToken);
+          const resources = await listGuildTicketResources(parsedBody.value.guildId, options.discordBotToken);
+          const missingTargets = getMissingTicketPanelTargets(panel, resources);
+          if (missingTargets.length > 0) {
+            return Response.json(
+              {
+                error: `Ticket panel config references missing Discord targets: ${missingTargets.join(", ")}`,
+              },
+              { status: 400 }
+            );
+          }
+
+          let panelMessageId: string;
+          try {
+            panelMessageId = await publishTicketPanel(panel, options.discordBotToken);
+          } catch (error) {
+            return Response.json(
+              {
+                error:
+                  error instanceof DiscordApiError
+                    ? error.message
+                    : "Failed to publish the ticket panel to Discord.",
+              },
+              { status: 502 }
+            );
+          }
           await options.store.upsertTicketPanelConfig({
             ...panel,
             panelMessageId,
@@ -730,7 +755,10 @@ async function handleTicketModalSubmitInteraction(
     return Response.json(buildEphemeralMessage("That ticket option is no longer available."));
   }
 
-  const panel = await store.readTicketPanelConfig(interaction.guild_id);
+  const [config, panel] = await Promise.all([
+    store.readConfig(),
+    store.readTicketPanelConfig(interaction.guild_id),
+  ]);
   const ticketType = panel?.ticketTypes.find((entry) => entry.id === parsedCustomId.ticketTypeId);
   if (!panel || !ticketType) {
     return Response.json(buildEphemeralMessage("That ticket option is no longer available."));
@@ -741,6 +769,7 @@ async function handleTicketModalSubmitInteraction(
       guildId: interaction.guild_id,
       name: buildTicketChannelName(ticketType.channelNamePrefix, openerUserId),
       parentId: panel.categoryChannelId,
+      botUserId: config.botUserId,
       openerUserId,
       supportRoleId: ticketType.supportRoleId,
     },
@@ -762,12 +791,34 @@ async function handleTicketModalSubmitInteraction(
     transcriptMessageId: null,
   };
 
-  await store.createTicketInstance(instance);
-  await createDiscordChannelMessage(
-    channel.id,
-    buildTicketOpeningMessage(instance),
-    discordBotToken
-  );
+  let persisted = false;
+  try {
+    await store.createTicketInstance(instance);
+    persisted = true;
+    await createDiscordChannelMessage(
+      channel.id,
+      buildTicketOpeningMessage(instance),
+      discordBotToken
+    );
+  } catch (error) {
+    console.error("Failed to finish ticket creation", error);
+    if (persisted) {
+      try {
+        await store.deleteTicketInstance({
+          guildId: interaction.guild_id,
+          channelId: channel.id,
+        });
+      } catch (rollbackError) {
+        console.error("Failed to roll back ticket instance", rollbackError);
+      }
+    }
+    try {
+      await deleteChannel(channel.id, discordBotToken);
+    } catch (deleteError) {
+      console.error("Failed to delete ticket channel after open failure", deleteError);
+    }
+    return Response.json(buildEphemeralMessage("Failed to create your ticket."));
+  }
 
   return Response.json(buildEphemeralMessage(`Created your ticket: <#${channel.id}>`));
 }
@@ -812,10 +863,18 @@ async function handleTicketCloseInteraction(
     return Response.json(buildEphemeralMessage("This ticket panel configuration is missing."));
   }
 
+  const closedAtMs = Date.now();
+  const closingTicket: TicketInstance = {
+    ...ticket,
+    status: "closed",
+    closedAtMs,
+    closedByUserId: userId,
+  };
+  let transcriptMessageId: string;
   try {
-    const messages = await listChannelMessages(channelId, discordBotToken);
+    const messages = await listAllChannelMessages(channelId, discordBotToken);
     const transcript = renderTicketTranscript(
-      ticket,
+      closingTicket,
       messages.map((message) => ({
         authorId: message.author.id,
         authorTag: message.author.global_name ?? message.author.username,
@@ -829,13 +888,35 @@ async function handleTicketCloseInteraction(
       transcript,
       discordBotToken
     );
-    const closedAtMs = Date.now();
+    transcriptMessageId = transcriptMessage.id;
+  } catch (error) {
+    console.error("Failed to upload transcript", error);
+    try {
+      await createDiscordChannelMessage(
+        channelId,
+        {
+          content:
+            "Failed to upload the transcript for this ticket. The ticket will remain open so support staff can retry closing it.",
+        },
+        discordBotToken
+      );
+    } catch (warningError) {
+      console.error("Failed to post transcript warning", warningError);
+    }
+    return Response.json(
+      buildEphemeralMessage(
+        "Failed to upload the transcript. The ticket is still open, and a warning was posted in the channel."
+      )
+    );
+  }
+
+  try {
     await store.closeTicketInstance({
       guildId,
       channelId,
       closedByUserId: userId,
       closedAtMs,
-      transcriptMessageId: transcriptMessage.id,
+      transcriptMessageId,
     });
     await deleteChannel(channelId, discordBotToken);
   } catch (error) {
@@ -1082,17 +1163,24 @@ function parseTicketTypes(value: unknown): TicketPanelConfig["ticketTypes"] {
     throw new AdminApiInputError("Missing ticketTypes");
   }
 
+  const seenIds = new Set<string>();
   return value.map((ticketType, index) => {
     if (!isRecord(ticketType)) {
       throw new AdminApiInputError(`Invalid ticketTypes[${index}]`);
     }
 
+    const id = asRequiredString(ticketType.id, `ticketTypes[${index}].id`);
+    if (seenIds.has(id)) {
+      throw new AdminApiInputError(`Duplicate ticketTypes[${index}].id`);
+    }
+    seenIds.add(id);
+
     return {
-      id: asRequiredString(ticketType.id, `ticketTypes[${index}].id`),
+      id,
       label: asRequiredString(ticketType.label, `ticketTypes[${index}].label`),
       emoji: asNullableString(ticketType.emoji, `ticketTypes[${index}].emoji`),
       buttonStyle: asTicketButtonStyle(ticketType.buttonStyle),
-      supportRoleId: asNullableString(ticketType.supportRoleId, `ticketTypes[${index}].supportRoleId`),
+      supportRoleId: asRequiredString(ticketType.supportRoleId, `ticketTypes[${index}].supportRoleId`),
       channelNamePrefix: asRequiredString(ticketType.channelNamePrefix, `ticketTypes[${index}].channelNamePrefix`),
       questions: parseTicketQuestions(ticketType.questions, index),
     };
@@ -1105,6 +1193,9 @@ function parseTicketQuestions(
 ): TicketQuestion[] {
   if (!Array.isArray(value)) {
     throw new AdminApiInputError(`Missing ticketTypes[${ticketTypeIndex}].questions`);
+  }
+  if (value.length > 5) {
+    throw new AdminApiInputError(`ticketTypes[${ticketTypeIndex}].questions cannot exceed 5 entries`);
   }
 
   return value.map((question, questionIndex) => {
@@ -1128,6 +1219,38 @@ function parseTicketQuestions(
       ),
     };
   });
+}
+
+function getMissingTicketPanelTargets(
+  panel: TicketPanelConfig,
+  resources: GuildTicketResources
+): string[] {
+  const categoryIds = new Set(
+    resources.channels.filter((channel) => channel.type === 4).map((channel) => channel.id)
+  );
+  const textChannelIds = new Set(
+    resources.channels.filter((channel) => channel.type === 0).map((channel) => channel.id)
+  );
+  const roleIds = new Set(resources.roles.map((role) => role.id));
+  const missing: string[] = [];
+
+  if (!textChannelIds.has(panel.panelChannelId)) {
+    missing.push(`panelChannelId ${panel.panelChannelId}`);
+  }
+  if (!categoryIds.has(panel.categoryChannelId)) {
+    missing.push(`categoryChannelId ${panel.categoryChannelId}`);
+  }
+  if (!textChannelIds.has(panel.transcriptChannelId)) {
+    missing.push(`transcriptChannelId ${panel.transcriptChannelId}`);
+  }
+
+  panel.ticketTypes.forEach((ticketType, index) => {
+    if (!roleIds.has(ticketType.supportRoleId)) {
+      missing.push(`ticketTypes[${index}].supportRoleId ${ticketType.supportRoleId}`);
+    }
+  });
+
+  return missing;
 }
 
 function asTicketButtonStyle(value: unknown): TicketTypeConfig["buttonStyle"] {
@@ -1167,8 +1290,21 @@ function getInteractionMemberRoles(interaction: DiscordInteraction): string[] {
 }
 
 function buildTicketOpeningMessage(instance: TicketInstance) {
+  const answerLines =
+    instance.answers.length === 0
+      ? ["Submitted Answers:", "- No answers provided."]
+      : [
+          "Submitted Answers:",
+          ...instance.answers.map((answer) => `- ${answer.label}: ${answer.value || "(blank)"}`),
+        ];
+
   return {
-    content: `<@${instance.openerUserId}> created a new ${instance.ticketTypeLabel} ticket.`,
+    content: [
+      `<@${instance.openerUserId}> opened a new ticket.`,
+      `Ticket Type: ${instance.ticketTypeLabel} (${instance.ticketTypeId})`,
+      `Opened by: <@${instance.openerUserId}>`,
+      ...answerLines,
+    ].join("\n"),
     allowed_mentions: { users: [instance.openerUserId] },
     components: [
       {
@@ -1210,6 +1346,28 @@ function chunkTicketTypeButtons(ticketTypes: TicketTypeConfig[]): TicketTypeConf
   }
 
   return rows;
+}
+
+async function listAllChannelMessages(channelId: string, discordBotToken: string) {
+  const messages = [];
+  let before: string | undefined;
+
+  for (let page = 0; page < 10; page += 1) {
+    const batch = await listChannelMessages(channelId, discordBotToken, { before, limit: 100 });
+    messages.push(...batch);
+    if (batch.length < 100) {
+      break;
+    }
+
+    before = batch[batch.length - 1]?.id;
+    if (!before) {
+      break;
+    }
+  }
+
+  return messages.sort(
+    (left, right) => Date.parse(left.timestamp) - Date.parse(right.timestamp)
+  );
 }
 
 function mapTicketButtonStyle(style: TicketTypeConfig["buttonStyle"]): 1 | 2 | 3 | 4 {

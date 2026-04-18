@@ -101,6 +101,7 @@ test("createTicketChannel posts a private guild channel with opener and support 
         guildId: "guild-1",
         name: "appeal-user-1",
         parentId: "category-1",
+        botUserId: "bot-user-1",
         openerUserId: "user-1",
         supportRoleId: "role-1",
       },
@@ -120,6 +121,7 @@ test("createTicketChannel posts a private guild channel with opener and support 
         parent_id: "category-1",
         permission_overwrites: [
           { id: "guild-1", type: 0, deny: "1024", allow: "0" },
+          { id: "bot-user-1", type: 1, allow: "1024", deny: "0" },
           { id: "user-1", type: 1, allow: "1024", deny: "0" },
           { id: "role-1", type: 0, allow: "1024", deny: "0" },
         ],

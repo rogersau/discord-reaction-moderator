@@ -112,12 +112,20 @@ export function renderTicketTranscript(
   messages: TicketTranscriptMessage[]
 ): string {
   const lines: string[] = [];
+  const sortedMessages = [...messages].sort((left, right) => left.createdAtMs - right.createdAtMs);
 
-  lines.push(`# Ticket: ${instance.ticketTypeLabel}`);
-  lines.push(`Ticket ID: ${instance.ticketTypeId}`);
+  lines.push("# Ticket Transcript");
+  lines.push(`Guild: ${instance.guildId}`);
+  lines.push(`Ticket Type: ${instance.ticketTypeLabel} (${instance.ticketTypeId})`);
   lines.push(`Channel: ${instance.channelId}`);
   lines.push(`Opened by: ${instance.openerUserId}`);
+  lines.push(`Support Role: ${instance.supportRoleId ?? "Not configured"}`);
   lines.push(`Status: ${instance.status}`);
+  lines.push(`Opened at: ${new Date(instance.openedAtMs).toISOString()}`);
+  lines.push(
+    `Closed at: ${instance.closedAtMs === null ? "Not closed" : new Date(instance.closedAtMs).toISOString()}`
+  );
+  lines.push(`Closed by: ${instance.closedByUserId ?? "Not closed"}`);
   lines.push("");
   lines.push("## Answers");
 
@@ -132,10 +140,10 @@ export function renderTicketTranscript(
   lines.push("");
   lines.push("## Messages");
 
-  if (messages.length === 0) {
+  if (sortedMessages.length === 0) {
     lines.push("_No messages captured._");
   } else {
-    for (const message of messages) {
+    for (const message of sortedMessages) {
       const author = message.authorTag ?? message.authorId;
       lines.push(
         `[${new Date(message.createdAtMs).toISOString()}] ${author}: ${message.content}`
