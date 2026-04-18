@@ -27,6 +27,20 @@ const overviewGuild: AdminOverviewGuild = {
   timedRoles: [],
 };
 
+const permissionSensitiveOverviewGuild: AdminOverviewGuild = {
+  guildId: "guild-2",
+  emojis: ["🚫"],
+  timedRoles: [
+    {
+      guildId: "guild-2",
+      userId: "user-2",
+      roleId: "role-2",
+      durationInput: "2h",
+      expiresAtMs: 7_200_000,
+    },
+  ],
+};
+
 
 
 test("authenticated admin dashboard renders a sidebar shell with an overview landing page", () => {
@@ -104,6 +118,7 @@ test("authenticated admin dashboard renders the blocklist workspace on /admin/bl
   assert.match(html, /Load blocklist/i);
   assert.match(html, /Apply/i);
   assert.match(html, /Filter servers/i);
+  assert.match(html, /Manage Messages/i);
   assert.doesNotMatch(html, /Add timed role/i);
   assert.doesNotMatch(html, /Load ticket panel/i);
 });
@@ -117,6 +132,8 @@ test("authenticated admin dashboard renders the timed roles workspace on /admin/
   assert.match(html, /Load timed roles/i);
   assert.match(html, /Add timed role/i);
   assert.match(html, /Duration/i);
+  assert.match(html, /Manage Roles/i);
+  assert.match(html, /highest role/i);
   assert.doesNotMatch(html, /Load blocklist/i);
   assert.doesNotMatch(html, /Load ticket panel/i);
 });
@@ -127,6 +144,8 @@ test("authenticated admin dashboard renders the tickets workspace on /admin/tick
   assert.match(html, /aria-current="page"[^>]*>Tickets</);
   assert.match(html, /Load ticket panel/i);
   assert.match(html, /Ticket Panels|Tickets/i);
+  assert.match(html, /channel access/i);
+  assert.match(html, /support roles/i);
   assert.doesNotMatch(html, /Load blocklist/i);
   assert.doesNotMatch(html, /Add timed role/i);
 });
@@ -277,6 +296,17 @@ test("guild overview card falls back to the raw guild ID when no server name is 
   );
 
   assert.match(html, />guild-1</);
+});
+
+test("guild overview card highlights permission-sensitive moderation features", () => {
+  const html = renderToString(
+    <GuildOverviewCard guild={permissionSensitiveOverviewGuild} guildName="Bravo" />
+  );
+
+  assert.match(html, /Permission watch/);
+  assert.match(html, /Manage Messages needed/);
+  assert.match(html, /Manage Roles needed/);
+  assert.match(html, /highest role is not above the target role/i);
 });
 
 test("ticket panel editor shows friendly Discord names instead of raw IDs", () => {

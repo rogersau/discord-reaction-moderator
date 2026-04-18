@@ -6,6 +6,7 @@ import { TicketPanelEditor, type GuildResources } from "./ticket-panel-editor";
 import { AdminPageHeader } from "./admin-page-header";
 import { EditorActions, EditorPanel } from "./admin-form-layout";
 import { GuildPicker } from "./guild-picker";
+import { PermissionNotice } from "./permission-notice";
 import { Alert, AlertDescription } from "./ui/alert";
 import { Button } from "./ui/button";
 import { Card, CardContent } from "./ui/card";
@@ -26,6 +27,10 @@ export function AdminTicketsPage({
 
       <Card>
         <CardContent className="space-y-5 pt-6">
+          <PermissionNotice
+            description="Ticket publishing and ticket channel setup can fail if the bot is missing channel access or cannot see the configured support roles."
+            checks={["Channel access", "Support roles"]}
+          />
           <TicketPanelsEditor
             guildDirectory={guildDirectory}
             guildLookupError={guildLookupError}

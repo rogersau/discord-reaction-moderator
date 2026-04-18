@@ -4,6 +4,7 @@ import type { AdminGuildDirectoryEntry } from "../../runtime/admin-types";
 import { AdminPageHeader } from "./admin-page-header";
 import { EditorActions, EditorPanel, FormField } from "./admin-form-layout";
 import { GuildPicker } from "./guild-picker";
+import { PermissionNotice } from "./permission-notice";
 import { Alert, AlertDescription } from "./ui/alert";
 import { Button } from "./ui/button";
 import { Card, CardContent } from "./ui/card";
@@ -64,6 +65,10 @@ export function AdminBlocklistPage({
 
       <Card>
         <CardContent className="space-y-5 pt-6">
+          <PermissionNotice
+            description="Blocked emoji cleanup can fail if the bot cannot remove reactions in the affected channels."
+            checks={["Manage Messages"]}
+          />
           <EditorPanel>
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-[minmax(0,1.45fr)_minmax(0,1.05fr)_minmax(14rem,0.95fr)]">
               <GuildPicker

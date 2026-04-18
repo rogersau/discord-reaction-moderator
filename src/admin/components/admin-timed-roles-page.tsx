@@ -4,6 +4,7 @@ import type { AdminGuildDirectoryEntry } from "../../runtime/admin-types";
 import { AdminPageHeader } from "./admin-page-header";
 import { EditorActions, EditorPanel, FormField } from "./admin-form-layout";
 import { GuildPicker } from "./guild-picker";
+import { PermissionNotice } from "./permission-notice";
 import { Alert, AlertDescription } from "./ui/alert";
 import { Button } from "./ui/button";
 import { Card, CardContent } from "./ui/card";
@@ -41,6 +42,10 @@ export function AdminTimedRolesPage({
 
       <Card>
         <CardContent className="space-y-5 pt-6">
+          <PermissionNotice
+            description="Timed role changes can fail if the bot cannot manage roles or if its highest role is below the target role."
+            checks={["Manage Roles", "Highest role above target"]}
+          />
           <TimedRolesEditor
             guildDirectory={guildDirectory}
             guildLookupError={guildLookupError}
