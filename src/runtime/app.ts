@@ -468,10 +468,19 @@ function buildAdminGuildDirectory(
     }));
 }
 
+export function escapeHtmlAttribute(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
+}
+
 function renderAdminShell(authenticated = false, initialPath = "/admin"): Response {
   const attributes = [
     authenticated ? 'data-authenticated="true"' : "",
-    `data-initial-path="${initialPath}"`,
+    `data-initial-path="${escapeHtmlAttribute(initialPath)}"`,
   ]
     .filter(Boolean)
     .join(" ");

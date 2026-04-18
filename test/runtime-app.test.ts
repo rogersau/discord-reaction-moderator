@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 // @ts-ignore -- Runtime tests compile under tsconfig.tests.json.
 import test from "node:test";
 
-import { createRuntimeApp } from "../src/runtime/app";
+import { createRuntimeApp, escapeHtmlAttribute } from "../src/runtime/app";
 import { createAdminSessionCookie } from "../src/runtime/admin-auth";
 import type { GatewayController, RuntimeStore } from "../src/runtime/contracts";
 import type { AppConfigMutation } from "../src/runtime/admin-types";
@@ -142,6 +142,13 @@ test("createRuntimeApp redirects unauthenticated nested admin pages to login", a
 
   assert.equal(response.status, 302);
   assert.equal(response.headers.get("location"), "/admin/login");
+});
+
+test("escapeHtmlAttribute escapes characters unsafe in HTML attributes", () => {
+  assert.equal(
+    escapeHtmlAttribute(`"/admin?<tag>&'`),
+    "&quot;/admin?&lt;tag&gt;&amp;&#39;"
+  );
 });
 
 test("createRuntimeApp handles health checks", async () => {
