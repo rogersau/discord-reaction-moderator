@@ -72,6 +72,94 @@ test("worker rejects malformed Discord public key configuration before handling 
   );
 });
 
+test("worker returns a ticket modal for a signed open-ticket button click", async () => {
+  const storeCalls: Array<{ input: string; method: string; body: unknown }> = [];
+  const { publicKeyHex, request } = await createSignedInteractionRequest({
+    type: 3,
+    guild_id: "guild-1",
+    channel_id: "panel-channel-1",
+    data: { custom_id: "ticket:open:appeals" },
+    member: { user: { id: "user-1" } },
+  });
+
+  const response = await worker.fetch(
+    request,
+    createEnv({
+      DISCORD_PUBLIC_KEY: publicKeyHex,
+      moderationFetch(input, init) {
+        storeCalls.push({
+          input: String(input),
+          method: init?.method ?? "GET",
+          body: init?.body ? JSON.parse(String(init.body)) : null,
+        });
+
+        if (String(input).includes("/ticket-panel?guildId=guild-1")) {
+          return Response.json({
+            guildId: "guild-1",
+            panelChannelId: "panel-channel-1",
+            categoryChannelId: "category-1",
+            transcriptChannelId: "transcript-1",
+            panelMessageId: "panel-message-1",
+            ticketTypes: [
+              {
+                id: "appeals",
+                label: "Appeal",
+                emoji: "🧾",
+                buttonStyle: "primary",
+                supportRoleId: "role-1",
+                channelNamePrefix: "appeal",
+                questions: [
+                  {
+                    id: "reason",
+                    label: "Why are you opening this ticket?",
+                    style: "paragraph",
+                    placeholder: "Explain",
+                    required: true,
+                  },
+                ],
+              },
+            ],
+          });
+        }
+
+        return Response.json({ ok: true });
+      },
+    }),
+    {} as ExecutionContext
+  );
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), {
+    type: 9,
+    data: {
+      custom_id: "ticket:open:appeals",
+      title: "Appeal",
+      components: [
+        {
+          type: 1,
+          components: [
+            {
+              type: 4,
+              custom_id: "reason",
+              label: "Why are you opening this ticket?",
+              style: 2,
+              placeholder: "Explain",
+              required: true,
+            },
+          ],
+        },
+      ],
+    },
+  });
+  assert.deepEqual(storeCalls, [
+    {
+      input: "https://moderation-store/ticket-panel?guildId=guild-1",
+      method: "GET",
+      body: null,
+    },
+  ]);
+});
+
 test("worker rejects slash commands from members without guild admin permissions", async () => {
   const storeCalls: Array<{ input: string; method: string; body: unknown }> = [];
   const { publicKeyHex, request } = await createSignedInteractionRequest(

@@ -9,6 +9,7 @@ import { join } from "node:path";
 import test from "node:test";
 
 import { createSqliteRuntimeStore } from "../src/runtime/sqlite-store";
+import type { TicketInstance, TicketPanelConfig } from "../src/types";
 
 test("sqlite runtime store persists blocklist config and gateway session state", async () => {
   const dir = mkdtempSync(join(tmpdir(), "runtime-store-"));
@@ -214,6 +215,178 @@ test("sqlite runtime store creates parent directories and can be closed", async 
     assert.equal(config.botUserId, "bot-user-id");
 
     store.close();
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("sqlite runtime store persists ticket panel config and ticket instances", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "runtime-store-"));
+  const sqlitePath = join(dir, "runtime.sqlite");
+
+  try {
+    const store = createSqliteRuntimeStore({ sqlitePath, botUserId: "bot-user-id" });
+
+    const panel: TicketPanelConfig = {
+      guildId: "guild-1",
+      panelChannelId: "panel-channel-1",
+      categoryChannelId: "category-1",
+      transcriptChannelId: "transcript-1",
+      panelMessageId: null,
+      ticketTypes: [
+        {
+          id: "appeals",
+          label: "Appeal",
+          emoji: "🧾",
+          buttonStyle: "primary",
+          supportRoleId: "role-1",
+          channelNamePrefix: "appeal",
+          questions: [
+            {
+              id: "reason",
+              label: "Why are you opening this ticket?",
+              style: "paragraph",
+              placeholder: "Explain the situation",
+              required: true,
+            },
+          ],
+        },
+      ],
+    };
+
+    const instance: TicketInstance = {
+      guildId: "guild-1",
+      channelId: "ticket-channel-1",
+      ticketTypeId: "appeals",
+      ticketTypeLabel: "Appeal",
+      openerUserId: "user-1",
+      supportRoleId: "role-1",
+      status: "open",
+      answers: [
+        {
+          questionId: "reason",
+          label: "Why are you opening this ticket?",
+          value: "Need help",
+        },
+      ],
+      openedAtMs: 1000,
+      closedAtMs: null,
+      closedByUserId: null,
+      transcriptMessageId: null,
+    };
+
+    await store.upsertTicketPanelConfig(panel);
+    await store.createTicketInstance(instance);
+
+    assert.deepEqual(await store.readTicketPanelConfig("guild-1"), panel);
+    assert.deepEqual(await store.readOpenTicketByChannel("guild-1", "ticket-channel-1"), instance);
+
+    await store.closeTicketInstance({
+      guildId: "guild-1",
+      channelId: "ticket-channel-1",
+      closedByUserId: "user-2",
+      closedAtMs: 2000,
+      transcriptMessageId: "transcript-message-1",
+    });
+
+    assert.equal(await store.readOpenTicketByChannel("guild-1", "ticket-channel-1"), null);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("sqlite runtime store rejects duplicate ticket instances", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "runtime-store-"));
+  const sqlitePath = join(dir, "runtime.sqlite");
+
+  try {
+    const store = createSqliteRuntimeStore({ sqlitePath, botUserId: "bot-user-id" });
+
+    await store.createTicketInstance({
+      guildId: "guild-1",
+      channelId: "ticket-channel-1",
+      ticketTypeId: "appeals",
+      ticketTypeLabel: "Appeal",
+      openerUserId: "user-1",
+      supportRoleId: "role-1",
+      status: "open",
+      answers: [],
+      openedAtMs: 1000,
+      closedAtMs: null,
+      closedByUserId: null,
+      transcriptMessageId: null,
+    });
+
+    await assert.rejects(
+      store.createTicketInstance({
+        guildId: "guild-1",
+        channelId: "ticket-channel-1",
+        ticketTypeId: "appeals",
+        ticketTypeLabel: "Appeal",
+        openerUserId: "user-2",
+        supportRoleId: "role-1",
+        status: "open",
+        answers: [],
+        openedAtMs: 2000,
+        closedAtMs: null,
+        closedByUserId: null,
+        transcriptMessageId: null,
+      })
+    );
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("sqlite runtime store deletes ticket instances for rollback", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "runtime-store-"));
+  const sqlitePath = join(dir, "runtime.sqlite");
+
+  try {
+    const store = createSqliteRuntimeStore({ sqlitePath, botUserId: "bot-user-id" });
+
+    await store.createTicketInstance({
+      guildId: "guild-1",
+      channelId: "ticket-channel-1",
+      ticketTypeId: "appeals",
+      ticketTypeLabel: "Appeal",
+      openerUserId: "user-1",
+      supportRoleId: "role-1",
+      status: "open",
+      answers: [],
+      openedAtMs: 1000,
+      closedAtMs: null,
+      closedByUserId: null,
+      transcriptMessageId: null,
+    });
+
+    await store.deleteTicketInstance({
+      guildId: "guild-1",
+      channelId: "ticket-channel-1",
+    });
+
+    assert.equal(await store.readOpenTicketByChannel("guild-1", "ticket-channel-1"), null);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("sqlite runtime store rejects closing a missing ticket", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "runtime-store-"));
+  const sqlitePath = join(dir, "runtime.sqlite");
+
+  try {
+    const store = createSqliteRuntimeStore({ sqlitePath, botUserId: "bot-user-id" });
+
+    await assert.rejects(
+      store.closeTicketInstance({
+        guildId: "guild-1",
+        channelId: "missing-channel",
+        closedByUserId: "user-2",
+        closedAtMs: 2000,
+        transcriptMessageId: "transcript-message-1",
+      })
+    );
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

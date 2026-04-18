@@ -1,4 +1,9 @@
-import type { BlocklistConfig, TimedRoleAssignment } from "../types";
+import type {
+  BlocklistConfig,
+  TicketInstance,
+  TicketPanelConfig,
+  TimedRoleAssignment,
+} from "../types";
 import type { AppConfigMutation } from "./admin-types";
 
 export interface GatewaySnapshot {
@@ -15,6 +20,18 @@ export interface RuntimeStore {
   readConfig(): Promise<BlocklistConfig>;
   upsertAppConfig(body: AppConfigMutation): Promise<void>;
   applyGuildEmojiMutation(body: { guildId: string; emoji: string; action: "add" | "remove" }): Promise<BlocklistConfig>;
+  readTicketPanelConfig(guildId: string): Promise<TicketPanelConfig | null>;
+  upsertTicketPanelConfig(panel: TicketPanelConfig): Promise<void>;
+  createTicketInstance(instance: TicketInstance): Promise<void>;
+  deleteTicketInstance(body: { guildId: string; channelId: string }): Promise<void>;
+  readOpenTicketByChannel(guildId: string, channelId: string): Promise<TicketInstance | null>;
+  closeTicketInstance(body: {
+    guildId: string;
+    channelId: string;
+    closedByUserId: string;
+    closedAtMs: number;
+    transcriptMessageId: string | null;
+  }): Promise<void>;
   listTimedRoles(): Promise<TimedRoleAssignment[]>;
   listTimedRolesByGuild(guildId: string): Promise<TimedRoleAssignment[]>;
   upsertTimedRole(body: TimedRoleAssignment): Promise<void>;

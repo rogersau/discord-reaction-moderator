@@ -558,6 +558,205 @@ test("ModerationStoreDO clears the timed role alarm when the last assignment is 
   assert.equal(deleteAlarmCalls, 1);
 });
 
+test("ModerationStoreDO stores ticket panels and ticket instances through HTTP endpoints", async () => {
+  const sql = createFakeSql();
+  const ctx = { storage: { sql } } as unknown as DurableObjectState;
+  const store = new ModerationStoreDO(
+    ctx,
+    { BOT_USER_ID: "bot-1", DISCORD_BOT_TOKEN: "token" } as never
+  );
+
+  const panel = {
+    guildId: "guild-1",
+    panelChannelId: "panel-channel-1",
+    categoryChannelId: "category-1",
+    transcriptChannelId: "transcript-1",
+    panelMessageId: null,
+    ticketTypes: [
+      {
+        id: "appeals",
+        label: "Appeal",
+        emoji: "🧾",
+        buttonStyle: "primary",
+        supportRoleId: "role-1",
+        channelNamePrefix: "appeal",
+        questions: [],
+      },
+    ],
+  };
+
+  const savePanel = await store.fetch(
+    new Request("https://moderation-store/ticket-panel", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(panel),
+    })
+  );
+  assert.equal(savePanel.status, 200);
+
+  const readPanel = await store.fetch(
+    new Request("https://moderation-store/ticket-panel?guildId=guild-1")
+  );
+  assert.deepEqual(await readPanel.json(), panel);
+
+  const createTicket = await store.fetch(
+    new Request("https://moderation-store/ticket-instance", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        guildId: "guild-1",
+        channelId: "ticket-channel-1",
+        ticketTypeId: "appeals",
+        ticketTypeLabel: "Appeal",
+        openerUserId: "user-1",
+        supportRoleId: "role-1",
+        status: "open",
+        answers: [],
+        openedAtMs: 1000,
+        closedAtMs: null,
+        closedByUserId: null,
+        transcriptMessageId: null,
+      }),
+    })
+  );
+  assert.equal(createTicket.status, 200);
+
+  const readOpen = await store.fetch(
+    new Request(
+      "https://moderation-store/ticket-instance/open?guildId=guild-1&channelId=ticket-channel-1"
+    )
+  );
+  assert.deepEqual(await readOpen.json(), {
+    guildId: "guild-1",
+    channelId: "ticket-channel-1",
+    ticketTypeId: "appeals",
+    ticketTypeLabel: "Appeal",
+    openerUserId: "user-1",
+    supportRoleId: "role-1",
+    status: "open",
+    answers: [],
+    openedAtMs: 1000,
+    closedAtMs: null,
+    closedByUserId: null,
+    transcriptMessageId: null,
+  });
+
+  const closeTicket = await store.fetch(
+    new Request("https://moderation-store/ticket-instance/close", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        guildId: "guild-1",
+        channelId: "ticket-channel-1",
+        closedByUserId: "user-2",
+        closedAtMs: 2000,
+        transcriptMessageId: "transcript-message-1",
+      }),
+    })
+  );
+  assert.equal(closeTicket.status, 200);
+
+  const readClosed = await store.fetch(
+    new Request(
+      "https://moderation-store/ticket-instance/open?guildId=guild-1&channelId=ticket-channel-1"
+    )
+  );
+  assert.equal(await readClosed.json(), null);
+});
+
+test("ModerationStoreDO rejects invalid ticket payloads with 400", async () => {
+  const sql = createFakeSql();
+  const ctx = { storage: { sql } } as unknown as DurableObjectState;
+  const store = new ModerationStoreDO(
+    ctx,
+    { BOT_USER_ID: "bot-1", DISCORD_BOT_TOKEN: "token" } as never
+  );
+
+  const missingPanelField = await store.fetch(
+    new Request("https://moderation-store/ticket-panel", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        guildId: "guild-1",
+        panelChannelId: "panel-channel-1",
+      }),
+    })
+  );
+
+  const missingTicketField = await store.fetch(
+    new Request("https://moderation-store/ticket-instance", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        guildId: "guild-1",
+        channelId: "ticket-channel-1",
+      }),
+    })
+  );
+
+  const missingCloseField = await store.fetch(
+    new Request("https://moderation-store/ticket-instance/close", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        guildId: "guild-1",
+        channelId: "ticket-channel-1",
+        closedAtMs: 2000,
+      }),
+    })
+  );
+
+  assert.equal(missingPanelField.status, 400);
+  assert.equal(missingTicketField.status, 400);
+  assert.equal(missingCloseField.status, 400);
+});
+
+test("ModerationStoreDO surfaces a failed ticket close update", async () => {
+  const sql = createFakeSql({ closeTicketUpdateChanges: 0 });
+  const ctx = { storage: { sql } } as unknown as DurableObjectState;
+  const store = new ModerationStoreDO(
+    ctx,
+    { BOT_USER_ID: "bot-1", DISCORD_BOT_TOKEN: "token" } as never
+  );
+
+  await store.fetch(
+    new Request("https://moderation-store/ticket-instance", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        guildId: "guild-1",
+        channelId: "ticket-channel-1",
+        ticketTypeId: "appeals",
+        ticketTypeLabel: "Appeal",
+        openerUserId: "user-1",
+        supportRoleId: "role-1",
+        status: "open",
+        answers: [],
+        openedAtMs: 1000,
+        closedAtMs: null,
+        closedByUserId: null,
+        transcriptMessageId: null,
+      }),
+    })
+  );
+
+  const response = await store.fetch(
+    new Request("https://moderation-store/ticket-instance/close", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        guildId: "guild-1",
+        channelId: "ticket-channel-1",
+        closedByUserId: "user-2",
+        closedAtMs: 2000,
+        transcriptMessageId: "transcript-message-1",
+      }),
+    })
+  );
+
+  assert.equal(response.status, 500);
+});
+
 test("ModerationStoreDO alarm only removes timed roles after Discord role removal succeeds", async () => {
   const now = 1_700_000_000_000;
   const originalNow = Date.now;
@@ -689,6 +888,7 @@ test("ModerationStoreDO alarm only removes timed roles after Discord role remova
 function createFakeSql(options?: {
   failOnDelete?: boolean;
   failOnSelectConfig?: boolean;
+  closeTicketUpdateChanges?: number;
   appConfigEntries?: Array<[string, string]>;
 }) {
   const appConfig = new Map<string, string>(options?.appConfigEntries ?? []);
@@ -704,6 +904,34 @@ function createFakeSql(options?: {
       expires_at_ms: number;
       created_at_ms: number;
       updated_at_ms: number;
+    }
+  >();
+  const ticketPanels = new Map<
+    string,
+    {
+      guild_id: string;
+      panel_channel_id: string;
+      category_channel_id: string;
+      transcript_channel_id: string;
+      panel_message_id: string | null;
+      ticket_types_json: string;
+    }
+  >();
+  const ticketInstances = new Map<
+    string,
+    {
+      guild_id: string;
+      channel_id: string;
+      ticket_type_id: string;
+      ticket_type_label: string;
+      opener_user_id: string;
+      support_role_id: string | null;
+      status: "open" | "closed";
+      answers_json: string;
+      opened_at_ms: number;
+      closed_at_ms: number | null;
+      closed_by_user_id: string | null;
+      transcript_message_id: string | null;
     }
   >();
 
@@ -809,6 +1037,14 @@ function createFakeSql(options?: {
         return timedRoles.size > 0 ? [{ 1: 1 }] : [];
       }
 
+      if (query === "SELECT 1 FROM ticket_panels LIMIT 1") {
+        return ticketPanels.size > 0 ? [{ 1: 1 }] : [];
+      }
+
+      if (query === "SELECT 1 FROM ticket_instances LIMIT 1") {
+        return ticketInstances.size > 0 ? [{ 1: 1 }] : [];
+      }
+
       if (query === "SELECT key, value FROM app_config") {
         if (options?.failOnSelectConfig) {
           throw new Error("storage fault");
@@ -842,6 +1078,128 @@ function createFakeSql(options?: {
           updated_at_ms,
         });
         return [];
+      }
+
+      if (
+        query ===
+        "SELECT guild_id, panel_channel_id, category_channel_id, transcript_channel_id, panel_message_id, ticket_types_json FROM ticket_panels WHERE guild_id = ?"
+      ) {
+        const row = ticketPanels.get(params[0] as string);
+        return row ? [row] : [];
+      }
+
+      if (
+        query ===
+        "INSERT INTO ticket_panels(guild_id, panel_channel_id, category_channel_id, transcript_channel_id, panel_message_id, ticket_types_json) VALUES(?, ?, ?, ?, ?, ?) ON CONFLICT(guild_id) DO UPDATE SET panel_channel_id = excluded.panel_channel_id, category_channel_id = excluded.category_channel_id, transcript_channel_id = excluded.transcript_channel_id, panel_message_id = excluded.panel_message_id, ticket_types_json = excluded.ticket_types_json"
+      ) {
+        const [guild_id, panel_channel_id, category_channel_id, transcript_channel_id, panel_message_id, ticket_types_json] = params as [
+          string,
+          string,
+          string,
+          string,
+          string | null,
+          string,
+        ];
+        ticketPanels.set(guild_id, {
+          guild_id,
+          panel_channel_id,
+          category_channel_id,
+          transcript_channel_id,
+          panel_message_id,
+          ticket_types_json,
+        });
+        return [];
+      }
+
+      if (
+        query ===
+        "INSERT INTO ticket_instances(guild_id, channel_id, ticket_type_id, ticket_type_label, opener_user_id, support_role_id, status, answers_json, opened_at_ms, closed_at_ms, closed_by_user_id, transcript_message_id) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+      ) {
+        const [
+          guild_id,
+          channel_id,
+          ticket_type_id,
+          ticket_type_label,
+          opener_user_id,
+          support_role_id,
+          status,
+          answers_json,
+          opened_at_ms,
+          closed_at_ms,
+          closed_by_user_id,
+          transcript_message_id,
+        ] = params as [
+          string,
+          string,
+          string,
+          string,
+          string,
+          string | null,
+          "open" | "closed",
+          string,
+          number,
+          number | null,
+          string | null,
+          string | null,
+        ];
+        const key = `${guild_id}:${channel_id}`;
+        if (ticketInstances.has(key)) {
+          throw new Error(
+            "UNIQUE constraint failed: ticket_instances.guild_id, ticket_instances.channel_id"
+          );
+        }
+        ticketInstances.set(key, {
+          guild_id,
+          channel_id,
+          ticket_type_id,
+          ticket_type_label,
+          opener_user_id,
+          support_role_id,
+          status,
+          answers_json,
+          opened_at_ms,
+          closed_at_ms,
+          closed_by_user_id,
+          transcript_message_id,
+        });
+        return [];
+      }
+
+      if (
+        query ===
+        "SELECT guild_id, channel_id, ticket_type_id, ticket_type_label, opener_user_id, support_role_id, status, answers_json, opened_at_ms, closed_at_ms, closed_by_user_id, transcript_message_id FROM ticket_instances WHERE guild_id = ? AND channel_id = ? AND status = 'open'"
+      ) {
+        const row = ticketInstances.get(`${params[0]}:${params[1]}`);
+        return row && row.status === "open" ? [row] : [];
+      }
+
+      if (
+        query ===
+        "UPDATE ticket_instances SET status = 'closed', closed_by_user_id = ?, closed_at_ms = ?, transcript_message_id = ? WHERE guild_id = ? AND channel_id = ? AND status = 'open'"
+      ) {
+        const [closed_by_user_id, closed_at_ms, transcript_message_id, guild_id, channel_id] = params as [
+          string,
+          number,
+          string | null,
+          string,
+          string,
+        ];
+        const key = `${guild_id}:${channel_id}`;
+        const row = ticketInstances.get(key);
+        if (!row || row.status !== "open") {
+          return { changes: 0 };
+        }
+        if (options?.closeTicketUpdateChanges !== undefined) {
+          return { changes: options.closeTicketUpdateChanges };
+        }
+        ticketInstances.set(key, {
+          ...row,
+          status: "closed",
+          closed_by_user_id,
+          closed_at_ms,
+          transcript_message_id,
+        });
+        return { changes: 1 };
       }
 
       if (

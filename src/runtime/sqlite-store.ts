@@ -7,6 +7,8 @@ import type {
   BlocklistConfig,
   GuildBlockedEmojiRow,
   GuildSettingRow,
+  TicketInstance,
+  TicketPanelConfig,
   TimedRoleAssignment,
 } from "../types";
 import type { ClosableRuntimeStore, GatewaySnapshot } from "./contracts";
@@ -34,6 +36,30 @@ interface TimedRoleRowPartial {
   role_id: string;
   duration_input: string;
   expires_at_ms: number;
+}
+
+interface TicketPanelRow {
+  guild_id: string;
+  panel_channel_id: string;
+  category_channel_id: string;
+  transcript_channel_id: string;
+  panel_message_id: string | null;
+  ticket_types_json: string;
+}
+
+interface TicketInstanceRow {
+  guild_id: string;
+  channel_id: string;
+  ticket_type_id: string;
+  ticket_type_label: string;
+  opener_user_id: string;
+  support_role_id: string | null;
+  status: "open" | "closed";
+  answers_json: string;
+  opened_at_ms: number;
+  closed_at_ms: number | null;
+  closed_by_user_id: string | null;
+  transcript_message_id: string | null;
 }
 
 export function createSqliteRuntimeStore(
@@ -77,6 +103,29 @@ export function createSqliteRuntimeStore(
       last_error TEXT,
       heartbeat_interval_ms INTEGER
     );
+    CREATE TABLE IF NOT EXISTS ticket_panels (
+      guild_id TEXT PRIMARY KEY,
+      panel_channel_id TEXT NOT NULL,
+      category_channel_id TEXT NOT NULL,
+      transcript_channel_id TEXT NOT NULL,
+      panel_message_id TEXT,
+      ticket_types_json TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS ticket_instances (
+      guild_id TEXT NOT NULL,
+      channel_id TEXT NOT NULL,
+      ticket_type_id TEXT NOT NULL,
+      ticket_type_label TEXT NOT NULL,
+      opener_user_id TEXT NOT NULL,
+      support_role_id TEXT,
+      status TEXT NOT NULL,
+      answers_json TEXT NOT NULL,
+      opened_at_ms INTEGER NOT NULL,
+      closed_at_ms INTEGER,
+      closed_by_user_id TEXT,
+      transcript_message_id TEXT,
+      PRIMARY KEY (guild_id, channel_id)
+    );
   `);
 
   const insertBotUserId = db.prepare(
@@ -104,6 +153,53 @@ export function createSqliteRuntimeStore(
   const selectTimedRoles = db.prepare(
     "SELECT guild_id, user_id, role_id, duration_input, expires_at_ms FROM timed_roles ORDER BY guild_id ASC, expires_at_ms ASC"
   );
+  const selectTicketPanel = db.prepare(
+    "SELECT guild_id, panel_channel_id, category_channel_id, transcript_channel_id, panel_message_id, ticket_types_json FROM ticket_panels WHERE guild_id = ?"
+  );
+  const upsertTicketPanel = db.prepare(`
+    INSERT INTO ticket_panels(guild_id, panel_channel_id, category_channel_id, transcript_channel_id, panel_message_id, ticket_types_json)
+    VALUES(?, ?, ?, ?, ?, ?)
+    ON CONFLICT(guild_id)
+    DO UPDATE SET
+      panel_channel_id = excluded.panel_channel_id,
+      category_channel_id = excluded.category_channel_id,
+      transcript_channel_id = excluded.transcript_channel_id,
+      panel_message_id = excluded.panel_message_id,
+      ticket_types_json = excluded.ticket_types_json
+  `);
+  const insertTicketInstance = db.prepare(`
+    INSERT INTO ticket_instances(
+      guild_id,
+      channel_id,
+      ticket_type_id,
+      ticket_type_label,
+      opener_user_id,
+      support_role_id,
+      status,
+      answers_json,
+      opened_at_ms,
+      closed_at_ms,
+      closed_by_user_id,
+      transcript_message_id
+    )
+    VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+  const selectOpenTicketByChannel = db.prepare(`
+    SELECT guild_id, channel_id, ticket_type_id, ticket_type_label, opener_user_id, support_role_id, status, answers_json, opened_at_ms, closed_at_ms, closed_by_user_id, transcript_message_id
+    FROM ticket_instances
+    WHERE guild_id = ? AND channel_id = ? AND status = 'open'
+  `);
+  const deleteTicketInstanceStmt = db.prepare(
+    "DELETE FROM ticket_instances WHERE guild_id = ? AND channel_id = ?"
+  );
+  const closeTicketInstanceStmt = db.prepare(`
+    UPDATE ticket_instances
+    SET status = 'closed',
+        closed_by_user_id = ?,
+        closed_at_ms = ?,
+        transcript_message_id = ?
+    WHERE guild_id = ? AND channel_id = ? AND status = 'open'
+  `);
   const upsertTimedRoleStmt = db.prepare(`
     INSERT INTO timed_roles(guild_id, user_id, role_id, duration_input, expires_at_ms, created_at_ms, updated_at_ms)
     VALUES(?, ?, ?, ?, ?, ?, ?)
@@ -158,6 +254,96 @@ export function createSqliteRuntimeStore(
       }
 
       return this.readConfig();
+    },
+
+    async readTicketPanelConfig(guildId: string): Promise<TicketPanelConfig | null> {
+      const row = selectTicketPanel.get(guildId) as TicketPanelRow | undefined;
+      if (!row) {
+        return null;
+      }
+
+      return {
+        guildId: row.guild_id,
+        panelChannelId: row.panel_channel_id,
+        categoryChannelId: row.category_channel_id,
+        transcriptChannelId: row.transcript_channel_id,
+        panelMessageId: row.panel_message_id,
+        ticketTypes: JSON.parse(row.ticket_types_json) as TicketPanelConfig["ticketTypes"],
+      };
+    },
+
+    async upsertTicketPanelConfig(panel: TicketPanelConfig): Promise<void> {
+      upsertTicketPanel.run(
+        panel.guildId,
+        panel.panelChannelId,
+        panel.categoryChannelId,
+        panel.transcriptChannelId,
+        panel.panelMessageId,
+        JSON.stringify(panel.ticketTypes)
+      );
+    },
+
+    async createTicketInstance(instance: TicketInstance): Promise<void> {
+      insertTicketInstance.run(
+        instance.guildId,
+        instance.channelId,
+        instance.ticketTypeId,
+        instance.ticketTypeLabel,
+        instance.openerUserId,
+        instance.supportRoleId,
+        instance.status,
+        JSON.stringify(instance.answers),
+        instance.openedAtMs,
+        instance.closedAtMs,
+        instance.closedByUserId,
+        instance.transcriptMessageId
+      );
+    },
+
+    async deleteTicketInstance(body: { guildId: string; channelId: string }): Promise<void> {
+      deleteTicketInstanceStmt.run(body.guildId, body.channelId);
+    },
+
+    async readOpenTicketByChannel(guildId: string, channelId: string): Promise<TicketInstance | null> {
+      const row = selectOpenTicketByChannel.get(guildId, channelId) as TicketInstanceRow | undefined;
+      if (!row) {
+        return null;
+      }
+
+      return {
+        guildId: row.guild_id,
+        channelId: row.channel_id,
+        ticketTypeId: row.ticket_type_id,
+        ticketTypeLabel: row.ticket_type_label,
+        openerUserId: row.opener_user_id,
+        supportRoleId: row.support_role_id,
+        status: row.status,
+        answers: JSON.parse(row.answers_json) as TicketInstance["answers"],
+        openedAtMs: row.opened_at_ms,
+        closedAtMs: row.closed_at_ms,
+        closedByUserId: row.closed_by_user_id,
+        transcriptMessageId: row.transcript_message_id,
+      };
+    },
+
+    async closeTicketInstance(body: {
+      guildId: string;
+      channelId: string;
+      closedByUserId: string;
+      closedAtMs: number;
+      transcriptMessageId: string | null;
+    }): Promise<void> {
+      const result = closeTicketInstanceStmt.run(
+        body.closedByUserId,
+        body.closedAtMs,
+        body.transcriptMessageId,
+        body.guildId,
+        body.channelId
+      );
+
+      if (result.changes === 0) {
+        throw new Error(`No open ticket found for guild ${body.guildId} channel ${body.channelId}`);
+      }
     },
 
     async listTimedRolesByGuild(guildId: string): Promise<TimedRoleAssignment[]> {

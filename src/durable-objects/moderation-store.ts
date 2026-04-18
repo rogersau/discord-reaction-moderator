@@ -3,6 +3,8 @@ import type {
   BlocklistConfig,
   GuildBlockedEmojiRow,
   GuildSettingRow,
+  TicketInstance,
+  TicketPanelConfig,
   TimedRoleAssignment,
   TimedRoleRow,
 } from "../types";
@@ -44,6 +46,29 @@ export class ModerationStoreDO implements DurableObject {
         created_at_ms INTEGER NOT NULL,
         updated_at_ms INTEGER NOT NULL,
         PRIMARY KEY (guild_id, user_id, role_id)
+      );
+      CREATE TABLE IF NOT EXISTS ticket_panels (
+        guild_id TEXT PRIMARY KEY,
+        panel_channel_id TEXT NOT NULL,
+        category_channel_id TEXT NOT NULL,
+        transcript_channel_id TEXT NOT NULL,
+        panel_message_id TEXT,
+        ticket_types_json TEXT NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS ticket_instances (
+        guild_id TEXT NOT NULL,
+        channel_id TEXT NOT NULL,
+        ticket_type_id TEXT NOT NULL,
+        ticket_type_label TEXT NOT NULL,
+        opener_user_id TEXT NOT NULL,
+        support_role_id TEXT,
+        status TEXT NOT NULL,
+        answers_json TEXT NOT NULL,
+        opened_at_ms INTEGER NOT NULL,
+        closed_at_ms INTEGER,
+        closed_by_user_id TEXT,
+        transcript_message_id TEXT,
+        PRIMARY KEY (guild_id, channel_id)
       );
     `);
 
@@ -109,6 +134,65 @@ export class ModerationStoreDO implements DurableObject {
       try {
         const body = parseAppConfigMutation(await request.json());
         return Response.json(this.upsertAppConfig(body));
+      } catch (error) {
+        return this.errorResponse(error);
+      }
+    }
+
+    if (request.method === "GET" && url.pathname === "/ticket-panel") {
+      try {
+        const guildId = asRequiredSearchParam(url.searchParams, "guildId");
+        return Response.json(this.readTicketPanelConfig(guildId));
+      } catch (error) {
+        return this.errorResponse(error);
+      }
+    }
+
+    if (request.method === "POST" && url.pathname === "/ticket-panel") {
+      try {
+        const body = parseTicketPanelConfig(await request.json());
+        await this.upsertTicketPanelConfig(body);
+        return Response.json({ ok: true });
+      } catch (error) {
+        return this.errorResponse(error);
+      }
+    }
+
+    if (request.method === "POST" && url.pathname === "/ticket-instance") {
+      try {
+        const body = parseTicketInstance(await request.json());
+        await this.createTicketInstance(body);
+        return Response.json({ ok: true });
+      } catch (error) {
+        return this.errorResponse(error);
+      }
+    }
+
+    if (request.method === "GET" && url.pathname === "/ticket-instance/open") {
+      try {
+        const guildId = asRequiredSearchParam(url.searchParams, "guildId");
+        const channelId = asRequiredSearchParam(url.searchParams, "channelId");
+        return Response.json(await this.readOpenTicketByChannel(guildId, channelId));
+      } catch (error) {
+        return this.errorResponse(error);
+      }
+    }
+
+    if (request.method === "POST" && url.pathname === "/ticket-instance/delete") {
+      try {
+        const body = parseTicketDeleteRequest(await request.json());
+        await this.deleteTicketInstance(body.guildId, body.channelId);
+        return Response.json({ ok: true });
+      } catch (error) {
+        return this.errorResponse(error);
+      }
+    }
+
+    if (request.method === "POST" && url.pathname === "/ticket-instance/close") {
+      try {
+        const body = parseTicketCloseRequest(await request.json());
+        await this.closeTicketInstance(body);
+        return Response.json({ ok: true });
       } catch (error) {
         return this.errorResponse(error);
       }
@@ -188,6 +272,112 @@ export class ModerationStoreDO implements DurableObject {
     );
 
     return { ok: true };
+  }
+
+  private readTicketPanelConfig(guildId: string): TicketPanelConfig | null {
+    const row = [
+      ...this.sql.exec(
+        "SELECT guild_id, panel_channel_id, category_channel_id, transcript_channel_id, panel_message_id, ticket_types_json FROM ticket_panels WHERE guild_id = ?",
+        guildId
+      ),
+    ][0] as Record<string, unknown> | undefined;
+
+    if (!row) {
+      return null;
+    }
+
+    return {
+      guildId: row.guild_id as string,
+      panelChannelId: row.panel_channel_id as string,
+      categoryChannelId: row.category_channel_id as string,
+      transcriptChannelId: row.transcript_channel_id as string,
+      panelMessageId: row.panel_message_id as string | null,
+      ticketTypes: JSON.parse(row.ticket_types_json as string) as TicketPanelConfig["ticketTypes"],
+    };
+  }
+
+  private async upsertTicketPanelConfig(panel: TicketPanelConfig): Promise<void> {
+    this.sql.exec(
+      "INSERT INTO ticket_panels(guild_id, panel_channel_id, category_channel_id, transcript_channel_id, panel_message_id, ticket_types_json) VALUES(?, ?, ?, ?, ?, ?) ON CONFLICT(guild_id) DO UPDATE SET panel_channel_id = excluded.panel_channel_id, category_channel_id = excluded.category_channel_id, transcript_channel_id = excluded.transcript_channel_id, panel_message_id = excluded.panel_message_id, ticket_types_json = excluded.ticket_types_json",
+      panel.guildId,
+      panel.panelChannelId,
+      panel.categoryChannelId,
+      panel.transcriptChannelId,
+      panel.panelMessageId,
+      JSON.stringify(panel.ticketTypes)
+    );
+  }
+
+  private async createTicketInstance(instance: TicketInstance): Promise<void> {
+    this.sql.exec(
+      "INSERT INTO ticket_instances(guild_id, channel_id, ticket_type_id, ticket_type_label, opener_user_id, support_role_id, status, answers_json, opened_at_ms, closed_at_ms, closed_by_user_id, transcript_message_id) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      instance.guildId,
+      instance.channelId,
+      instance.ticketTypeId,
+      instance.ticketTypeLabel,
+      instance.openerUserId,
+      instance.supportRoleId,
+      instance.status,
+      JSON.stringify(instance.answers),
+      instance.openedAtMs,
+      instance.closedAtMs,
+      instance.closedByUserId,
+      instance.transcriptMessageId
+    );
+  }
+
+  private async deleteTicketInstance(guildId: string, channelId: string): Promise<void> {
+    this.sql.exec("DELETE FROM ticket_instances WHERE guild_id = ? AND channel_id = ?", guildId, channelId);
+  }
+
+  private async readOpenTicketByChannel(guildId: string, channelId: string): Promise<TicketInstance | null> {
+    const row = [
+      ...this.sql.exec(
+        "SELECT guild_id, channel_id, ticket_type_id, ticket_type_label, opener_user_id, support_role_id, status, answers_json, opened_at_ms, closed_at_ms, closed_by_user_id, transcript_message_id FROM ticket_instances WHERE guild_id = ? AND channel_id = ? AND status = 'open'",
+        guildId,
+        channelId
+      ),
+    ][0] as Record<string, unknown> | undefined;
+
+    if (!row) {
+      return null;
+    }
+
+    return {
+      guildId: row.guild_id as string,
+      channelId: row.channel_id as string,
+      ticketTypeId: row.ticket_type_id as string,
+      ticketTypeLabel: row.ticket_type_label as string,
+      openerUserId: row.opener_user_id as string,
+      supportRoleId: row.support_role_id as string | null,
+      status: row.status as TicketInstance["status"],
+      answers: JSON.parse(row.answers_json as string) as TicketInstance["answers"],
+      openedAtMs: row.opened_at_ms as number,
+      closedAtMs: row.closed_at_ms as number | null,
+      closedByUserId: row.closed_by_user_id as string | null,
+      transcriptMessageId: row.transcript_message_id as string | null,
+    };
+  }
+
+  private async closeTicketInstance(body: {
+    guildId: string;
+    channelId: string;
+    closedByUserId: string;
+    closedAtMs: number;
+    transcriptMessageId: string | null;
+  }): Promise<void> {
+    const result = this.sql.exec(
+      "UPDATE ticket_instances SET status = 'closed', closed_by_user_id = ?, closed_at_ms = ?, transcript_message_id = ? WHERE guild_id = ? AND channel_id = ? AND status = 'open'",
+      body.closedByUserId,
+      body.closedAtMs,
+      body.transcriptMessageId,
+      body.guildId,
+      body.channelId
+    ) as { changes?: number };
+
+    if (!result.changes) {
+      throw new Error(`No open ticket found for guild ${body.guildId} channel ${body.channelId}`);
+    }
   }
 
   private applyGuildEmojiMutation(body: { guildId: string; emoji: string; action: "add" | "remove"; }): BlocklistConfig {
@@ -373,8 +563,165 @@ function parseTimedRoleRemoval(body: unknown): {
   };
 }
 
+function parseTicketPanelConfig(body: unknown): TicketPanelConfig {
+  if (!isRecord(body)) {
+    throw new ModerationStoreInputError("Invalid JSON body");
+  }
+
+  return {
+    guildId: asRequiredString(body.guildId, "guildId"),
+    panelChannelId: asRequiredString(body.panelChannelId, "panelChannelId"),
+    categoryChannelId: asRequiredString(body.categoryChannelId, "categoryChannelId"),
+    transcriptChannelId: asRequiredString(body.transcriptChannelId, "transcriptChannelId"),
+    panelMessageId: asNullableString(body.panelMessageId, "panelMessageId"),
+    ticketTypes: parseTicketTypes(body.ticketTypes),
+  };
+}
+
+function parseTicketInstance(body: unknown): TicketInstance {
+  if (!isRecord(body)) {
+    throw new ModerationStoreInputError("Invalid JSON body");
+  }
+
+  return {
+    guildId: asRequiredString(body.guildId, "guildId"),
+    channelId: asRequiredString(body.channelId, "channelId"),
+    ticketTypeId: asRequiredString(body.ticketTypeId, "ticketTypeId"),
+    ticketTypeLabel: asRequiredString(body.ticketTypeLabel, "ticketTypeLabel"),
+    openerUserId: asRequiredString(body.openerUserId, "openerUserId"),
+    supportRoleId: asNullableString(body.supportRoleId, "supportRoleId"),
+    status: asTicketStatus(body.status),
+    answers: parseTicketAnswers(body.answers),
+    openedAtMs: asRequiredFiniteNumber(body.openedAtMs, "openedAtMs"),
+    closedAtMs: asNullableFiniteNumber(body.closedAtMs, "closedAtMs"),
+    closedByUserId: asNullableString(body.closedByUserId, "closedByUserId"),
+    transcriptMessageId: asNullableString(body.transcriptMessageId, "transcriptMessageId"),
+  };
+}
+
+function parseTicketCloseRequest(body: unknown): {
+  guildId: string;
+  channelId: string;
+  closedByUserId: string;
+  closedAtMs: number;
+  transcriptMessageId: string | null;
+} {
+  if (!isRecord(body)) {
+    throw new ModerationStoreInputError("Invalid JSON body");
+  }
+
+  return {
+    guildId: asRequiredString(body.guildId, "guildId"),
+    channelId: asRequiredString(body.channelId, "channelId"),
+    closedByUserId: asRequiredString(body.closedByUserId, "closedByUserId"),
+    closedAtMs: asRequiredFiniteNumber(body.closedAtMs, "closedAtMs"),
+    transcriptMessageId: asNullableString(body.transcriptMessageId, "transcriptMessageId"),
+  };
+}
+
+function parseTicketDeleteRequest(body: unknown): { guildId: string; channelId: string } {
+  if (!isRecord(body)) {
+    throw new ModerationStoreInputError("Invalid JSON body");
+  }
+
+  return {
+    guildId: asRequiredString(body.guildId, "guildId"),
+    channelId: asRequiredString(body.channelId, "channelId"),
+  };
+}
+
+function parseTicketTypes(value: unknown): TicketPanelConfig["ticketTypes"] {
+  if (!Array.isArray(value)) {
+    throw new ModerationStoreInputError("Missing ticketTypes");
+  }
+
+  const seenIds = new Set<string>();
+  return value.map((ticketType, index) => {
+    if (!isRecord(ticketType)) {
+      throw new ModerationStoreInputError(`Invalid ticketTypes[${index}]`);
+    }
+
+    const id = asRequiredString(ticketType.id, `ticketTypes[${index}].id`);
+    if (seenIds.has(id)) {
+      throw new ModerationStoreInputError(`Duplicate ticketTypes[${index}].id`);
+    }
+    seenIds.add(id);
+
+    return {
+      id,
+      label: asRequiredString(ticketType.label, `ticketTypes[${index}].label`),
+      emoji: asNullableString(ticketType.emoji, `ticketTypes[${index}].emoji`),
+      buttonStyle: asTicketButtonStyle(ticketType.buttonStyle),
+      supportRoleId: asRequiredString(ticketType.supportRoleId, `ticketTypes[${index}].supportRoleId`),
+      channelNamePrefix: asRequiredString(ticketType.channelNamePrefix, `ticketTypes[${index}].channelNamePrefix`),
+      questions: parseTicketQuestions(ticketType.questions, index),
+    };
+  });
+}
+
+function parseTicketQuestions(value: unknown, ticketTypeIndex: number): TicketPanelConfig["ticketTypes"][number]["questions"] {
+  if (!Array.isArray(value)) {
+    throw new ModerationStoreInputError(`Missing ticketTypes[${ticketTypeIndex}].questions`);
+  }
+  if (value.length > 5) {
+    throw new ModerationStoreInputError(`ticketTypes[${ticketTypeIndex}].questions cannot exceed 5 entries`);
+  }
+
+  return value.map((question, questionIndex) => {
+    if (!isRecord(question)) {
+      throw new ModerationStoreInputError(`Invalid ticketTypes[${ticketTypeIndex}].questions[${questionIndex}]`);
+    }
+
+    return {
+      id: asRequiredString(question.id, `ticketTypes[${ticketTypeIndex}].questions[${questionIndex}].id`),
+      label: asRequiredString(question.label, `ticketTypes[${ticketTypeIndex}].questions[${questionIndex}].label`),
+      style: asTicketQuestionStyle(question.style),
+      placeholder: asNullableString(question.placeholder, `ticketTypes[${ticketTypeIndex}].questions[${questionIndex}].placeholder`),
+      required: asBoolean(question.required, `ticketTypes[${ticketTypeIndex}].questions[${questionIndex}].required`),
+    };
+  });
+}
+
+function parseTicketAnswers(value: unknown): TicketInstance["answers"] {
+  if (!Array.isArray(value)) {
+    throw new ModerationStoreInputError("Missing answers");
+  }
+
+  return value.map((answer, index) => {
+    if (!isRecord(answer)) {
+      throw new ModerationStoreInputError(`Invalid answers[${index}]`);
+    }
+
+    return {
+      questionId: asRequiredString(answer.questionId, `answers[${index}].questionId`),
+      label: asRequiredString(answer.label, `answers[${index}].label`),
+      value: asRequiredString(answer.value, `answers[${index}].value`),
+    };
+  });
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
+}
+
+function asRequiredFiniteNumber(value: unknown, fieldName: string): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    throw new ModerationStoreInputError(`Missing ${fieldName}`);
+  }
+
+  return value;
+}
+
+function asNullableFiniteNumber(value: unknown, fieldName: string): number | null {
+  if (value === null) {
+    return null;
+  }
+
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    throw new ModerationStoreInputError(`Missing ${fieldName}`);
+  }
+
+  return value;
 }
 
 function asRequiredString(value: unknown, fieldName: string): string {
@@ -387,6 +734,60 @@ function asRequiredString(value: unknown, fieldName: string): string {
 
 function asOptionalString(value: unknown): string | null {
   return typeof value === "string" ? value : null;
+}
+
+function asNullableString(value: unknown, fieldName: string): string | null {
+  if (value === null) {
+    return null;
+  }
+
+  if (typeof value !== "string" || value.length === 0) {
+    throw new ModerationStoreInputError(`Missing ${fieldName}`);
+  }
+
+  return value;
+}
+
+function asBoolean(value: unknown, fieldName: string): boolean {
+  if (typeof value !== "boolean") {
+    throw new ModerationStoreInputError(`Missing ${fieldName}`);
+  }
+
+  return value;
+}
+
+function asTicketStatus(value: unknown): TicketInstance["status"] {
+  if (value !== "open" && value !== "closed") {
+    throw new ModerationStoreInputError("Missing status");
+  }
+
+  return value;
+}
+
+function asTicketButtonStyle(value: unknown): TicketPanelConfig["ticketTypes"][number]["buttonStyle"] {
+  if (value !== "primary" && value !== "secondary" && value !== "success" && value !== "danger") {
+    throw new ModerationStoreInputError("Missing buttonStyle");
+  }
+
+  return value;
+}
+
+function asTicketQuestionStyle(value: unknown): TicketPanelConfig["ticketTypes"][number]["questions"][number]["style"] {
+  if (value !== "short" && value !== "paragraph") {
+    throw new ModerationStoreInputError("Missing style");
+  }
+
+  return value;
+}
+
+function asRequiredSearchParam(searchParams: URLSearchParams, fieldName: string): string {
+  const value = searchParams.get(fieldName);
+
+  if (typeof value !== "string" || value.length === 0) {
+    throw new ModerationStoreInputError(`Missing ${fieldName}`);
+  }
+
+  return value;
 }
 
 function mapTimedRoleRow(row: Record<string, unknown>): TimedRoleRow {

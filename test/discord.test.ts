@@ -5,7 +5,11 @@ import assert from "node:assert/strict";
 // @ts-ignore -- The worker typecheck config omits Node built-ins and full node:test types conflict with Workers globals; tsconfig.tests provides the runtime test types.
 import test from "node:test";
 
-import { addGuildMemberRole, removeGuildMemberRole } from "../src/discord";
+import {
+  addGuildMemberRole,
+  createTicketChannel,
+  removeGuildMemberRole,
+} from "../src/discord";
 
 test("addGuildMemberRole uses the Discord member-role endpoint", async () => {
   const calls: Array<{ input: string; method: string }> = [];
@@ -77,4 +81,51 @@ test("removeGuildMemberRole throws when Discord returns a non-ok response", asyn
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+test("createTicketChannel posts a private guild channel with opener and support overwrites", async () => {
+  const calls: Array<{ url: string; method: string; body: unknown }> = [];
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    calls.push({
+      url: String(input),
+      method: init?.method ?? "GET",
+      body: init?.body ? JSON.parse(String(init.body)) : null,
+    });
+    return Response.json({ id: "ticket-channel-1" });
+  }) as typeof fetch;
+
+  try {
+    await createTicketChannel(
+      {
+        guildId: "guild-1",
+        name: "appeal-user-1",
+        parentId: "category-1",
+        botUserId: "bot-user-1",
+        openerUserId: "user-1",
+        supportRoleId: "role-1",
+      },
+      "bot-token"
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+
+  assert.deepEqual(calls, [
+    {
+      url: "https://discord.com/api/v10/guilds/guild-1/channels",
+      method: "POST",
+      body: {
+        name: "appeal-user-1",
+        type: 0,
+        parent_id: "category-1",
+        permission_overwrites: [
+          { id: "guild-1", type: 0, deny: "1024", allow: "0" },
+          { id: "bot-user-1", type: 1, allow: "1024", deny: "0" },
+          { id: "user-1", type: 1, allow: "1024", deny: "0" },
+          { id: "role-1", type: 0, allow: "1024", deny: "0" },
+        ],
+      },
+    },
+  ]);
 });

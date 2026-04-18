@@ -57,3 +57,55 @@ export interface BlocklistConfig {
   };
   botUserId: string;
 }
+
+export type TicketQuestionStyle = "short" | "paragraph";
+
+export type TicketButtonStyle = "primary" | "secondary" | "success" | "danger";
+
+export interface TicketQuestion {
+  id: string;
+  label: string;
+  style: TicketQuestionStyle;
+  placeholder: string | null;
+  required: boolean;
+}
+
+export interface TicketTypeConfig {
+  id: string;
+  label: string;
+  emoji: string | null;
+  buttonStyle: TicketButtonStyle;
+  supportRoleId: string;
+  channelNamePrefix: string;
+  questions: TicketQuestion[];
+}
+
+export interface TicketPanelConfig {
+  guildId: string;
+  panelChannelId: string;
+  categoryChannelId: string;
+  transcriptChannelId: string;
+  panelMessageId: string | null;
+  ticketTypes: TicketTypeConfig[];
+}
+
+export interface TicketAnswer {
+  questionId: string;
+  label: string;
+  value: string;
+}
+
+export interface TicketInstance {
+  guildId: string;
+  channelId: string;
+  ticketTypeId: string;
+  ticketTypeLabel: string;
+  openerUserId: string;
+  supportRoleId: string | null;
+  status: "open" | "closed";
+  answers: TicketAnswer[];
+  openedAtMs: number;
+  closedAtMs: number | null;
+  closedByUserId: string | null;
+  transcriptMessageId: string | null;
+}

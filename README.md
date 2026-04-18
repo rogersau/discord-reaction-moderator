@@ -127,6 +127,26 @@ curl https://your-worker-url.workers.dev/admin/gateway/status \
 
 If command sync fails, the Worker logs the sync error but still attempts to start the gateway session.
 
+### 7. Set up ticket panels in the admin dashboard
+
+Use the admin dashboard to configure **one ticket panel per guild**:
+
+1. Choose the panel channel where the ticket buttons should be posted.
+2. Pick the shared ticket category that new private ticket channels will be created under.
+3. Choose the transcript channel that will receive closed-ticket uploads.
+4. Add ticket types with a support role and up to five modal questions per type.
+5. Publish the panel from the dashboard so Discord receives the current button layout.
+
+When a member clicks a ticket button, the Worker opens the ticket modal. After the modal is submitted, it creates a private ticket channel in the shared category. When the ticket is closed, the Worker uploads a transcript to the configured transcript channel and then deletes the ticket channel.
+
+The bot needs these Discord permissions in the guild:
+
+- View Channels
+- Send Messages
+- Manage Channels
+- Read Message History
+- Attach Files
+
 ## Current slash commands
 
 Once the interactions endpoint is configured and a bootstrap has run successfully, Discord will expose:

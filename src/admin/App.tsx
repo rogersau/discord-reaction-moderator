@@ -17,6 +17,8 @@ import {
   TableHeader,
   TableRow,
 } from "./components/ui/table";
+import { TicketPanelEditor, type GuildResources } from "./components/ticket-panel-editor";
+import type { TicketPanelConfig } from "../types";
 
 interface GatewayStatus {
   status: string;
@@ -263,6 +265,18 @@ export default function App({ initialAuthenticated = false }: Props) {
               <Card>
                 <CardContent className="pt-6">
                   <TimedRolesEditor onUpdated={loadOverview} />
+                </CardContent>
+              </Card>
+            </section>
+
+            <section className="space-y-4">
+              <SectionHeading
+                title="Ticket Panels"
+                description="Configure ticket buttons, questions, and transcript routing."
+              />
+              <Card>
+                <CardContent className="pt-6">
+                  <TicketPanelsEditor />
                 </CardContent>
               </Card>
             </section>
@@ -677,6 +691,135 @@ function TimedRolesEditor({ onUpdated }: { onUpdated: () => Promise<void> }) {
         <Alert variant="destructive">
           <AlertDescription>{error}</AlertDescription>
         </Alert>
+      )}
+    </div>
+  );
+}
+
+function TicketPanelsEditor() {
+  const [guildId, setGuildId] = useState("");
+  const [guildResources, setGuildResources] = useState<GuildResources | null>(null);
+  const [panelConfig, setPanelConfig] = useState<TicketPanelConfig | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const trimmedGuildId = guildId.trim();
+
+  async function loadResources(id: string) {
+    const normalized = id.trim();
+    if (!normalized) {
+      setGuildResources(null);
+      setPanelConfig(null);
+      return;
+    }
+    setLoading(true);
+    try {
+      setLoadError(null);
+      const [resourcesRes, panelRes] = await Promise.all([
+        fetch(`/admin/api/tickets/resources?guildId=${encodeURIComponent(normalized)}`),
+        fetch(`/admin/api/tickets/panel?guildId=${encodeURIComponent(normalized)}`),
+      ]);
+      if (!resourcesRes.ok) {
+        throw new Error(`Failed to load guild resources (${resourcesRes.status})`);
+      }
+      const resources = await resourcesRes.json() as GuildResources;
+      setGuildResources(resources);
+
+      if (panelRes.ok) {
+        const data = await panelRes.json() as { panel: TicketPanelConfig | null };
+        setPanelConfig(
+          data.panel ?? {
+            guildId: normalized,
+            panelChannelId: "",
+            categoryChannelId: "",
+            transcriptChannelId: "",
+            panelMessageId: null,
+            ticketTypes: [],
+          }
+        );
+      }
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : "Failed to load guild data.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleSave() {
+    if (!panelConfig) return;
+    const res = await fetch("/admin/api/tickets/panel", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(panelConfig),
+    });
+    if (!res.ok) {
+      const data = await res.json() as { error?: string };
+      throw new Error(data.error ?? `Save failed (${res.status})`);
+    }
+  }
+
+  async function handlePublish() {
+    if (!panelConfig) return;
+    const res = await fetch("/admin/api/tickets/panel/publish", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ guildId: panelConfig.guildId }),
+    });
+    if (!res.ok) {
+      const data = await res.json() as { error?: string };
+      throw new Error(data.error ?? `Publish failed (${res.status})`);
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="space-y-4 rounded-lg border bg-muted/30 p-4 md:p-6">
+        <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto]">
+          <div className="min-w-0 space-y-2">
+            <Label htmlFor="tp-guild">Guild ID</Label>
+            <Input
+              id="tp-guild"
+              value={guildId}
+              onChange={(e) => {
+                setGuildId(e.target.value);
+                setGuildResources(null);
+                setPanelConfig(null);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !loading) {
+                  void loadResources(guildId);
+                }
+              }}
+              placeholder="Enter a guild ID to load its ticket panel"
+            />
+          </div>
+        </div>
+        <div className="flex flex-col gap-3 border-t pt-4 sm:flex-row sm:justify-end">
+          <Button
+            size="sm"
+            variant="outline"
+            className="w-full sm:w-auto sm:min-w-[14rem]"
+            disabled={!trimmedGuildId || loading}
+            onClick={() => void loadResources(guildId)}
+          >
+            {loading ? "Loading…" : "Load ticket panel"}
+          </Button>
+        </div>
+      </div>
+
+      {loadError && (
+        <Alert variant="destructive">
+          <AlertDescription>{loadError}</AlertDescription>
+        </Alert>
+      )}
+
+      {guildResources && panelConfig && (
+        <TicketPanelEditor
+          guildResources={guildResources}
+          value={panelConfig}
+          onChange={setPanelConfig}
+          onSave={handleSave}
+          onPublish={handlePublish}
+        />
       )}
     </div>
   );
