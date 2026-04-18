@@ -49,8 +49,12 @@ export function createCloudflareContext(env: Env): RuntimeAppContext {
         // Cloudflare: Durable Object alarms handle expiry automatically; polling not needed
         return [];
       },
-      readGatewaySnapshot: storeClient.readGatewaySnapshot,
-      writeGatewaySnapshot: storeClient.writeGatewaySnapshot,
+      // Gateway snapshot methods wire to gateway client for domain separation
+      readGatewaySnapshot: gatewayClient.status,
+      async writeGatewaySnapshot() {
+        // Cloudflare: Gateway session state persists in Durable Object storage
+        // No-op - Durable Objects maintain state automatically
+      },
     },
     gateway: {
       start: gatewayClient.start,

@@ -1,5 +1,4 @@
 import type { BlocklistConfig, TimedRoleAssignment, TicketPanelConfig, TicketInstance } from "../types";
-import type { GatewaySnapshot } from "./contracts";
 
 type FetchLike = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 
@@ -103,15 +102,6 @@ export function createCloudflareStoreClient(storeStub: { fetch: FetchLike }) {
           body: JSON.stringify(body),
         })
       );
-    },
-    // Legacy RuntimeStore interface compatibility: readGatewaySnapshot lives here
-    // even though it calls the gateway stub, because RuntimeStore expects it
-    async readGatewaySnapshot(): Promise<GatewaySnapshot> {
-      return readJson<GatewaySnapshot>(storeStub.fetch("https://gateway-session/status"));
-    },
-    async writeGatewaySnapshot(_snapshot: GatewaySnapshot): Promise<void> {
-      // Cloudflare: Gateway session state persists in Durable Object storage
-      // No-op - Durable Objects maintain state automatically
     },
   };
 }
