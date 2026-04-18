@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { renderToString } from "react-dom/server";
 
-import App from "../src/admin/App";
+import App, { combineDashboardErrors } from "../src/admin/App";
 import { GuildPicker } from "../src/admin/components/guild-picker";
 import {
   GuildOverviewCard,
@@ -79,6 +79,16 @@ test("authenticated admin dashboard keeps navigation labels for future workflow 
   assert.match(html, /Blocklist/i);
   assert.match(html, /Timed Roles/i);
   assert.match(html, />Tickets</);
+});
+
+test("combineDashboardErrors preserves both overview and gateway failures", () => {
+  assert.equal(
+    combineDashboardErrors("Overview failed.", "Gateway failed."),
+    "Overview failed. Gateway failed."
+  );
+  assert.equal(combineDashboardErrors(null, "Gateway failed."), "Gateway failed.");
+  assert.equal(combineDashboardErrors("Overview failed.", null), "Overview failed.");
+  assert.equal(combineDashboardErrors(null, null), null);
 });
 
 

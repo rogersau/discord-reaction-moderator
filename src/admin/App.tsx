@@ -199,7 +199,7 @@ export default function App({
         <AdminOverviewPage
           gatewayStatus={gatewayError ? null : gatewayStatus}
           overview={overview}
-          overviewError={overviewError ?? gatewayError}
+          overviewError={combineDashboardErrors(overviewError, gatewayError)}
           directoryError={guildLookupError}
           guildNamesById={guildNamesById}
           onStartGateway={handleGatewayStart}
@@ -244,6 +244,11 @@ export default function App({
       </Card>
     </main>
   );
+}
+
+export function combineDashboardErrors(...errors: Array<string | null>): string | null {
+  const combined = errors.filter((error): error is string => Boolean(error)).join(" ");
+  return combined.length > 0 ? combined : null;
 }
 
 export function GatewayDetails({ status }: { status: GatewayStatus }) {
