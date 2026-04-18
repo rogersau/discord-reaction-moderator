@@ -742,6 +742,9 @@ function TicketPanelsEditor({
             panelChannelId: "",
             categoryChannelId: "",
             transcriptChannelId: "",
+            panelTitle: null,
+            panelDescription: null,
+            panelFooter: null,
             panelMessageId: null,
             ticketTypes: [],
           }

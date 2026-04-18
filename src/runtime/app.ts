@@ -1113,6 +1113,9 @@ function parseTicketPanelConfig(body: unknown): TicketPanelConfig {
     panelChannelId: asRequiredString(body.panelChannelId, "panelChannelId"),
     categoryChannelId: asRequiredString(body.categoryChannelId, "categoryChannelId"),
     transcriptChannelId: asRequiredString(body.transcriptChannelId, "transcriptChannelId"),
+    panelTitle: asOptionalNullableString(body.panelTitle, "panelTitle"),
+    panelDescription: asOptionalNullableString(body.panelDescription, "panelDescription"),
+    panelFooter: asOptionalNullableString(body.panelFooter, "panelFooter"),
     panelMessageId: asNullableString(body.panelMessageId, "panelMessageId"),
     ticketTypes: parseTicketTypes(body.ticketTypes),
   };
@@ -1200,6 +1203,15 @@ function asNullableString(value: unknown, fieldName: string): string | null {
   }
 
   return asRequiredString(value, fieldName);
+}
+
+function asOptionalNullableString(value: unknown, fieldName: string): string | null {
+  if (value === undefined || value === null) {
+    return null;
+  }
+
+  const normalized = asRequiredString(value, fieldName).trim();
+  return normalized.length > 0 ? normalized : null;
 }
 
 function asBoolean(value: unknown, fieldName: string): boolean {
@@ -1375,8 +1387,11 @@ function buildTicketOpeningMessage(instance: TicketInstance) {
 }
 
 function buildTicketPanelMessage(panel: TicketPanelConfig) {
+  const embed = buildTicketPanelEmbed(panel);
+
   return {
-    content: "Open a ticket by choosing the option that fits your request.",
+    content: embed ? "" : "Open a ticket by choosing the option that fits your request.",
+    embeds: embed ? [embed] : [],
     components: chunkTicketTypeButtons(panel.ticketTypes).map((row) => ({
       type: 1,
       components: row.map((ticketType) => ({
@@ -1387,6 +1402,19 @@ function buildTicketPanelMessage(panel: TicketPanelConfig) {
         ...(ticketType.emoji ? { emoji: { name: ticketType.emoji } } : {}),
       })),
     })),
+  };
+}
+
+function buildTicketPanelEmbed(panel: TicketPanelConfig) {
+  if (!panel.panelTitle && !panel.panelDescription && !panel.panelFooter) {
+    return null;
+  }
+
+  return {
+    color: 0x57f287,
+    ...(panel.panelTitle ? { title: panel.panelTitle } : {}),
+    ...(panel.panelDescription ? { description: panel.panelDescription } : {}),
+    ...(panel.panelFooter ? { footer: { text: panel.panelFooter } } : {}),
   };
 }
 

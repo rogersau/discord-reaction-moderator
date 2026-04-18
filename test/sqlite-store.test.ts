@@ -232,6 +232,9 @@ test("sqlite runtime store persists ticket panel config and ticket instances", a
       panelChannelId: "panel-channel-1",
       categoryChannelId: "category-1",
       transcriptChannelId: "transcript-1",
+      panelTitle: "Support tickets",
+      panelDescription: "Use the button below to open a ticket.",
+      panelFooter: "TicketTool.xyz - Ticketing without clutter",
       panelMessageId: null,
       ticketTypes: [
         {

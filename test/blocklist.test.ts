@@ -571,6 +571,9 @@ test("ModerationStoreDO stores ticket panels and ticket instances through HTTP e
     panelChannelId: "panel-channel-1",
     categoryChannelId: "category-1",
     transcriptChannelId: "transcript-1",
+    panelTitle: "Support tickets",
+    panelDescription: "Use the button below to open a ticket.",
+    panelFooter: "TicketTool.xyz - Ticketing without clutter",
     panelMessageId: null,
     ticketTypes: [
       {

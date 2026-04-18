@@ -1,4 +1,4 @@
-import type { TicketInstance, TicketQuestion, TicketTypeConfig } from "./types";
+import type { TicketInstance, TicketPanelConfig, TicketQuestion, TicketTypeConfig } from "./types";
 
 const TICKET_OPEN_CUSTOM_ID_PREFIX = "ticket:open:";
 const TICKET_CLOSE_CUSTOM_ID_PREFIX = "ticket:close:";
@@ -40,8 +40,50 @@ export interface TicketTranscriptMessage {
   createdAtMs: number;
 }
 
+interface StoredTicketPanelPayload {
+  ticketTypes: TicketTypeConfig[];
+  panelTitle?: string | null;
+  panelDescription?: string | null;
+  panelFooter?: string | null;
+}
+
 export function buildTicketOpenCustomId(ticketTypeId: string): string {
   return `${TICKET_OPEN_CUSTOM_ID_PREFIX}${ticketTypeId}`;
+}
+
+export function serializeTicketPanelStorage(panel: TicketPanelConfig): string {
+  return JSON.stringify({
+    ticketTypes: panel.ticketTypes,
+    panelTitle: panel.panelTitle,
+    panelDescription: panel.panelDescription,
+    panelFooter: panel.panelFooter,
+  } satisfies StoredTicketPanelPayload);
+}
+
+export function parseTicketPanelStorage(
+  payload: string
+): Pick<TicketPanelConfig, "ticketTypes" | "panelTitle" | "panelDescription" | "panelFooter"> {
+  const parsed = JSON.parse(payload) as unknown;
+
+  if (Array.isArray(parsed)) {
+    return {
+      ticketTypes: parsed as TicketTypeConfig[],
+      panelTitle: null,
+      panelDescription: null,
+      panelFooter: null,
+    };
+  }
+
+  if (isRecord(parsed) && Array.isArray(parsed.ticketTypes)) {
+    return {
+      ticketTypes: parsed.ticketTypes as TicketTypeConfig[],
+      panelTitle: asStoredNullableString(parsed.panelTitle),
+      panelDescription: asStoredNullableString(parsed.panelDescription),
+      panelFooter: asStoredNullableString(parsed.panelFooter),
+    };
+  }
+
+  throw new Error("Invalid stored ticket panel payload");
 }
 
 export function buildTicketCloseCustomId(channelId: string): string {
@@ -163,4 +205,16 @@ function buildTicketTextInput(question: TicketQuestion) {
     placeholder: question.placeholder ?? undefined,
     required: question.required,
   };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function asStoredNullableString(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  return value.trim().length > 0 ? value : null;
 }

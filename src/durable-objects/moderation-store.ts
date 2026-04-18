@@ -11,6 +11,7 @@ import type {
 import type { Env } from "../env";
 import { buildBlocklistConfig, normalizeEmoji } from "../blocklist";
 import { removeGuildMemberRole } from "../discord";
+import { parseTicketPanelStorage, serializeTicketPanelStorage } from "../tickets";
 
 class ModerationStoreInputError extends Error {}
 
@@ -286,13 +287,18 @@ export class ModerationStoreDO implements DurableObject {
       return null;
     }
 
+    const storedPanel = parseTicketPanelStorage(row.ticket_types_json as string);
+
     return {
       guildId: row.guild_id as string,
       panelChannelId: row.panel_channel_id as string,
       categoryChannelId: row.category_channel_id as string,
       transcriptChannelId: row.transcript_channel_id as string,
+      panelTitle: storedPanel.panelTitle,
+      panelDescription: storedPanel.panelDescription,
+      panelFooter: storedPanel.panelFooter,
       panelMessageId: row.panel_message_id as string | null,
-      ticketTypes: JSON.parse(row.ticket_types_json as string) as TicketPanelConfig["ticketTypes"],
+      ticketTypes: storedPanel.ticketTypes,
     };
   }
 
@@ -304,7 +310,7 @@ export class ModerationStoreDO implements DurableObject {
       panel.categoryChannelId,
       panel.transcriptChannelId,
       panel.panelMessageId,
-      JSON.stringify(panel.ticketTypes)
+      serializeTicketPanelStorage(panel)
     );
   }
 
@@ -573,6 +579,9 @@ function parseTicketPanelConfig(body: unknown): TicketPanelConfig {
     panelChannelId: asRequiredString(body.panelChannelId, "panelChannelId"),
     categoryChannelId: asRequiredString(body.categoryChannelId, "categoryChannelId"),
     transcriptChannelId: asRequiredString(body.transcriptChannelId, "transcriptChannelId"),
+    panelTitle: asOptionalNullableString(body.panelTitle, "panelTitle"),
+    panelDescription: asOptionalNullableString(body.panelDescription, "panelDescription"),
+    panelFooter: asOptionalNullableString(body.panelFooter, "panelFooter"),
     panelMessageId: asNullableString(body.panelMessageId, "panelMessageId"),
     ticketTypes: parseTicketTypes(body.ticketTypes),
   };
@@ -746,6 +755,15 @@ function asNullableString(value: unknown, fieldName: string): string | null {
   }
 
   return value;
+}
+
+function asOptionalNullableString(value: unknown, fieldName: string): string | null {
+  if (value === undefined || value === null) {
+    return null;
+  }
+
+  const normalized = asRequiredString(value, fieldName).trim();
+  return normalized.length > 0 ? normalized : null;
 }
 
 function asBoolean(value: unknown, fieldName: string): boolean {

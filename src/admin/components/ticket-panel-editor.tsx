@@ -178,6 +178,52 @@ export function TicketPanelEditor({
             <p className="text-xs text-muted-foreground">Selected: {transcriptName}</p>
           )}
         </div>
+
+        <div className="min-w-0 space-y-2 md:col-span-2">
+          <Label htmlFor="tp-panel-title">Panel title</Label>
+          <Input
+            id="tp-panel-title"
+            value={value.panelTitle ?? ""}
+            onChange={(e) =>
+              onChange({
+                ...value,
+                panelTitle: e.target.value.trim().length > 0 ? e.target.value : null,
+              })
+            }
+            placeholder="Support tickets"
+          />
+        </div>
+
+        <div className="min-w-0 space-y-2 md:col-span-2">
+          <Label htmlFor="tp-panel-description">Panel description</Label>
+          <textarea
+            id="tp-panel-description"
+            className="min-h-24 w-full rounded-md border bg-background px-3 py-2 text-sm"
+            value={value.panelDescription ?? ""}
+            onChange={(e) =>
+              onChange({
+                ...value,
+                panelDescription: e.target.value.trim().length > 0 ? e.target.value : null,
+              })
+            }
+            placeholder="Tell members when to use this panel and what happens after they open a ticket."
+          />
+        </div>
+
+        <div className="min-w-0 space-y-2 md:col-span-2">
+          <Label htmlFor="tp-panel-footer">Panel footer</Label>
+          <Input
+            id="tp-panel-footer"
+            value={value.panelFooter ?? ""}
+            onChange={(e) =>
+              onChange({
+                ...value,
+                panelFooter: e.target.value.trim().length > 0 ? e.target.value : null,
+              })
+            }
+            placeholder="Optional footer text shown under the panel embed"
+          />
+        </div>
       </div>
 
       <div className="space-y-3 border-t pt-4">

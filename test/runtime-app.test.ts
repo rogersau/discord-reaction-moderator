@@ -969,7 +969,17 @@ test("createRuntimeApp exposes ticket admin APIs through session auth and publis
       (call) => call.method === "POST" && call.url.endsWith("/channels/panel-channel/messages")
     );
     assert.deepEqual(publishCreate?.body, {
-      content: "Open a ticket by choosing the option that fits your request.",
+      content: "",
+      embeds: [
+        {
+          color: 5763719,
+          title: "Support tickets",
+          description: "Use the button below to open a ticket.",
+          footer: {
+            text: "TicketTool.xyz - Ticketing without clutter",
+          },
+        },
+      ],
       components: [
         {
           type: 1,
@@ -1725,6 +1735,9 @@ function createTicketPanelConfig(): TicketPanelConfig {
     panelChannelId: "panel-channel",
     categoryChannelId: "category-1",
     transcriptChannelId: "transcript-channel",
+    panelTitle: "Support tickets",
+    panelDescription: "Use the button below to open a ticket.",
+    panelFooter: "TicketTool.xyz - Ticketing without clutter",
     panelMessageId: null,
     ticketTypes: [
       {

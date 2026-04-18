@@ -14,6 +14,7 @@ import type {
 import type { ClosableRuntimeStore, GatewaySnapshot } from "./contracts";
 import type { AppConfigMutation } from "./admin-types";
 import { buildBlocklistConfig } from "../blocklist";
+import { parseTicketPanelStorage, serializeTicketPanelStorage } from "../tickets";
 
 export interface SqliteRuntimeStoreOptions {
   sqlitePath: string;
@@ -262,13 +263,18 @@ export function createSqliteRuntimeStore(
         return null;
       }
 
+      const storedPanel = parseTicketPanelStorage(row.ticket_types_json);
+
       return {
         guildId: row.guild_id,
         panelChannelId: row.panel_channel_id,
         categoryChannelId: row.category_channel_id,
         transcriptChannelId: row.transcript_channel_id,
+        panelTitle: storedPanel.panelTitle,
+        panelDescription: storedPanel.panelDescription,
+        panelFooter: storedPanel.panelFooter,
         panelMessageId: row.panel_message_id,
-        ticketTypes: JSON.parse(row.ticket_types_json) as TicketPanelConfig["ticketTypes"],
+        ticketTypes: storedPanel.ticketTypes,
       };
     },
 
@@ -279,7 +285,7 @@ export function createSqliteRuntimeStore(
         panel.categoryChannelId,
         panel.transcriptChannelId,
         panel.panelMessageId,
-        JSON.stringify(panel.ticketTypes)
+        serializeTicketPanelStorage(panel)
       );
     },
 
