@@ -1,4 +1,4 @@
-import { ADMIN_ASSETS, ADMIN_LOGIN_HTML } from "./admin-bundle";
+import { ADMIN_LOGIN_HTML } from "./admin-bundle";
 import type {
   AdminPermissionCheck,
   AdminPermissionCheckResponse,
@@ -8,13 +8,9 @@ import type {
   AppConfigMutation,
 } from "./admin-types";
 import {
-  ADMIN_SESSION_COOKIE_NAME,
-  createAdminSessionCookie,
   hasValidAdminSession,
-  isValidAdminPassword,
 } from "./admin-auth";
 import {
-  isAdminDashboardPath,
   normalizeAdminDashboardPath,
 } from "../admin/dashboard-routes";
 import { normalizeEmoji } from "../blocklist";
@@ -23,8 +19,8 @@ import {
   createTicketChannel,
   deleteChannel,
   DiscordApiError,
-  listBotGuilds,
   type GuildTicketResources,
+  listBotGuilds,
   listChannelMessages,
   listGuildTicketResources,
   removeGuildMemberRole,
@@ -109,350 +105,7 @@ interface AdminOverviewGuild {
 }
 
 export function createRuntimeApp(options: RuntimeAppOptions) {
-  // Route modules for organized request handling - instantiated to establish the pattern
-  // but not yet fully integrated in this refactoring step
-  // Public routes: /health
-  createPublicRoutes();
-  // Admin routes: /admin/login, /admin/logout, /admin/api/*, admin dashboard
-  createAdminRoutes({
-    adminAuthSecret: options.adminAuthSecret,
-    adminSessionSecret: options.adminSessionSecret,
-    adminUiPassword: options.adminUiPassword,
-    discordBotToken: options.discordBotToken,
-    store: options.store,
-    gateway: options.gateway,
-  });
-  // Interaction routes: /interactions
-  createInteractionRoutes({
-    discordPublicKey: options.discordPublicKey,
-    discordBotToken: options.discordBotToken,
-    verifyDiscordRequest: options.verifyDiscordRequest,
-    store: options.store,
-    gateway: options.gateway,
-  });
-
-  return {
-    async fetch(request: Request): Promise<Response> {
-      const url = new URL(request.url);
-
-      if (url.pathname === "/health") {
-        return new Response("OK", { status: 200 });
-      }
-
-      if (request.method === "GET" && url.pathname === "/admin/login") {
-        if (options.adminUiPassword && (await isAdminUiAuthorized(request, options))) {
-          return redirect("/admin");
-        }
-        return renderAdminShell();
-      }
-
-      if (request.method === "POST" && url.pathname === "/admin/login") {
-        return handleAdminLogin(request, options);
-      }
-
-      if (request.method === "POST" && url.pathname === "/admin/logout") {
-        return new Response(null, {
-          status: 302,
-          headers: {
-            location: "/admin/login",
-            "set-cookie": `${ADMIN_SESSION_COOKIE_NAME}=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax`,
-          },
-        });
-      }
-
-      if (request.method === "GET" && isAdminDashboardPath(url.pathname)) {
-        if (!(await isAdminUiAuthorized(request, options))) {
-          return redirect(getAdminLoginLocation(url.pathname));
-        }
-        return renderAdminShell(true, normalizeAdminDashboardPath(url.pathname), url.search);
-      }
-
-      if (request.method === "GET" && url.pathname.startsWith("/admin/assets/")) {
-        const filename = url.pathname.slice("/admin/assets/".length);
-        const asset = ADMIN_ASSETS[filename];
-        if (!asset) {
-          return new Response("Not found", { status: 404 });
-        }
-        return new Response(asset.content, {
-          status: 200,
-          headers: { "content-type": asset.contentType },
-        });
-      }
-
-      if (url.pathname.startsWith("/admin/api/")) {
-        const sessionUnauthorized = await requireAdminSession(request, options);
-        if (sessionUnauthorized) return sessionUnauthorized;
-
-        if (request.method === "GET" && url.pathname === "/admin/api/gateway/status") {
-          return Response.json(await options.gateway.status());
-        }
-
-        if (request.method === "POST" && url.pathname === "/admin/api/gateway/start") {
-          return Response.json(await bootstrap());
-        }
-
-        if (request.method === "GET" && url.pathname === "/admin/api/overview") {
-          const [gateway, config, timedRoles] = await Promise.all([
-            options.gateway.status(),
-            options.store.readConfig(),
-            options.store.listTimedRoles(),
-          ]);
-
-          return Response.json({
-            gateway,
-            guilds: await buildAdminOverviewGuilds(config, timedRoles, options.discordBotToken),
-          });
-        }
-
-        if (request.method === "GET" && url.pathname === "/admin/api/permissions") {
-          const guildId = url.searchParams.get("guildId");
-          const featureParam = url.searchParams.get("feature");
-          if (!guildId) {
-            return Response.json({ error: "guildId is required" }, { status: 400 });
-          }
-          if (!isAdminPermissionFeature(featureParam)) {
-            return Response.json({ error: "feature must be blocklist, timed-roles, or tickets" }, { status: 400 });
-          }
-
-          try {
-            return Response.json(
-              await buildAdminPermissionResponse(
-                guildId,
-                featureParam,
-                options.store,
-                options.discordBotToken
-              )
-            );
-          } catch (error) {
-            return Response.json(
-              {
-                error:
-                  error instanceof Error
-                    ? error.message
-                    : "Failed to load the bot's current Discord permissions.",
-              },
-              { status: 502 }
-            );
-          }
-        }
-
-        if (request.method === "GET" && url.pathname === "/admin/api/guilds") {
-          const guilds = buildAdminGuildDirectory(await listBotGuilds(options.discordBotToken));
-          const body: AdminGuildDirectoryResponse = { guilds };
-          return Response.json(body);
-        }
-
-        if (request.method === "GET" && url.pathname === "/admin/api/config") {
-          const config = await options.store.readConfig();
-          return Response.json({ botUserId: config.botUserId });
-        }
-
-        if (request.method === "POST" && url.pathname === "/admin/api/config") {
-          const parsedBody = await parseJsonBody(request, parseAppConfigMutation);
-          if (!parsedBody.ok) {
-            return parsedBody.response;
-          }
-
-          await options.store.upsertAppConfig(parsedBody.value);
-          return Response.json({ ok: true });
-        }
-
-        if (request.method === "GET" && url.pathname === "/admin/api/tickets/panel") {
-          const guildId = url.searchParams.get("guildId");
-          if (!guildId) {
-            return Response.json({ error: "guildId is required" }, { status: 400 });
-          }
-
-          return Response.json({
-            panel: await options.store.readTicketPanelConfig(guildId),
-          });
-        }
-
-        if (request.method === "POST" && url.pathname === "/admin/api/tickets/panel") {
-          const parsedBody = await parseJsonBody(request, parseTicketPanelConfig);
-          if (!parsedBody.ok) {
-            return parsedBody.response;
-          }
-
-          await options.store.upsertTicketPanelConfig(parsedBody.value);
-          return Response.json({ ok: true, panel: parsedBody.value });
-        }
-
-        if (request.method === "GET" && url.pathname === "/admin/api/tickets/resources") {
-          const guildId = url.searchParams.get("guildId");
-          if (!guildId) {
-            return Response.json({ error: "guildId is required" }, { status: 400 });
-          }
-
-          const resources = await listGuildTicketResources(guildId, options.discordBotToken);
-          return Response.json({
-            guildId,
-            roles: resources.roles.map(({ id, name }) => ({ id, name })),
-            categories: resources.channels
-              .filter((channel) => channel.type === 4)
-              .map(({ id, name }) => ({ id, name })),
-            textChannels: resources.channels
-              .filter((channel) => channel.type === 0)
-              .map(({ id, name }) => ({ id, name })),
-          });
-        }
-
-        if (request.method === "POST" && url.pathname === "/admin/api/tickets/panel/publish") {
-          const parsedBody = await parseJsonBody(request, parseTicketPanelPublishMutation);
-          if (!parsedBody.ok) {
-            return parsedBody.response;
-          }
-
-          const panel = await options.store.readTicketPanelConfig(parsedBody.value.guildId);
-          if (!panel) {
-            return Response.json({ error: "Ticket panel config not found." }, { status: 404 });
-          }
-
-          const resources = await listGuildTicketResources(parsedBody.value.guildId, options.discordBotToken);
-          const missingTargets = getMissingTicketPanelTargets(panel, resources);
-          if (missingTargets.length > 0) {
-            return Response.json(
-              {
-                error: `Ticket panel config references missing Discord targets: ${missingTargets.join(", ")}`,
-              },
-              { status: 400 }
-            );
-          }
-
-          let panelMessageId: string;
-          try {
-            panelMessageId = await publishTicketPanel(panel, options.discordBotToken);
-          } catch (error) {
-            return Response.json(
-              {
-                error:
-                  error instanceof DiscordApiError
-                    ? error.message
-                    : "Failed to publish the ticket panel to Discord.",
-              },
-              { status: 502 }
-            );
-          }
-          await options.store.upsertTicketPanelConfig({
-            ...panel,
-            panelMessageId,
-          });
-          return Response.json({ ok: true, panelMessageId });
-        }
-
-        if (request.method === "GET" && url.pathname === "/admin/api/blocklist") {
-          const guildId = url.searchParams.get("guildId");
-          if (!guildId) {
-            return Response.json({ error: "guildId is required" }, { status: 400 });
-          }
-          const config = await options.store.readConfig();
-          const guild = config.guilds?.[guildId];
-          return Response.json({ guildId, enabled: guild?.enabled ?? true, emojis: guild?.emojis ?? [] });
-        }
-
-        if (request.method === "POST" && url.pathname === "/admin/api/blocklist") {
-          const parsedBody = await parseJsonBody(request, parseGuildEmojiMutation);
-          if (!parsedBody.ok) {
-            return parsedBody.response;
-          }
-
-          const config = await options.store.applyGuildEmojiMutation(parsedBody.value);
-          return Response.json(config);
-        }
-
-        if (request.method === "GET" && url.pathname === "/admin/api/timed-roles") {
-          const guildId = url.searchParams.get("guildId");
-          if (!guildId) {
-            return Response.json({ error: "guildId is required" }, { status: 400 });
-          }
-
-          return Response.json({
-            guildId,
-            assignments: await options.store.listTimedRolesByGuild(guildId),
-          });
-        }
-
-        if (request.method === "POST" && url.pathname === "/admin/api/timed-roles") {
-          const parsedBody = await parseJsonBody(request, parseTimedRoleAdminMutation);
-          if (!parsedBody.ok) {
-            return parsedBody.response;
-          }
-
-          if (parsedBody.value.action === "add") {
-            const parsedDuration = parseTimedRoleDuration(parsedBody.value.duration, Date.now());
-            if (!parsedDuration) {
-              return Response.json(
-                { error: "Invalid duration. Use values like 1h, 1w, or 1m." },
-                { status: 400 }
-              );
-            }
-
-            await options.store.upsertTimedRole({
-              guildId: parsedBody.value.guildId,
-              userId: parsedBody.value.userId,
-              roleId: parsedBody.value.roleId,
-              durationInput: parsedDuration.durationInput,
-              expiresAtMs: parsedDuration.expiresAtMs,
-            });
-
-            try {
-              await addGuildMemberRole(
-                parsedBody.value.guildId,
-                parsedBody.value.userId,
-                parsedBody.value.roleId,
-                options.discordBotToken
-              );
-            } catch (error) {
-              await options.store.deleteTimedRole({
-                guildId: parsedBody.value.guildId,
-                userId: parsedBody.value.userId,
-                roleId: parsedBody.value.roleId,
-              });
-              return Response.json(
-                { error: describeTimedRoleAssignmentFailure(error) },
-                { status: 502 }
-              );
-            }
-          } else {
-            try {
-              await removeGuildMemberRole(
-                parsedBody.value.guildId,
-                parsedBody.value.userId,
-                parsedBody.value.roleId,
-                options.discordBotToken
-              );
-            } catch (error) {
-              return Response.json(
-                { error: describeTimedRoleRemovalFailure(error) },
-                { status: 502 }
-              );
-            }
-
-            await options.store.deleteTimedRole({
-              guildId: parsedBody.value.guildId,
-              userId: parsedBody.value.userId,
-              roleId: parsedBody.value.roleId,
-            });
-          }
-
-          return Response.json({
-            guildId: parsedBody.value.guildId,
-            assignments: await options.store.listTimedRolesByGuild(parsedBody.value.guildId),
-          });
-        }
-
-        return Response.json({ error: "Not found" }, { status: 404 });
-      }
-
-      if (request.method === "POST" && url.pathname === "/interactions") {
-        return handleInteractionRequest(request, options);
-      }
-
-      return new Response("Not found", { status: 404 });
-    },
-    bootstrap,
-  };
-
+  // Bootstrap function for gateway start
   async function bootstrap() {
     if (options.discordApplicationId) {
       try {
@@ -463,6 +116,312 @@ export function createRuntimeApp(options: RuntimeAppOptions) {
     }
     return options.gateway.start();
   }
+
+  // Admin API request handler
+  async function handleAdminApiRequest(request: Request, url: URL): Promise<Response | null> {
+    if (request.method === "GET" && url.pathname === "/admin/api/gateway/status") {
+      return Response.json(await options.gateway.status());
+    }
+
+    if (request.method === "POST" && url.pathname === "/admin/api/gateway/start") {
+      return Response.json(await bootstrap());
+    }
+
+    if (request.method === "GET" && url.pathname === "/admin/api/overview") {
+      const [gateway, config, timedRoles] = await Promise.all([
+        options.gateway.status(),
+        options.store.readConfig(),
+        options.store.listTimedRoles(),
+      ]);
+
+      return Response.json({
+        gateway,
+        guilds: await buildAdminOverviewGuilds(config, timedRoles, options.discordBotToken),
+      });
+    }
+
+    if (request.method === "GET" && url.pathname === "/admin/api/permissions") {
+      const guildId = url.searchParams.get("guildId");
+      const featureParam = url.searchParams.get("feature");
+      if (!guildId) {
+        return Response.json({ error: "guildId is required" }, { status: 400 });
+      }
+      if (!isAdminPermissionFeature(featureParam)) {
+        return Response.json({ error: "feature must be blocklist, timed-roles, or tickets" }, { status: 400 });
+      }
+
+      try {
+        return Response.json(
+          await buildAdminPermissionResponse(
+            guildId,
+            featureParam,
+            options.store,
+            options.discordBotToken
+          )
+        );
+      } catch (error) {
+        return Response.json(
+          {
+            error:
+              error instanceof Error
+                ? error.message
+                : "Failed to load the bot's current Discord permissions.",
+          },
+          { status: 502 }
+        );
+      }
+    }
+
+    if (request.method === "GET" && url.pathname === "/admin/api/guilds") {
+      const guilds = buildAdminGuildDirectory(await listBotGuilds(options.discordBotToken));
+      const body: AdminGuildDirectoryResponse = { guilds };
+      return Response.json(body);
+    }
+
+    if (request.method === "GET" && url.pathname === "/admin/api/config") {
+      const config = await options.store.readConfig();
+      return Response.json({ botUserId: config.botUserId });
+    }
+
+    if (request.method === "POST" && url.pathname === "/admin/api/config") {
+      const parsedBody = await parseJsonBody(request, parseAppConfigMutation);
+      if (!parsedBody.ok) {
+        return parsedBody.response;
+      }
+
+      await options.store.upsertAppConfig(parsedBody.value);
+      return Response.json({ ok: true });
+    }
+
+    if (request.method === "GET" && url.pathname === "/admin/api/tickets/panel") {
+      const guildId = url.searchParams.get("guildId");
+      if (!guildId) {
+        return Response.json({ error: "guildId is required" }, { status: 400 });
+      }
+
+      return Response.json({
+        panel: await options.store.readTicketPanelConfig(guildId),
+      });
+    }
+
+    if (request.method === "POST" && url.pathname === "/admin/api/tickets/panel") {
+      const parsedBody = await parseJsonBody(request, parseTicketPanelConfig);
+      if (!parsedBody.ok) {
+        return parsedBody.response;
+      }
+
+      await options.store.upsertTicketPanelConfig(parsedBody.value);
+      return Response.json({ ok: true, panel: parsedBody.value });
+    }
+
+    if (request.method === "GET" && url.pathname === "/admin/api/tickets/resources") {
+      const guildId = url.searchParams.get("guildId");
+      if (!guildId) {
+        return Response.json({ error: "guildId is required" }, { status: 400 });
+      }
+
+      const resources = await listGuildTicketResources(guildId, options.discordBotToken);
+      return Response.json({
+        guildId,
+        roles: resources.roles.map(({ id, name }) => ({ id, name })),
+        categories: resources.channels
+          .filter((channel) => channel.type === 4)
+          .map(({ id, name }) => ({ id, name })),
+        textChannels: resources.channels
+          .filter((channel) => channel.type === 0)
+          .map(({ id, name }) => ({ id, name })),
+      });
+    }
+
+    if (request.method === "POST" && url.pathname === "/admin/api/tickets/panel/publish") {
+      const parsedBody = await parseJsonBody(request, parseTicketPanelPublishMutation);
+      if (!parsedBody.ok) {
+        return parsedBody.response;
+      }
+
+      const panel = await options.store.readTicketPanelConfig(parsedBody.value.guildId);
+      if (!panel) {
+        return Response.json({ error: "Ticket panel config not found." }, { status: 404 });
+      }
+
+      const resources = await listGuildTicketResources(parsedBody.value.guildId, options.discordBotToken);
+      const missingTargets = getMissingTicketPanelTargets(panel, resources);
+      if (missingTargets.length > 0) {
+        return Response.json(
+          {
+            error: `Ticket panel config references missing Discord targets: ${missingTargets.join(", ")}`,
+          },
+          { status: 400 }
+        );
+      }
+
+      let panelMessageId: string;
+      try {
+        panelMessageId = await publishTicketPanel(panel, options.discordBotToken);
+      } catch (error) {
+        return Response.json(
+          {
+            error:
+              error instanceof DiscordApiError
+                ? error.message
+                : "Failed to publish the ticket panel to Discord.",
+          },
+          { status: 502 }
+        );
+      }
+      await options.store.upsertTicketPanelConfig({
+        ...panel,
+        panelMessageId,
+      });
+      return Response.json({ ok: true, panelMessageId });
+    }
+
+    if (request.method === "GET" && url.pathname === "/admin/api/blocklist") {
+      const guildId = url.searchParams.get("guildId");
+      if (!guildId) {
+        return Response.json({ error: "guildId is required" }, { status: 400 });
+      }
+
+      const config = await options.store.readConfig();
+      const guildConfig = config.guilds?.[guildId] ?? { enabled: true, emojis: [] };
+      return Response.json({ guildId, ...guildConfig });
+    }
+
+    if (request.method === "POST" && url.pathname === "/admin/api/blocklist") {
+      const parsedBody = await parseJsonBody(request, parseGuildEmojiMutation);
+      if (!parsedBody.ok) {
+        return parsedBody.response;
+      }
+
+      await options.store.applyGuildEmojiMutation(parsedBody.value);
+      return Response.json({ ok: true });
+    }
+
+    if (request.method === "GET" && url.pathname === "/admin/api/timed-roles") {
+      const guildId = url.searchParams.get("guildId");
+      if (!guildId) {
+        return Response.json({ error: "guildId is required" }, { status: 400 });
+      }
+
+      return Response.json({
+        guildId,
+        assignments: await options.store.listTimedRolesByGuild(guildId),
+      });
+    }
+
+    if (request.method === "POST" && url.pathname === "/admin/api/timed-roles") {
+      const parsedBody = await parseJsonBody(request, parseTimedRoleAdminMutation);
+      if (!parsedBody.ok) {
+        return parsedBody.response;
+      }
+
+      if (parsedBody.value.action === "add") {
+        const parsedDuration = parseTimedRoleDuration(parsedBody.value.duration, Date.now());
+        if (!parsedDuration) {
+          return Response.json(
+            { error: "Invalid duration. Use values like 1h, 1w, or 1m." },
+            { status: 400 }
+          );
+        }
+
+        await options.store.upsertTimedRole({
+          guildId: parsedBody.value.guildId,
+          userId: parsedBody.value.userId,
+          roleId: parsedBody.value.roleId,
+          durationInput: parsedDuration.durationInput,
+          expiresAtMs: parsedDuration.expiresAtMs,
+        });
+
+        try {
+          await addGuildMemberRole(
+            parsedBody.value.guildId,
+            parsedBody.value.userId,
+            parsedBody.value.roleId,
+            options.discordBotToken
+          );
+        } catch (error) {
+          await options.store.deleteTimedRole({
+            guildId: parsedBody.value.guildId,
+            userId: parsedBody.value.userId,
+            roleId: parsedBody.value.roleId,
+          });
+          return Response.json(
+            { error: describeTimedRoleAssignmentFailure(error) },
+            { status: 502 }
+          );
+        }
+      } else {
+        try {
+          await removeGuildMemberRole(
+            parsedBody.value.guildId,
+            parsedBody.value.userId,
+            parsedBody.value.roleId,
+            options.discordBotToken
+          );
+        } catch (error) {
+          return Response.json(
+            { error: describeTimedRoleRemovalFailure(error) },
+            { status: 502 }
+          );
+        }
+
+        await options.store.deleteTimedRole({
+          guildId: parsedBody.value.guildId,
+          userId: parsedBody.value.userId,
+          roleId: parsedBody.value.roleId,
+        });
+      }
+
+      return Response.json({
+        guildId: parsedBody.value.guildId,
+        assignments: await options.store.listTimedRolesByGuild(parsedBody.value.guildId),
+      });
+    }
+
+    return Response.json({ error: "Not found" }, { status: 404 });
+  }
+
+  // Route modules for organized request handling
+  // Public routes: /health
+  const _publicRoutes = createPublicRoutes();
+  // Admin routes: /admin/login, /admin/logout, /admin/api/*, admin dashboard
+  const _adminRoutes = createAdminRoutes({
+    adminAuthSecret: options.adminAuthSecret,
+    adminSessionSecret: options.adminSessionSecret,
+    adminUiPassword: options.adminUiPassword,
+    discordBotToken: options.discordBotToken,
+    store: options.store,
+    gateway: options.gateway,
+    handleAdminApiRequest,
+    redirect,
+    getAdminLoginLocation,
+    bootstrap,
+  });
+  // Interaction routes: /interactions
+  const _interactionRoutes = createInteractionRoutes({
+    discordPublicKey: options.discordPublicKey,
+    discordBotToken: options.discordBotToken,
+    verifyDiscordRequest: options.verifyDiscordRequest,
+    store: options.store,
+    gateway: options.gateway,
+  });
+
+  return {
+    async fetch(request: Request): Promise<Response> {
+      // Try route modules first
+      const publicResponse = await _publicRoutes(request);
+      if (publicResponse) return publicResponse;
+
+      const adminResponse = await _adminRoutes(request);
+      if (adminResponse) return adminResponse;
+
+      const interactionResponse = await _interactionRoutes(request);
+      if (interactionResponse) return interactionResponse;
+
+      return new Response("Not found", { status: 404 });
+    },
+    bootstrap,
+  };
 }
 
 async function buildAdminOverviewGuilds(
@@ -600,7 +559,7 @@ export function escapeHtmlAttribute(value: string): string {
     .replaceAll(">", "&gt;");
 }
 
-function renderAdminShell(authenticated = false, initialPath = "/admin", initialSearch = ""): Response {
+export function renderAdminShell(authenticated = false, initialPath = "/admin", initialSearch = ""): Response {
   const attributes = [
     authenticated ? 'data-authenticated="true"' : "",
     `data-initial-path="${escapeHtmlAttribute(initialPath)}"`,
@@ -618,30 +577,7 @@ function renderAdminShell(authenticated = false, initialPath = "/admin", initial
   });
 }
 
-async function handleAdminLogin(
-  request: Request,
-  options: RuntimeAppOptions
-): Promise<Response> {
-  if (!options.adminUiPassword || !options.adminSessionSecret) {
-    return new Response("Admin login is not configured.", { status: 404 });
-  }
-
-  const formData = await request.formData();
-  if (!(await isValidAdminPassword(formData.get("password"), options.adminUiPassword))) {
-    return new Response("Unauthorized", { status: 401 });
-  }
-
-  const nextPath = getRequestedAdminDashboardPath(new URL(request.url).searchParams.get("next"));
-
-  return redirect(nextPath, {
-    "set-cookie": await createAdminSessionCookie(
-      options.adminSessionSecret,
-      { secure: new URL(request.url).protocol === "https:" }
-    ),
-  });
-}
-
-function getAdminLoginLocation(pathname: string): string {
+export function getAdminLoginLocation(pathname: string): string {
   const normalizedPath = normalizeAdminDashboardPath(pathname);
   if (normalizedPath === "/admin") {
     return "/admin/login";
@@ -650,15 +586,7 @@ function getAdminLoginLocation(pathname: string): string {
   return `/admin/login?next=${encodeURIComponent(normalizedPath)}`;
 }
 
-function getRequestedAdminDashboardPath(next: string | null): string {
-  if (!next) {
-    return "/admin";
-  }
-
-  return normalizeAdminDashboardPath(next);
-}
-
-async function handleInteractionRequest(
+export async function handleInteractionRequest(
   request: Request,
   options: RuntimeAppOptions
 ): Promise<Response> {
@@ -1201,7 +1129,7 @@ function isFreshDiscordTimestamp(timestamp: string): boolean {
   return Math.abs(nowSeconds - timestampSeconds) <= DISCORD_INTERACTION_MAX_AGE_SECONDS;
 }
 
-async function isAdminUiAuthorized(
+export async function isAdminUiAuthorized(
   request: Request,
   options: Pick<RuntimeAppOptions, "adminSessionSecret" | "adminUiPassword">
 ): Promise<boolean> {
@@ -1216,7 +1144,7 @@ async function isAdminUiAuthorized(
   return hasValidAdminSession(request, options.adminSessionSecret);
 }
 
-async function requireAdminSession(
+export async function requireAdminSession(
   request: Request,
   options: Pick<RuntimeAppOptions, "adminSessionSecret" | "adminUiPassword">
 ): Promise<Response | null> {
@@ -1232,7 +1160,7 @@ async function requireAdminSession(
   return null;
 }
 
-function redirect(location: string, headersInit?: HeadersInit): Response {
+export function redirect(location: string, headersInit?: HeadersInit): Response {
   const headers = new Headers(headersInit);
   headers.set("location", location);
   return new Response(null, { status: 302, headers });
@@ -1467,38 +1395,6 @@ function parseTicketQuestions(
   });
 }
 
-function getMissingTicketPanelTargets(
-  panel: TicketPanelConfig,
-  resources: GuildTicketResources
-): string[] {
-  const categoryIds = new Set(
-    resources.channels.filter((channel) => channel.type === 4).map((channel) => channel.id)
-  );
-  const textChannelIds = new Set(
-    resources.channels.filter((channel) => channel.type === 0).map((channel) => channel.id)
-  );
-  const roleIds = new Set(resources.roles.map((role) => role.id));
-  const missing: string[] = [];
-
-  if (!textChannelIds.has(panel.panelChannelId)) {
-    missing.push(`panelChannelId ${panel.panelChannelId}`);
-  }
-  if (!categoryIds.has(panel.categoryChannelId)) {
-    missing.push(`categoryChannelId ${panel.categoryChannelId}`);
-  }
-  if (!textChannelIds.has(panel.transcriptChannelId)) {
-    missing.push(`transcriptChannelId ${panel.transcriptChannelId}`);
-  }
-
-  panel.ticketTypes.forEach((ticketType, index) => {
-    if (!roleIds.has(ticketType.supportRoleId)) {
-      missing.push(`ticketTypes[${index}].supportRoleId ${ticketType.supportRoleId}`);
-    }
-  });
-
-  return missing;
-}
-
 function asTicketButtonStyle(value: unknown): TicketTypeConfig["buttonStyle"] {
   if (value !== "primary" && value !== "secondary" && value !== "success" && value !== "danger") {
     throw new AdminApiInputError("Missing buttonStyle");
@@ -1566,6 +1462,38 @@ function buildTicketOpeningMessage(instance: TicketInstance) {
       },
     ],
   };
+}
+
+function getMissingTicketPanelTargets(
+  panel: TicketPanelConfig,
+  resources: GuildTicketResources
+): string[] {
+  const categoryIds = new Set(
+    resources.channels.filter((channel) => channel.type === 4).map((channel) => channel.id)
+  );
+  const textChannelIds = new Set(
+    resources.channels.filter((channel) => channel.type === 0).map((channel) => channel.id)
+  );
+  const roleIds = new Set(resources.roles.map((role) => role.id));
+  const missing: string[] = [];
+
+  if (!textChannelIds.has(panel.panelChannelId)) {
+    missing.push(`panelChannelId ${panel.panelChannelId}`);
+  }
+  if (!categoryIds.has(panel.categoryChannelId)) {
+    missing.push(`categoryChannelId ${panel.categoryChannelId}`);
+  }
+  if (!textChannelIds.has(panel.transcriptChannelId)) {
+    missing.push(`transcriptChannelId ${panel.transcriptChannelId}`);
+  }
+
+  panel.ticketTypes.forEach((ticketType, index) => {
+    if (!roleIds.has(ticketType.supportRoleId)) {
+      missing.push(`ticketTypes[${index}].supportRoleId ${ticketType.supportRoleId}`);
+    }
+  });
+
+  return missing;
 }
 
 function buildTicketPanelMessage(panel: TicketPanelConfig) {

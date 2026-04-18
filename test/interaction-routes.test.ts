@@ -1331,3 +1331,21 @@ async function withMockedFetch<T>(
     globalThis.fetch = originalFetch;
   }
 }
+
+test("createInteractionRoutes handles Discord PING interactions through route module", async () => {
+  const { createInteractionRoutes } = await import("../src/routes/interaction-routes");
+  const interactionRoutes = createInteractionRoutes({
+    discordPublicKey: "a".repeat(64),
+    discordBotToken: "bot-token",
+    verifyDiscordRequest: async () => true,
+    store: {} as never,
+    gateway: {} as never,
+  });
+
+  const { request } = await createSignedInteractionRequest({ type: 1 });
+  const response = await interactionRoutes(request);
+
+  assert(response !== null, "Route module should handle /interactions");
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), { type: 1 });
+});

@@ -77,9 +77,6 @@ export function AdminShell({
           <div className="mt-6 space-y-3 border-t pt-4">
             <div className="space-y-1">
               <p className="text-sm font-medium text-foreground">Current server</p>
-              <p className="text-xs text-muted-foreground">
-                Pick one server here and keep it across the admin pages.
-              </p>
             </div>
             <GuildPicker
               id="sidebar-guild"

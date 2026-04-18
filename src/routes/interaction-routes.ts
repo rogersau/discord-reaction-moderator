@@ -1,4 +1,5 @@
 import type { GatewayController, RuntimeStore } from "../runtime/contracts";
+import { handleInteractionRequest } from "../runtime/app";
 
 export interface InteractionRouteOptions {
   discordPublicKey: string;
@@ -12,14 +13,12 @@ export interface RouteHandler {
   (request: Request): Promise<Response | null>;
 }
 
-export function createInteractionRoutes(_options: InteractionRouteOptions): RouteHandler {
+export function createInteractionRoutes(options: InteractionRouteOptions): RouteHandler {
   return async (request: Request): Promise<Response | null> => {
     const url = new URL(request.url);
 
     if (request.method === "POST" && url.pathname === "/interactions") {
-      // Import the handler from app.ts (will be extracted later as part of refactoring)
-      // For now, return null to delegate back to app.ts
-      return null;
+      return handleInteractionRequest(request, options);
     }
 
     return null;
