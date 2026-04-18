@@ -116,3 +116,83 @@ test("createCloudflareStoreClient.upsertTimedRole sends POST to /timed-role", as
     },
   ]);
 });
+
+test("createCloudflareStoreClient.readTicketPanelConfig sends GET with guildId query param", async () => {
+  const requests: Array<{ url: string; method: string; body: string | null }> = [];
+  const storeClient = createCloudflareStoreClient({
+    fetch(input, init) {
+      requests.push({
+        url: String(input),
+        method: init?.method ?? "GET",
+        body: typeof init?.body === "string" ? init.body : null,
+      });
+      return Promise.resolve(Response.json(null) as any);
+    },
+  });
+
+  await storeClient.readTicketPanelConfig("guild-999");
+
+  assert.deepEqual(requests, [
+    {
+      url: "https://moderation-store/ticket-panel?guildId=guild-999",
+      method: "GET",
+      body: null,
+    },
+  ]);
+});
+
+test("createCloudflareStoreClient.listTimedRoles sends GET to /timed-roles", async () => {
+  const requests: Array<{ url: string; method: string; body: string | null }> = [];
+  const storeClient = createCloudflareStoreClient({
+    fetch(input, init) {
+      requests.push({
+        url: String(input),
+        method: init?.method ?? "GET",
+        body: typeof init?.body === "string" ? init.body : null,
+      });
+      return Promise.resolve(Response.json([]) as any);
+    },
+  });
+
+  await storeClient.listTimedRoles();
+
+  assert.deepEqual(requests, [
+    {
+      url: "https://moderation-store/timed-roles",
+      method: "GET",
+      body: null,
+    },
+  ]);
+});
+
+test("createCloudflareStoreClient.deleteTimedRole sends POST to /timed-role/remove", async () => {
+  const requests: Array<{ url: string; method: string; body: string | null }> = [];
+  const storeClient = createCloudflareStoreClient({
+    fetch(input, init) {
+      requests.push({
+        url: String(input),
+        method: init?.method ?? "GET",
+        body: typeof init?.body === "string" ? init.body : null,
+      });
+      return Promise.resolve(new Response(null, { status: 200 }) as any);
+    },
+  });
+
+  await storeClient.deleteTimedRole({
+    guildId: "guild-111",
+    userId: "user-222",
+    roleId: "role-333",
+  });
+
+  assert.deepEqual(requests, [
+    {
+      url: "https://moderation-store/timed-role/remove",
+      method: "POST",
+      body: JSON.stringify({
+        guildId: "guild-111",
+        userId: "user-222",
+        roleId: "role-333",
+      }),
+    },
+  ]);
+});
