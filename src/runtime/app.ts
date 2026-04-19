@@ -146,20 +146,8 @@ export function createRuntimeApp(options: RuntimeAppOptions) {
     return gatewayService.bootstrap();
   }
 
-  // Admin API request handler
+  // Admin API request handler for remaining routes not yet delegated to services
   async function handleAdminApiRequest(request: Request, url: URL): Promise<Response | null> {
-    if (request.method === "GET" && url.pathname === "/admin/api/gateway/status") {
-      return Response.json(await gatewayService.getStatus());
-    }
-
-    if (request.method === "POST" && url.pathname === "/admin/api/gateway/start") {
-      return Response.json(await bootstrap());
-    }
-
-    if (request.method === "GET" && url.pathname === "/admin/api/overview") {
-      return Response.json(await adminOverviewService.getOverview());
-    }
-
     if (request.method === "GET" && url.pathname === "/admin/api/permissions") {
       const guildId = url.searchParams.get("guildId");
       const featureParam = url.searchParams.get("feature");
@@ -296,88 +284,6 @@ export function createRuntimeApp(options: RuntimeAppOptions) {
       return Response.json({ ok: true, panelMessageId });
     }
 
-    if (request.method === "GET" && url.pathname === "/admin/api/blocklist") {
-      const guildId = url.searchParams.get("guildId");
-      if (!guildId) {
-        return Response.json({ error: "guildId is required" }, { status: 400 });
-      }
-
-      const guildConfig = await blocklistService.getGuildBlocklist(guildId);
-      return Response.json({ guildId, ...guildConfig });
-    }
-
-    if (request.method === "POST" && url.pathname === "/admin/api/blocklist") {
-      const parsedBody = await parseJsonBody(request, parseGuildEmojiMutation);
-      if (!parsedBody.ok) {
-        return parsedBody.response;
-      }
-
-      await blocklistService.applyMutation(parsedBody.value);
-      return Response.json({ ok: true });
-    }
-
-    if (request.method === "GET" && url.pathname === "/admin/api/timed-roles") {
-      const guildId = url.searchParams.get("guildId");
-      if (!guildId) {
-        return Response.json({ error: "guildId is required" }, { status: 400 });
-      }
-
-      return Response.json({
-        guildId,
-        assignments: await timedRoleService.listTimedRoles(guildId),
-      });
-    }
-
-    if (request.method === "POST" && url.pathname === "/admin/api/timed-roles") {
-      const parsedBody = await parseJsonBody(request, parseTimedRoleAdminMutation);
-      if (!parsedBody.ok) {
-        return parsedBody.response;
-      }
-
-      if (parsedBody.value.action === "add") {
-        const parsedDuration = parseTimedRoleDuration(parsedBody.value.duration, Date.now());
-        if (!parsedDuration) {
-          return Response.json(
-            { error: "Invalid duration. Use values like 1h, 1w, or 1m." },
-            { status: 400 }
-          );
-        }
-
-        try {
-          await timedRoleService.assignTimedRole({
-            guildId: parsedBody.value.guildId,
-            userId: parsedBody.value.userId,
-            roleId: parsedBody.value.roleId,
-            durationInput: parsedDuration.durationInput,
-            expiresAtMs: parsedDuration.expiresAtMs,
-          });
-        } catch (error) {
-          return Response.json(
-            { error: describeTimedRoleAssignmentFailure(error) },
-            { status: 502 }
-          );
-        }
-      } else {
-        try {
-          await timedRoleService.removeTimedRole({
-            guildId: parsedBody.value.guildId,
-            userId: parsedBody.value.userId,
-            roleId: parsedBody.value.roleId,
-          });
-        } catch (error) {
-          return Response.json(
-            { error: describeTimedRoleRemovalFailure(error) },
-            { status: 502 }
-          );
-        }
-      }
-
-      return Response.json({
-        guildId: parsedBody.value.guildId,
-        assignments: await timedRoleService.listTimedRoles(parsedBody.value.guildId),
-      });
-    }
-
     return Response.json({ error: "Not found" }, { status: 404 });
   }
 
@@ -388,6 +294,12 @@ export function createRuntimeApp(options: RuntimeAppOptions) {
   const _adminRoutes = createAdminRoutes({
     adminSessionSecret: options.adminSessionSecret,
     adminUiPassword: options.adminUiPassword,
+    services: {
+      gatewayService,
+      adminOverviewService,
+      blocklistService,
+      timedRoleService,
+    },
     handleAdminApiRequest,
     redirect,
     getAdminLoginLocation,
@@ -402,6 +314,10 @@ export function createRuntimeApp(options: RuntimeAppOptions) {
     verifyDiscordRequest: options.verifyDiscordRequest,
     store: options.store,
     gateway: options.gateway,
+    services: {
+      timedRoleService,
+      blocklistService,
+    },
     handleInteractionRequest,
   });
 
@@ -1230,66 +1146,6 @@ function parseTicketPanelConfig(body: unknown): TicketPanelConfig {
   };
 }
 
-function parseGuildEmojiMutation(
-  body: unknown
-): { guildId: string; emoji: string; action: "add" | "remove" } {
-  if (!isRecord(body)) {
-    throw new AdminApiInputError("Invalid JSON body");
-  }
-
-  const guildId = body.guildId;
-  const emoji = normalizeEmoji(asOptionalString(body.emoji));
-  const action = body.action;
-
-  if (typeof guildId !== "string" || guildId.length === 0 || !emoji || typeof action !== "string") {
-    throw new AdminApiInputError("Missing guildId, emoji or action");
-  }
-
-  if (action !== "add" && action !== "remove") {
-    throw new AdminApiInputError("Invalid action. Use 'add' or 'remove'");
-  }
-
-  return {
-    guildId,
-    emoji,
-    action,
-  };
-}
-
-function parseTimedRoleAdminMutation(
-  body: unknown
-):
-  | { action: "add"; guildId: string; userId: string; roleId: string; duration: string }
-  | { action: "remove"; guildId: string; userId: string; roleId: string } {
-  if (!isRecord(body)) {
-    throw new AdminApiInputError("Invalid JSON body");
-  }
-
-  const guildId = asOptionalString(body.guildId);
-  const userId = asOptionalString(body.userId);
-  const roleId = asOptionalString(body.roleId);
-  const action = body.action;
-
-  if (!guildId || !userId || !roleId || typeof action !== "string") {
-    throw new AdminApiInputError("Missing guildId, userId, roleId or action");
-  }
-
-  if (action === "add") {
-    const duration = asOptionalString(body.duration);
-    if (!duration) {
-      throw new AdminApiInputError("Missing duration for timed role add");
-    }
-
-    return { action, guildId, userId, roleId, duration };
-  }
-
-  if (action === "remove") {
-    return { action, guildId, userId, roleId };
-  }
-
-  throw new AdminApiInputError("Invalid action. Use 'add' or 'remove'");
-}
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
@@ -1664,26 +1520,6 @@ function describeTimedRoleAssignmentFailure(error: unknown): string {
   }
 
   return `Failed to assign the timed role (${error.status}).`;
-}
-
-function describeTimedRoleRemovalFailure(error: unknown): string {
-  if (!(error instanceof DiscordApiError)) {
-    return "Failed to remove the timed role.";
-  }
-
-  if (error.status === 403) {
-    return "Failed to remove the timed role. Ensure the bot has Manage Roles and that its highest role is above the target role.";
-  }
-
-  if (error.status === 404) {
-    return "Failed to remove the timed role. The member or role could not be found in this server.";
-  }
-
-  if (error.status >= 500) {
-    return "Failed to remove the timed role because Discord is currently unavailable.";
-  }
-
-  return `Failed to remove the timed role (${error.status}).`;
 }
 
 function formatBoundedBulletList(

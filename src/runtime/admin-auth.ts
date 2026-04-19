@@ -12,6 +12,10 @@ export async function createAdminSessionCookie(
   },
   nowMs = Date.now()
 ): Promise<string> {
+  if (!secret) {
+    throw new Error("ADMIN_SESSION_SECRET is required to create admin session cookies.");
+  }
+  
   const payload: AdminSessionPayload = {
     exp: nowMs + ADMIN_SESSION_TTL_SECONDS * 1000,
   };

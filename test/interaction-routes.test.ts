@@ -1340,6 +1340,10 @@ test("createInteractionRoutes handles Discord PING interactions through route mo
     verifyDiscordRequest: async () => true,
     store: {} as never,
     gateway: {} as never,
+    services: {
+      timedRoleService: {} as never,
+      blocklistService: {} as never,
+    },
     handleInteractionRequest: async (request) => {
       const body = JSON.parse(await request.text());
       if (body?.type === 1) {
