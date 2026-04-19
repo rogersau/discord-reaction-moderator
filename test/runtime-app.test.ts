@@ -907,7 +907,7 @@ test("createRuntimeApp rejects malformed POST /admin/api/timed-roles bodies with
     );
 
     assert.equal(response.status, 400);
-    assert.deepEqual(await response.json(), { error: "Missing duration for timed role add" });
+    assert.deepEqual(await response.json(), { error: "Missing or invalid duration for timed role add" });
     assert.deepEqual(calls, []);
   } finally {
     globalThis.fetch = originalFetch;
@@ -1081,6 +1081,112 @@ test("createRuntimeApp rejects malformed POST /admin/api/blocklist bodies with 4
   assert.equal(response.status, 400);
   assert.deepEqual(await response.json(), { error: "Invalid action. Use 'add' or 'remove'" });
   assert.deepEqual(calls, []);
+});
+
+test("createRuntimeApp rejects null body on POST /admin/api/blocklist with 400 JSON", async () => {
+  const app = createRuntimeApp({
+    discordPublicKey: "a".repeat(64),
+    discordBotToken: "bot-token",
+    adminUiPassword: "let-me-in",
+    adminSessionSecret: "session-secret",
+    verifyDiscordRequest: async () => true,
+    store: {} as unknown as RuntimeStore,
+    gateway: {} as GatewayController,
+  });
+
+  const cookie = await createAdminSessionCookie("session-secret");
+  const response = await app.fetch(
+    new Request("https://runtime.example/admin/api/blocklist", {
+      method: "POST",
+      headers: { cookie, "content-type": "application/json" },
+      body: "null",
+    })
+  );
+
+  assert.equal(response.status, 400);
+  const body = (await response.json()) as { error: string };
+  assert.match(body.error, /Invalid|Missing/);
+});
+
+test("createRuntimeApp rejects non-string emoji on POST /admin/api/blocklist with 400 JSON", async () => {
+  const app = createRuntimeApp({
+    discordPublicKey: "a".repeat(64),
+    discordBotToken: "bot-token",
+    adminUiPassword: "let-me-in",
+    adminSessionSecret: "session-secret",
+    verifyDiscordRequest: async () => true,
+    store: {} as unknown as RuntimeStore,
+    gateway: {} as GatewayController,
+  });
+
+  const cookie = await createAdminSessionCookie("session-secret");
+  const response = await app.fetch(
+    new Request("https://runtime.example/admin/api/blocklist", {
+      method: "POST",
+      headers: { cookie, "content-type": "application/json" },
+      body: JSON.stringify({ guildId: "guild-1", emoji: {}, action: "add" }),
+    })
+  );
+
+  assert.equal(response.status, 400);
+  const body = (await response.json()) as { error: string };
+  assert.match(body.error, /Invalid|Missing/);
+});
+
+test("createRuntimeApp rejects null body on POST /admin/api/timed-roles with 400 JSON", async () => {
+  const app = createRuntimeApp({
+    discordPublicKey: "a".repeat(64),
+    discordBotToken: "bot-token",
+    adminUiPassword: "let-me-in",
+    adminSessionSecret: "session-secret",
+    verifyDiscordRequest: async () => true,
+    store: {} as unknown as RuntimeStore,
+    gateway: {} as GatewayController,
+  });
+
+  const cookie = await createAdminSessionCookie("session-secret");
+  const response = await app.fetch(
+    new Request("https://runtime.example/admin/api/timed-roles", {
+      method: "POST",
+      headers: { cookie, "content-type": "application/json" },
+      body: "null",
+    })
+  );
+
+  assert.equal(response.status, 400);
+  const body = (await response.json()) as { error: string };
+  assert.match(body.error, /Invalid|Missing/);
+});
+
+test("createRuntimeApp rejects non-string duration on POST /admin/api/timed-roles with 400 JSON", async () => {
+  const app = createRuntimeApp({
+    discordPublicKey: "a".repeat(64),
+    discordBotToken: "bot-token",
+    adminUiPassword: "let-me-in",
+    adminSessionSecret: "session-secret",
+    verifyDiscordRequest: async () => true,
+    store: {} as unknown as RuntimeStore,
+    gateway: {} as GatewayController,
+  });
+
+  const cookie = await createAdminSessionCookie("session-secret");
+  const response = await app.fetch(
+    new Request("https://runtime.example/admin/api/timed-roles", {
+      method: "POST",
+      headers: { cookie, "content-type": "application/json" },
+      body: JSON.stringify({
+        action: "add",
+        guildId: "guild-1",
+        userId: "user-1",
+        roleId: "role-1",
+        duration: {},
+      }),
+    })
+  );
+
+  assert.equal(response.status, 400);
+  const body = (await response.json()) as { error: string };
+  assert.match(body.error, /Invalid|Missing/);
 });
 
 test("createRuntimeApp rejects unauthenticated /admin/api/* requests with 401 JSON", async () => {

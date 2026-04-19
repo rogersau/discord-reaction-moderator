@@ -141,35 +141,44 @@ export function createAdminRoutes(options: AdminRouteOptions): RouteHandler {
       }
 
       if (request.method === "POST" && url.pathname === "/admin/api/blocklist") {
+        let body: unknown;
         try {
-          const body = await request.json() as { guildId: string; action: "add" | "remove"; emoji: string };
-          
-          if (!body.guildId || !body.emoji || !body.action) {
-            return Response.json({ error: "Missing guildId, emoji, or action" }, { status: 400 });
-          }
-          
-          if (body.action !== "add" && body.action !== "remove") {
-            return Response.json({ error: "Invalid action. Use 'add' or 'remove'" }, { status: 400 });
-          }
-          
-          const normalizedEmoji = normalizeEmoji(body.emoji);
-          if (!normalizedEmoji) {
-            return Response.json({ error: "Invalid emoji" }, { status: 400 });
-          }
-          
-          await options.services.blocklistService.applyMutation({
-            guildId: body.guildId,
-            action: body.action,
-            emoji: normalizedEmoji,
-          });
-          
-          return Response.json({ ok: true });
+          body = await request.json();
         } catch (error) {
           if (error instanceof SyntaxError) {
             return Response.json({ error: "Invalid JSON body" }, { status: 400 });
           }
           throw error;
         }
+        
+        if (!body || typeof body !== "object") {
+          return Response.json({ error: "Invalid JSON body" }, { status: 400 });
+        }
+        
+        const parsed = body as Record<string, unknown>;
+        
+        if (!parsed.guildId || typeof parsed.guildId !== "string" ||
+            !parsed.emoji || typeof parsed.emoji !== "string" ||
+            !parsed.action || typeof parsed.action !== "string") {
+          return Response.json({ error: "Missing or invalid guildId, emoji, or action" }, { status: 400 });
+        }
+        
+        if (parsed.action !== "add" && parsed.action !== "remove") {
+          return Response.json({ error: "Invalid action. Use 'add' or 'remove'" }, { status: 400 });
+        }
+        
+        const normalizedEmoji = normalizeEmoji(parsed.emoji);
+        if (!normalizedEmoji) {
+          return Response.json({ error: "Invalid emoji" }, { status: 400 });
+        }
+        
+        await options.services.blocklistService.applyMutation({
+          guildId: parsed.guildId,
+          action: parsed.action,
+          emoji: normalizedEmoji,
+        });
+        
+        return Response.json({ ok: true });
       }
 
       if (request.method === "GET" && url.pathname === "/admin/api/timed-roles") {
@@ -185,16 +194,9 @@ export function createAdminRoutes(options: AdminRouteOptions): RouteHandler {
       }
 
       if (request.method === "POST" && url.pathname === "/admin/api/timed-roles") {
-        let parsedBody: {
-          guildId: string;
-          userId: string;
-          roleId: string;
-          action: "add" | "remove";
-          duration?: string;
-        };
-
+        let body: unknown;
         try {
-          parsedBody = await request.json();
+          body = await request.json();
         } catch (error) {
           if (error instanceof SyntaxError) {
             return Response.json({ error: "Invalid JSON body" }, { status: 400 });
@@ -202,20 +204,29 @@ export function createAdminRoutes(options: AdminRouteOptions): RouteHandler {
           throw error;
         }
 
-        if (!parsedBody.guildId || !parsedBody.userId || !parsedBody.roleId || !parsedBody.action) {
-          return Response.json({ error: "Missing guildId, userId, roleId, or action" }, { status: 400 });
+        if (!body || typeof body !== "object") {
+          return Response.json({ error: "Invalid JSON body" }, { status: 400 });
         }
 
-        if (parsedBody.action !== "add" && parsedBody.action !== "remove") {
+        const parsed = body as Record<string, unknown>;
+
+        if (!parsed.guildId || typeof parsed.guildId !== "string" ||
+            !parsed.userId || typeof parsed.userId !== "string" ||
+            !parsed.roleId || typeof parsed.roleId !== "string" ||
+            !parsed.action || typeof parsed.action !== "string") {
+          return Response.json({ error: "Missing or invalid guildId, userId, roleId, or action" }, { status: 400 });
+        }
+
+        if (parsed.action !== "add" && parsed.action !== "remove") {
           return Response.json({ error: "Invalid action. Use 'add' or 'remove'" }, { status: 400 });
         }
 
-        if (parsedBody.action === "add") {
-          if (!parsedBody.duration) {
-            return Response.json({ error: "Missing duration for timed role add" }, { status: 400 });
+        if (parsed.action === "add") {
+          if (!parsed.duration || typeof parsed.duration !== "string") {
+            return Response.json({ error: "Missing or invalid duration for timed role add" }, { status: 400 });
           }
           
-          const parsedDuration = parseTimedRoleDuration(parsedBody.duration, Date.now());
+          const parsedDuration = parseTimedRoleDuration(parsed.duration, Date.now());
           if (!parsedDuration) {
             return Response.json(
               { error: "Invalid duration. Use values like 1h, 1w, or 1m." },
@@ -225,9 +236,9 @@ export function createAdminRoutes(options: AdminRouteOptions): RouteHandler {
 
           try {
             await options.services.timedRoleService.assignTimedRole({
-              guildId: parsedBody.guildId,
-              userId: parsedBody.userId,
-              roleId: parsedBody.roleId,
+              guildId: parsed.guildId,
+              userId: parsed.userId,
+              roleId: parsed.roleId,
               durationInput: parsedDuration.durationInput,
               expiresAtMs: parsedDuration.expiresAtMs,
             });
@@ -240,9 +251,9 @@ export function createAdminRoutes(options: AdminRouteOptions): RouteHandler {
         } else {
           try {
             await options.services.timedRoleService.removeTimedRole({
-              guildId: parsedBody.guildId,
-              userId: parsedBody.userId,
-              roleId: parsedBody.roleId,
+              guildId: parsed.guildId,
+              userId: parsed.userId,
+              roleId: parsed.roleId,
             });
           } catch (error) {
             return Response.json(
@@ -253,8 +264,8 @@ export function createAdminRoutes(options: AdminRouteOptions): RouteHandler {
         }
 
         return Response.json({
-          guildId: parsedBody.guildId,
-          assignments: await options.services.timedRoleService.listTimedRoles(parsedBody.guildId),
+          guildId: parsed.guildId,
+          assignments: await options.services.timedRoleService.listTimedRoles(parsed.guildId),
         });
       }
 
