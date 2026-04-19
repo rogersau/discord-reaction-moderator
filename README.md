@@ -86,6 +86,9 @@ wrangler secret put DISCORD_BOT_TOKEN
 # Required: enable the admin dashboard login at /admin/login.
 wrangler secret put ADMIN_UI_PASSWORD
 
+# Required: dedicated secret for signing admin session cookies.
+wrangler secret put ADMIN_SESSION_SECRET
+
 # Optional: require bearer auth for legacy admin routes.
 wrangler secret put ADMIN_AUTH_SECRET
 ```
@@ -128,14 +131,7 @@ Open the admin dashboard:
    - manage a guild blocklist by guild ID
    - list/add/remove timed roles by guild ID
 
-The dashboard replaces ad-hoc `curl` commands as the supported operator surface for runtime administration.
-
-If `ADMIN_AUTH_SECRET` is configured for legacy automation, include it as a bearer token on the underlying admin routes:
-
-```bash
-curl https://your-worker-url.workers.dev/admin/gateway/status \
-  -H "Authorization: Bearer $ADMIN_AUTH_SECRET"
-```
+The dashboard uses secure, signed session cookies (signed with `ADMIN_SESSION_SECRET`) and replaces ad-hoc `curl` commands as the supported operator surface for runtime administration.
 
 If command sync fails, the Worker logs the sync error but still attempts to start the gateway session.
 
@@ -203,7 +199,7 @@ For timed roles, the role must already exist and be configured in Discord; the b
 | POST | `/admin/gateway/start` | Legacy runtime endpoint used by the dashboard to force bootstrap |
 | GET/POST | `/admin/api/*` | Session-protected dashboard APIs for gateway, guild blocklist, and timed-role operations |
 
-Set `ADMIN_UI_PASSWORD` to enable the supported browser-based operator workflow. The dashboard is the supported interface for gateway status/bootstrap, reviewing stored guild state, guild blocklist management, and timed-role management by guild ID. If `ADMIN_AUTH_SECRET` is configured, bearer auth still applies to the legacy `/admin/gateway/*` routes.
+Set `ADMIN_UI_PASSWORD` and `ADMIN_SESSION_SECRET` to enable the supported browser-based operator workflow. The dashboard is the supported interface for gateway status/bootstrap, reviewing stored guild state, guild blocklist management, and timed-role management by guild ID. Admin session cookies are signed with `ADMIN_SESSION_SECRET` to ensure secure authentication.
 
 ## Hosting model
 

@@ -102,6 +102,31 @@ test("createRuntimeApp rejects invalid admin login passwords", async () => {
   assert.equal(loginResponse.headers.get("set-cookie"), null);
 });
 
+test("createRuntimeApp rejects admin login when ADMIN_SESSION_SECRET is not configured", async () => {
+  const app = createRuntimeApp({
+    discordPublicKey: "a".repeat(64),
+    discordBotToken: "bot-token",
+    adminUiPassword: "let-me-in",
+    // adminSessionSecret deliberately not set - should reject login
+    verifyDiscordRequest: async () => true,
+    store: {
+      async readConfig() {
+        return { guilds: {}, botUserId: "bot-user-id" };
+      },
+    } as unknown as RuntimeStore,
+    gateway: {} as GatewayController,
+  });
+
+  const loginResponse = await app.fetch(
+    new Request("https://runtime.example/admin/login", {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      body: "password=let-me-in",
+    })
+  );
+
+  assert.equal(loginResponse.status, 404, "Should reject login when session secret not configured");
+});
 
 test("createRuntimeApp serves authenticated dashboard shells for nested admin pages", async () => {
   const app = createRuntimeApp({

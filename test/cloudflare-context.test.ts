@@ -38,7 +38,7 @@ test("createCloudflareContext uses ADMIN_SESSION_SECRET when explicitly set", ()
   assert.strictEqual(context.adminSessionSecret, "explicit-session-secret");
 });
 
-test("createCloudflareContext falls back to ADMIN_AUTH_SECRET when ADMIN_SESSION_SECRET not set", () => {
+test("createCloudflareContext requires dedicated ADMIN_SESSION_SECRET (no fallback to ADMIN_AUTH_SECRET)", () => {
   const env = createMockEnv({
     ADMIN_SESSION_SECRET: undefined,
     ADMIN_AUTH_SECRET: "auth-secret",
@@ -47,10 +47,10 @@ test("createCloudflareContext falls back to ADMIN_AUTH_SECRET when ADMIN_SESSION
 
   const context = createCloudflareContext(env);
 
-  assert.strictEqual(context.adminSessionSecret, "auth-secret");
+  assert.strictEqual(context.adminSessionSecret, undefined, "Should not fall back to ADMIN_AUTH_SECRET");
 });
 
-test("createCloudflareContext falls back to ADMIN_UI_PASSWORD when neither ADMIN_SESSION_SECRET nor ADMIN_AUTH_SECRET set", () => {
+test("createCloudflareContext requires dedicated ADMIN_SESSION_SECRET (no fallback to ADMIN_UI_PASSWORD)", () => {
   const env = createMockEnv({
     ADMIN_SESSION_SECRET: undefined,
     ADMIN_AUTH_SECRET: undefined,
@@ -59,7 +59,7 @@ test("createCloudflareContext falls back to ADMIN_UI_PASSWORD when neither ADMIN
 
   const context = createCloudflareContext(env);
 
-  assert.strictEqual(context.adminSessionSecret, "ui-password");
+  assert.strictEqual(context.adminSessionSecret, undefined, "Should not fall back to ADMIN_UI_PASSWORD");
 });
 
 test("createCloudflareContext adminSessionSecret is undefined when no admin secrets configured", () => {

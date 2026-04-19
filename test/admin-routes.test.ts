@@ -198,6 +198,7 @@ test("worker proxies /admin/api/gateway/status to the gateway session durable ob
     new Request("https://worker.example/admin/api/gateway/status"),
     createEnv({
       ADMIN_UI_PASSWORD: "secret",
+      ADMIN_SESSION_SECRET: "session-secret",
       gatewayFetch(input) {
         gatewayFetches.push(String(input));
         return Response.json({ status: "idle" });
@@ -219,6 +220,7 @@ test("worker proxies /admin/api/gateway/start to the gateway session durable obj
     }),
     createEnv({
       ADMIN_UI_PASSWORD: "secret",
+      ADMIN_SESSION_SECRET: "session-secret",
       gatewayFetch(input, init) {
         gatewayFetches.push({
           input: String(input),
@@ -237,6 +239,7 @@ test("worker proxies /admin/api/gateway/start to the gateway session durable obj
 function createEnv(options?: {
   ADMIN_AUTH_SECRET?: string;
   ADMIN_UI_PASSWORD?: string;
+  ADMIN_SESSION_SECRET?: string;
   DISCORD_APPLICATION_ID?: string;
   gatewayFetch?: (input: Request | string | URL, init?: RequestInit) => Response;
 }) {
@@ -247,6 +250,7 @@ function createEnv(options?: {
     DISCORD_APPLICATION_ID: options?.DISCORD_APPLICATION_ID,
     ADMIN_AUTH_SECRET: options?.ADMIN_AUTH_SECRET,
     ADMIN_UI_PASSWORD: options?.ADMIN_UI_PASSWORD,
+    ADMIN_SESSION_SECRET: options?.ADMIN_SESSION_SECRET,
     MODERATION_STORE_DO: {
       idFromName() {
         return "moderation-store-id" as never;
@@ -287,7 +291,7 @@ test("worker returns 404 for /admin/api/* when ADMIN_UI_PASSWORD is not configur
 test("worker returns 401 for /admin/api/* when ADMIN_UI_PASSWORD is set but no valid session", async () => {
   const response = await worker.fetch(
     new Request("https://worker.example/admin/api/gateway/status"),
-    createEnv({ ADMIN_UI_PASSWORD: "secret" }),
+    createEnv({ ADMIN_UI_PASSWORD: "secret", ADMIN_SESSION_SECRET: "session-secret" }),
     {} as ExecutionContext
   );
 

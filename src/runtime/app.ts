@@ -61,6 +61,11 @@ import type {
 import { createPublicRoutes } from "../routes/public-routes";
 import { createAdminRoutes } from "../routes/admin-routes";
 import { createInteractionRoutes } from "../routes/interaction-routes";
+import { TimedRoleService } from "../services/timed-role-service";
+import { TicketService } from "../services/ticket-service";
+import { GatewayService } from "../services/gateway-service";
+import { AdminOverviewService } from "../services/admin-overview-service";
+import { BlocklistService } from "../services/blocklist-service";
 
 const DISCORD_INTERACTION_MAX_AGE_SECONDS = 5 * 60;
 const DISCORD_MESSAGE_CONTENT_LIMIT = 2_000;
@@ -105,22 +110,46 @@ interface AdminOverviewGuild {
 }
 
 export function createRuntimeApp(options: RuntimeAppOptions) {
+  // Service instances
+  const gatewayService = new GatewayService(options.gateway, {
+    discordApplicationId: options.discordApplicationId,
+    syncApplicationCommands: options.discordApplicationId
+      ? (appId) => syncApplicationCommands(appId, options.discordBotToken)
+      : undefined,
+  });
+
+  const timedRoleService = new TimedRoleService(
+    options.store,
+    options.discordBotToken,
+    (guildId, userId, roleId) => addGuildMemberRole(guildId, userId, roleId, options.discordBotToken),
+    (guildId, userId, roleId) => removeGuildMemberRole(guildId, userId, roleId, options.discordBotToken)
+  );
+
+  const ticketService = new TicketService(
+    options.store,
+    options.discordBotToken,
+    (config) => createTicketChannel(config, options.discordBotToken),
+    (channelId) => deleteChannel(channelId, options.discordBotToken)
+  );
+  void ticketService; // TODO: Use ticket service in interaction handlers (future task)
+
+  const adminOverviewService = new AdminOverviewService(
+    options.store,
+    options.gateway,
+    (config, timedRoles) => buildAdminOverviewGuilds(config, timedRoles, options.discordBotToken)
+  );
+
+  const blocklistService = new BlocklistService(options.store);
+
   // Bootstrap function for gateway start
   async function bootstrap() {
-    if (options.discordApplicationId) {
-      try {
-        await syncApplicationCommands(options.discordApplicationId, options.discordBotToken);
-      } catch (error) {
-        console.error("Failed to sync slash commands during bootstrap", error);
-      }
-    }
-    return options.gateway.start();
+    return gatewayService.bootstrap();
   }
 
   // Admin API request handler
   async function handleAdminApiRequest(request: Request, url: URL): Promise<Response | null> {
     if (request.method === "GET" && url.pathname === "/admin/api/gateway/status") {
-      return Response.json(await options.gateway.status());
+      return Response.json(await gatewayService.getStatus());
     }
 
     if (request.method === "POST" && url.pathname === "/admin/api/gateway/start") {
@@ -128,16 +157,7 @@ export function createRuntimeApp(options: RuntimeAppOptions) {
     }
 
     if (request.method === "GET" && url.pathname === "/admin/api/overview") {
-      const [gateway, config, timedRoles] = await Promise.all([
-        options.gateway.status(),
-        options.store.readConfig(),
-        options.store.listTimedRoles(),
-      ]);
-
-      return Response.json({
-        gateway,
-        guilds: await buildAdminOverviewGuilds(config, timedRoles, options.discordBotToken),
-      });
+      return Response.json(await adminOverviewService.getOverview());
     }
 
     if (request.method === "GET" && url.pathname === "/admin/api/permissions") {
@@ -282,8 +302,7 @@ export function createRuntimeApp(options: RuntimeAppOptions) {
         return Response.json({ error: "guildId is required" }, { status: 400 });
       }
 
-      const config = await options.store.readConfig();
-      const guildConfig = config.guilds?.[guildId] ?? { enabled: true, emojis: [] };
+      const guildConfig = await blocklistService.getGuildBlocklist(guildId);
       return Response.json({ guildId, ...guildConfig });
     }
 
@@ -293,7 +312,7 @@ export function createRuntimeApp(options: RuntimeAppOptions) {
         return parsedBody.response;
       }
 
-      await options.store.applyGuildEmojiMutation(parsedBody.value);
+      await blocklistService.applyMutation(parsedBody.value);
       return Response.json({ ok: true });
     }
 
@@ -305,7 +324,7 @@ export function createRuntimeApp(options: RuntimeAppOptions) {
 
       return Response.json({
         guildId,
-        assignments: await options.store.listTimedRolesByGuild(guildId),
+        assignments: await timedRoleService.listTimedRoles(guildId),
       });
     }
 
@@ -324,27 +343,15 @@ export function createRuntimeApp(options: RuntimeAppOptions) {
           );
         }
 
-        await options.store.upsertTimedRole({
-          guildId: parsedBody.value.guildId,
-          userId: parsedBody.value.userId,
-          roleId: parsedBody.value.roleId,
-          durationInput: parsedDuration.durationInput,
-          expiresAtMs: parsedDuration.expiresAtMs,
-        });
-
         try {
-          await addGuildMemberRole(
-            parsedBody.value.guildId,
-            parsedBody.value.userId,
-            parsedBody.value.roleId,
-            options.discordBotToken
-          );
-        } catch (error) {
-          await options.store.deleteTimedRole({
+          await timedRoleService.assignTimedRole({
             guildId: parsedBody.value.guildId,
             userId: parsedBody.value.userId,
             roleId: parsedBody.value.roleId,
+            durationInput: parsedDuration.durationInput,
+            expiresAtMs: parsedDuration.expiresAtMs,
           });
+        } catch (error) {
           return Response.json(
             { error: describeTimedRoleAssignmentFailure(error) },
             { status: 502 }
@@ -352,29 +359,22 @@ export function createRuntimeApp(options: RuntimeAppOptions) {
         }
       } else {
         try {
-          await removeGuildMemberRole(
-            parsedBody.value.guildId,
-            parsedBody.value.userId,
-            parsedBody.value.roleId,
-            options.discordBotToken
-          );
+          await timedRoleService.removeTimedRole({
+            guildId: parsedBody.value.guildId,
+            userId: parsedBody.value.userId,
+            roleId: parsedBody.value.roleId,
+          });
         } catch (error) {
           return Response.json(
             { error: describeTimedRoleRemovalFailure(error) },
             { status: 502 }
           );
         }
-
-        await options.store.deleteTimedRole({
-          guildId: parsedBody.value.guildId,
-          userId: parsedBody.value.userId,
-          roleId: parsedBody.value.roleId,
-        });
       }
 
       return Response.json({
         guildId: parsedBody.value.guildId,
-        assignments: await options.store.listTimedRolesByGuild(parsedBody.value.guildId),
+        assignments: await timedRoleService.listTimedRoles(parsedBody.value.guildId),
       });
     }
 

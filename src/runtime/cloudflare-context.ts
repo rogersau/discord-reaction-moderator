@@ -30,7 +30,7 @@ export function createCloudflareContext(env: Env): RuntimeAppContext {
     discordApplicationId: env.DISCORD_APPLICATION_ID,
     adminAuthSecret: env.ADMIN_AUTH_SECRET,
     adminUiPassword: env.ADMIN_UI_PASSWORD,
-    adminSessionSecret: env.ADMIN_SESSION_SECRET ?? env.ADMIN_AUTH_SECRET ?? env.ADMIN_UI_PASSWORD,
+    adminSessionSecret: env.ADMIN_SESSION_SECRET,
     store: {
       readConfig: storeClient.readConfig,
       upsertAppConfig: storeClient.upsertAppConfig,
