@@ -36,7 +36,7 @@ export class TicketService {
       throw new Error("createChannel handler not configured");
     }
 
-    const channelName = buildTicketChannelName(ticketNumber);
+    const channelName = buildTicketChannelName(options.ticketType.channelNamePrefix, ticketNumber);
     const channel = await this.createChannel({
       guildId: options.guildId,
       name: channelName,

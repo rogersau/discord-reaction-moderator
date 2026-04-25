@@ -13,6 +13,7 @@ import {
   buildTicketCloseCustomId,
   buildTicketOpenCustomId,
   buildTicketModalResponse,
+  buildTicketTranscriptPath,
 } from "../src/tickets";
 import type { TicketInstance, TicketPanelConfig, TimedRoleAssignment } from "../src/types";
 
@@ -1569,6 +1570,7 @@ test("createRuntimeApp handles ticket open modal submit and close interactions",
   const originalFetch = globalThis.fetch;
   const originalDateNow = Date.now;
   const createdInstances: TicketInstance[] = [];
+  const transcriptHtml = new Map<string, string>();
   const closeCalls: Array<{
     guildId: string;
     channelId: string;
@@ -1618,6 +1620,9 @@ test("createRuntimeApp handles ticket open modal submit and close interactions",
             discriminator: "0002",
             global_name: "Support",
           },
+          member: {
+            nick: "CAF Assist",
+          },
         },
         {
           id: "message-1",
@@ -1650,6 +1655,14 @@ test("createRuntimeApp handles ticket open modal submit and close interactions",
       discordPublicKey: "a".repeat(64),
       discordBotToken: "bot-token",
       verifyDiscordRequest: async () => true,
+      ticketTranscriptBlobs: {
+        async putHtml(key: string, html: string) {
+          transcriptHtml.set(key, html);
+        },
+        async getHtml(key: string) {
+          return transcriptHtml.get(key) ?? null;
+        },
+      },
       store: {
         async readConfig() {
           return { guilds: {}, botUserId: "bot-user-id" };
@@ -1735,6 +1748,21 @@ test("createRuntimeApp handles ticket open modal submit and close interactions",
       transcriptMessageId: null,
     });
 
+    const channelCreateCall = discordCalls.find(
+      (call) => call.method === "POST" && call.url.endsWith("/guilds/guild-1/channels")
+    );
+    assert.deepEqual(channelCreateCall?.body, {
+      name: "appeal-001",
+      type: 0,
+      parent_id: "category-1",
+      permission_overwrites: [
+        { id: "guild-1", type: 0, deny: "1024", allow: "0" },
+        { id: "bot-user-id", type: 1, allow: "1024", deny: "0" },
+        { id: "user-1", type: 1, allow: "1024", deny: "0" },
+        { id: "role-1", type: 0, allow: "1024", deny: "0" },
+      ],
+    });
+
     const openMessageCall = discordCalls.find(
       (call) => call.method === "POST" && call.url.endsWith("/channels/ticket-channel-1/messages")
     );
@@ -1800,11 +1828,27 @@ test("createRuntimeApp handles ticket open modal submit and close interactions",
     const transcriptCall = discordCalls.find(
       (call) => call.method === "POST" && call.url.endsWith("/channels/transcript-channel/messages")
     );
+    const transcriptPayload = JSON.parse(
+      String(
+        transcriptCall?.body && typeof transcriptCall.body === "object"
+          ? (transcriptCall.body as { payload_json: FormDataEntryValue | null }).payload_json
+          : null
+      )
+    ) as {
+      content?: string;
+      embeds?: Array<{ title?: string; fields?: Array<{ name: string; value: string }> }>;
+      attachments: Array<{ id: number; filename: string }>;
+    };
+    assert.equal(transcriptPayload.content, "HTML transcript: https://runtime.example/transcripts/guild-1/ticket-channel-1");
+    assert.deepEqual(transcriptPayload.attachments, [{ id: 0, filename: "ticket-ticket-channel-1.txt" }]);
+    assert.equal(transcriptPayload.embeds?.[0]?.title, "Ticket Transcript");
     assert.equal(
-      transcriptCall?.body && typeof transcriptCall.body === "object"
-        ? (transcriptCall.body as { payload_json: FormDataEntryValue | null }).payload_json
-        : null,
-      JSON.stringify({ attachments: [{ id: 0, filename: "ticket-ticket-channel-1.txt" }] })
+      transcriptPayload.embeds?.[0]?.fields?.find((field) => field.name === "Ticket Owner")?.value,
+      "Alice (user-1)"
+    );
+    assert.equal(
+      transcriptPayload.embeds?.[0]?.fields?.find((field) => field.name === "Users in transcript")?.value,
+      "1 - Alice\n1 - CAF Assist"
     );
     const transcriptFile = transcriptCall?.body && typeof transcriptCall.body === "object"
       ? ((transcriptCall.body as { transcript: FormDataEntryValue | null }).transcript as File | null)
@@ -1828,6 +1872,16 @@ Closed by: user-1
 [2024-01-01T00:00:00.000Z] Alice: Need help
 [2024-01-01T00:00:01.000Z] Support: Support reply
 `);
+
+    const transcriptResponse = await app.fetch(
+      new Request(`https://runtime.example${buildTicketTranscriptPath("guild-1", "ticket-channel-1")}`)
+    );
+    assert.equal(transcriptResponse.status, 200);
+    assert.match(transcriptResponse.headers.get("content-type") ?? "", /text\/html/);
+    const transcriptHtml = await transcriptResponse.text();
+    assert.match(transcriptHtml, /<h1>Ticket Transcript<\/h1>/);
+    assert.match(transcriptHtml, /Opened by<\/dt><dd>Alice \(user-1\)<\/dd>/);
+    assert.match(transcriptHtml, /Closed by<\/dt><dd>Alice \(user-1\)<\/dd>/);
   } finally {
     Date.now = originalDateNow;
     globalThis.fetch = originalFetch;
@@ -1902,6 +1956,20 @@ test("createRuntimeApp creates a ticket immediately when the ticket type has no 
     assert.deepEqual(await response.json(), {
       type: 4,
       data: { flags: 64, content: "Created your ticket: <#ticket-channel-1>" },
+    });
+    const channelCreateCall = discordCalls.find(
+      (call) => call.method === "POST" && call.url.endsWith("/guilds/guild-1/channels")
+    );
+    assert.deepEqual(channelCreateCall?.body, {
+      name: "appeal-001",
+      type: 0,
+      parent_id: "category-1",
+      permission_overwrites: [
+        { id: "guild-1", type: 0, deny: "1024", allow: "0" },
+        { id: "bot-user-id", type: 1, allow: "1024", deny: "0" },
+        { id: "user-1", type: 1, allow: "1024", deny: "0" },
+        { id: "role-1", type: 0, allow: "1024", deny: "0" },
+      ],
     });
     assert.deepEqual(createdInstances, [
       {

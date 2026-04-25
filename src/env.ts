@@ -17,4 +17,5 @@ export interface Env {
   
   GATEWAY_SESSION_DO: DurableObjectNamespace;
   MODERATION_STORE_DO: DurableObjectNamespace;
+  TICKET_TRANSCRIPTS_BUCKET?: R2Bucket;
 }

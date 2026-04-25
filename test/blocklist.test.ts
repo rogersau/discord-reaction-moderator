@@ -1224,10 +1224,13 @@ function createFakeSql(options?: {
         const key = `${guild_id}:${channel_id}`;
         const row = ticketInstances.get(key);
         if (!row || row.status !== "open") {
-          return { changes: 0 };
+          return { rowsWritten: 0, changes: 0 };
         }
         if (options?.closeTicketUpdateChanges !== undefined) {
-          return { changes: options.closeTicketUpdateChanges };
+          return {
+            rowsWritten: options.closeTicketUpdateChanges,
+            changes: options.closeTicketUpdateChanges,
+          };
         }
         ticketInstances.set(key, {
           ...row,
@@ -1236,7 +1239,7 @@ function createFakeSql(options?: {
           closed_at_ms,
           transcript_message_id,
         });
-        return { changes: 1 };
+        return { rowsWritten: 1, changes: 1 };
       }
 
       if (

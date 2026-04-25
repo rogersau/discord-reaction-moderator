@@ -111,6 +111,9 @@ export interface DiscordMessageListItem extends DiscordMessageResource {
     discriminator: string;
     global_name: string | null;
   };
+  member?: {
+    nick?: string | null;
+  };
 }
 
 export function assertValidDiscordPublicKey(publicKeyHex: string): string {
@@ -312,12 +315,18 @@ export async function uploadTranscriptToChannel(
   channelId: string,
   filename: string,
   transcriptBody: string,
-  botToken: string
+  botToken: string,
+  options?: {
+    htmlTranscriptUrl?: string;
+    embeds?: DiscordEmbed[];
+  }
 ): Promise<DiscordMessageResource> {
   const form = new FormData();
   form.set(
     "payload_json",
     JSON.stringify({
+      content: options?.htmlTranscriptUrl ? `HTML transcript: ${options.htmlTranscriptUrl}` : undefined,
+      embeds: options?.embeds,
       attachments: [{ id: 0, filename }],
     })
   );

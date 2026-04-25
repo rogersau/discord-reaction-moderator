@@ -74,7 +74,7 @@ test("TicketService.openTicket creates channel and persists ticket instance", as
 
   assert.equal(createdChannels.length, 1);
   assert.equal(createdChannels[0].guildId, "guild-1");
-  assert.equal(createdChannels[0].name, "001");
+  assert.equal(createdChannels[0].name, "ticket-001");
   assert.equal(createdInstances.length, 1);
   assert.equal(createdInstances[0].channelId, "channel-new");
   assert.equal(result.channelId, "channel-new");

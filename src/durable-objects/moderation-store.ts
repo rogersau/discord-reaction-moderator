@@ -418,9 +418,9 @@ export class ModerationStoreDO implements DurableObject {
       body.transcriptMessageId,
       body.guildId,
       body.channelId
-    ) as { changes?: number };
+    );
 
-    if (!result.changes) {
+    if (result.rowsWritten < 1) {
       throw new Error(`No open ticket found for guild ${body.guildId} channel ${body.channelId}`);
     }
   }

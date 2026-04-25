@@ -3,7 +3,7 @@ import { assertValidDiscordPublicKey } from "../discord";
 import { getModerationStoreStub } from "../reaction-moderation";
 import { createCloudflareStoreClient } from "./cloudflare-store-client";
 import { createCloudflareGatewayClient } from "./cloudflare-gateway-client";
-import type { RuntimeStore, GatewayController } from "./contracts";
+import type { RuntimeStore, GatewayController, TicketTranscriptBlobStore } from "./contracts";
 
 export interface RuntimeAppContext {
   discordPublicKey: string;
@@ -15,6 +15,7 @@ export interface RuntimeAppContext {
   verifyDiscordRequest?: (timestamp: string, body: string, signature: string) => Promise<boolean>;
   store: RuntimeStore;
   gateway: GatewayController;
+  ticketTranscriptBlobs?: TicketTranscriptBlobStore;
 }
 
 export function createCloudflareContext(env: Env): RuntimeAppContext {
@@ -23,6 +24,25 @@ export function createCloudflareContext(env: Env): RuntimeAppContext {
 
   const storeClient = createCloudflareStoreClient(storeStub);
   const gatewayClient = createCloudflareGatewayClient(gatewayStub);
+  const ticketTranscriptBlobs: TicketTranscriptBlobStore | undefined = env.TICKET_TRANSCRIPTS_BUCKET
+    ? {
+        async putHtml(key: string, html: string): Promise<void> {
+          await env.TICKET_TRANSCRIPTS_BUCKET?.put(key, html, {
+            httpMetadata: {
+              contentType: "text/html; charset=utf-8",
+            },
+          });
+        },
+        async getHtml(key: string): Promise<string | null> {
+          const object = await env.TICKET_TRANSCRIPTS_BUCKET?.get(key);
+          if (!object) {
+            return null;
+          }
+
+          return object.text();
+        },
+      }
+    : undefined;
 
   const context: RuntimeAppContext = {
     discordPublicKey: assertValidDiscordPublicKey(env.DISCORD_PUBLIC_KEY),
@@ -61,6 +81,7 @@ export function createCloudflareContext(env: Env): RuntimeAppContext {
       start: gatewayClient.start,
       status: gatewayClient.status,
     },
+    ticketTranscriptBlobs,
   };
 
   return context;

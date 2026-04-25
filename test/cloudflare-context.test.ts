@@ -73,3 +73,38 @@ test("createCloudflareContext adminSessionSecret is undefined when no admin secr
 
   assert.strictEqual(context.adminSessionSecret, undefined);
 });
+
+test("createCloudflareContext wires ticket transcript R2 helpers when a bucket is configured", async () => {
+  const bucketCalls: Array<{ action: string; key: string; body?: string }> = [];
+  const env = createMockEnv({
+    TICKET_TRANSCRIPTS_BUCKET: {
+      async put(key: string, value: string) {
+        bucketCalls.push({ action: "put", key, body: value });
+      },
+      async get(key: string) {
+        bucketCalls.push({ action: "get", key });
+        return {
+          text: async () => "<html>stored transcript</html>",
+        } as unknown as R2ObjectBody;
+      },
+    } as unknown as R2Bucket,
+  });
+
+  const context = createCloudflareContext(env);
+
+  await context.ticketTranscriptBlobs?.putHtml("guild-1/channel-1.html", "<html>stored transcript</html>");
+  const html = await context.ticketTranscriptBlobs?.getHtml("guild-1/channel-1.html");
+
+  assert.equal(html, "<html>stored transcript</html>");
+  assert.deepEqual(bucketCalls, [
+    {
+      action: "put",
+      key: "guild-1/channel-1.html",
+      body: "<html>stored transcript</html>",
+    },
+    {
+      action: "get",
+      key: "guild-1/channel-1.html",
+    },
+  ]);
+});

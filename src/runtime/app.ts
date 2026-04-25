@@ -34,13 +34,17 @@ import {
   hasGuildAdminPermission,
 } from "../discord-interactions";
 import {
+  buildTicketTranscriptPath,
+  buildTicketTranscriptStorageKey,
   buildTicketChannelName,
   buildTicketCloseCustomId,
   buildTicketModalResponse,
   buildTicketOpenCustomId,
+  buildTicketTranscriptSummaryEmbed,
   extractTicketAnswersFromModal,
   formatTicketNumber,
   parseTicketCustomId,
+  renderTicketTranscriptHtml,
   renderTicketTranscript,
 } from "../tickets";
 import { formatTimedRoleExpiry, parseTimedRoleDuration } from "../timed-roles";
@@ -50,7 +54,7 @@ import {
   buildTimedRolePermissionChecks,
   loadGuildPermissionContext,
 } from "./admin-permissions";
-import type { GatewayController, RuntimeStore } from "./contracts";
+import type { GatewayController, RuntimeStore, TicketTranscriptBlobStore } from "./contracts";
 import type {
   BlocklistConfig,
   TicketInstance,
@@ -81,10 +85,14 @@ interface DiscordInteraction {
     roles?: unknown;
     user?: {
       id?: string;
+      username?: string;
+      global_name?: string | null;
     };
   };
   user?: {
     id?: string;
+    username?: string;
+    global_name?: string | null;
   };
   data?: unknown;
 }
@@ -99,6 +107,7 @@ interface RuntimeAppOptions {
   verifyDiscordRequest?: (timestamp: string, body: string, signature: string) => Promise<boolean>;
   store: RuntimeStore;
   gateway: GatewayController;
+  ticketTranscriptBlobs?: TicketTranscriptBlobStore;
 }
 
 class AdminApiInputError extends Error {}
@@ -290,7 +299,9 @@ export function createRuntimeApp(options: RuntimeAppOptions) {
 
   // Route modules for organized request handling
   // Public routes: /health
-  const _publicRoutes = createPublicRoutes();
+  const _publicRoutes = createPublicRoutes({
+    ticketTranscriptBlobs: options.ticketTranscriptBlobs,
+  });
   // Admin routes: /admin/login, /admin/logout, /admin/api/*, admin dashboard
   const _adminRoutes = createAdminRoutes({
     adminSessionSecret: options.adminSessionSecret,
@@ -315,6 +326,7 @@ export function createRuntimeApp(options: RuntimeAppOptions) {
     verifyDiscordRequest: options.verifyDiscordRequest,
     store: options.store,
     gateway: options.gateway,
+    ticketTranscriptBlobs: options.ticketTranscriptBlobs,
     services: {
       timedRoleService,
       blocklistService,
@@ -536,7 +548,13 @@ export async function handleInteractionRequest(
   }
 
   if (interaction?.type === 3) {
-    return handleMessageComponentInteraction(interaction, options.store, options.discordBotToken);
+    return handleMessageComponentInteraction(
+      interaction,
+      options.store,
+      options.discordBotToken,
+      new URL(request.url).origin,
+      options.ticketTranscriptBlobs
+    );
   }
 
   if (interaction?.type === 5) {
@@ -744,7 +762,9 @@ async function handleApplicationCommand(
 async function handleMessageComponentInteraction(
   interaction: DiscordInteraction,
   store: RuntimeStore,
-  discordBotToken: string
+  discordBotToken: string,
+  requestOrigin: string,
+  ticketTranscriptBlobs?: TicketTranscriptBlobStore
 ): Promise<Response> {
   if (typeof interaction.guild_id !== "string" || interaction.guild_id.length === 0) {
     return Response.json(buildEphemeralMessage("This interaction can only be used inside a server."));
@@ -792,7 +812,9 @@ async function handleMessageComponentInteraction(
     interaction.guild_id,
     parsedCustomId.channelId,
     store,
-    discordBotToken
+    discordBotToken,
+    requestOrigin,
+    ticketTranscriptBlobs
   );
 }
 
@@ -867,7 +889,7 @@ async function createTicketFromInteraction({
     channel = await createTicketChannel(
       {
         guildId,
-        name: buildTicketChannelName(ticketNumber),
+        name: buildTicketChannelName(ticketType.channelNamePrefix, ticketNumber),
         parentId: panel.categoryChannelId,
         botUserId: config.botUserId,
         openerUserId,
@@ -932,7 +954,9 @@ async function handleTicketCloseInteraction(
   guildId: string,
   requestedChannelId: string,
   store: RuntimeStore,
-  discordBotToken: string
+  discordBotToken: string,
+  requestOrigin: string,
+  ticketTranscriptBlobs?: TicketTranscriptBlobStore
 ): Promise<Response> {
   const userId = getInteractionUserId(interaction);
   if (!userId) {
@@ -977,20 +1001,60 @@ async function handleTicketCloseInteraction(
   let transcriptMessageId: string;
   try {
     const messages = await listAllChannelMessages(channelId, discordBotToken);
-    const transcript = renderTicketTranscript(
-      closingTicket,
-      messages.map((message) => ({
-        authorId: message.author.id,
-        authorTag: message.author.global_name ?? message.author.username,
-        content: message.content,
-        createdAtMs: Date.parse(message.timestamp),
-      }))
-    );
+    const transcriptMessages = messages.map((message) => ({
+      authorId: message.author.id,
+      authorTag: resolveDiscordMessageDisplayName(message),
+      content: message.content,
+      createdAtMs: Date.parse(message.timestamp),
+    }));
+    const participantDisplayNames = new Map<string, string>();
+    for (const message of transcriptMessages) {
+      if (!participantDisplayNames.has(message.authorId)) {
+        participantDisplayNames.set(message.authorId, message.authorTag ?? message.authorId);
+      }
+    }
+
+    let guildName: string | null = null;
+    let channelName: string | null = null;
+    try {
+      const [guilds, guildResources] = await Promise.all([
+        listBotGuilds(discordBotToken),
+        listGuildTicketResources(guildId, discordBotToken),
+      ]);
+      guildName = guilds.find((guild) => guild.guildId === guildId)?.name ?? null;
+      channelName = guildResources.channels.find((channel) => channel.id === channelId)?.name ?? null;
+    } catch (error) {
+      console.error("Failed to resolve transcript display metadata", error);
+    }
+
+    const transcriptPresentation = {
+      guildName,
+      channelName,
+      openerDisplayName: participantDisplayNames.get(closingTicket.openerUserId) ?? null,
+      closerDisplayName:
+        getInteractionUserDisplayName(interaction) ??
+        (closingTicket.closedByUserId ? participantDisplayNames.get(closingTicket.closedByUserId) ?? null : null),
+    };
+    const transcript = renderTicketTranscript(closingTicket, transcriptMessages);
+    let transcriptHtmlUrl: string | undefined;
+
+    if (ticketTranscriptBlobs) {
+      await ticketTranscriptBlobs.putHtml(
+        buildTicketTranscriptStorageKey(guildId, channelId),
+        renderTicketTranscriptHtml(closingTicket, transcriptMessages, transcriptPresentation)
+      );
+      transcriptHtmlUrl = `${requestOrigin}${buildTicketTranscriptPath(guildId, channelId)}`;
+    }
+
     const transcriptMessage = await uploadTranscriptToChannel(
       panel.transcriptChannelId,
       `ticket-${channelId}.txt`,
       transcript,
-      discordBotToken
+      discordBotToken,
+      {
+        htmlTranscriptUrl: transcriptHtmlUrl,
+        embeds: [buildTicketTranscriptSummaryEmbed(closingTicket, transcriptMessages, transcriptPresentation)],
+      }
     );
     transcriptMessageId = transcriptMessage.id;
   } catch (error) {
@@ -1287,12 +1351,28 @@ function getInteractionUserId(interaction: DiscordInteraction): string | null {
   return asOptionalString(interaction.member?.user?.id) ?? asOptionalString(interaction.user?.id);
 }
 
+function getInteractionUserDisplayName(interaction: DiscordInteraction): string | null {
+  return (
+    asOptionalString(interaction.member?.user?.global_name) ??
+    asOptionalString(interaction.member?.user?.username) ??
+    asOptionalString(interaction.user?.global_name) ??
+    asOptionalString(interaction.user?.username)
+  );
+}
+
 function getInteractionMemberRoles(interaction: DiscordInteraction): string[] {
   if (!Array.isArray(interaction.member?.roles)) {
     return [];
   }
 
   return interaction.member.roles.filter((roleId): roleId is string => typeof roleId === "string");
+}
+
+function resolveDiscordMessageDisplayName(message: {
+  member?: { nick?: string | null };
+  author: { global_name: string | null; username: string };
+}): string {
+  return message.member?.nick ?? message.author.global_name ?? message.author.username;
 }
 
 function buildTicketOpeningMessage(instance: TicketInstance, ticketNumber: number) {

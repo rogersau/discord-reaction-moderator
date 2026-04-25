@@ -42,6 +42,11 @@ export interface RuntimeStore {
   writeGatewaySnapshot(snapshot: GatewaySnapshot): Promise<void>;
 }
 
+export interface TicketTranscriptBlobStore {
+  putHtml(key: string, html: string): Promise<void>;
+  getHtml(key: string): Promise<string | null>;
+}
+
 export interface GatewayController {
   start(): Promise<GatewaySnapshot>;
   status(): Promise<GatewaySnapshot>;

@@ -9,6 +9,7 @@ import {
   addGuildMemberRole,
   createTicketChannel,
   removeGuildMemberRole,
+  uploadTranscriptToChannel,
 } from "../src/discord";
 
 test("addGuildMemberRole uses the Discord member-role endpoint", async () => {
@@ -128,4 +129,54 @@ test("createTicketChannel posts a private guild channel with opener and support 
       },
     },
   ]);
+});
+
+test("uploadTranscriptToChannel includes the HTML transcript link in the payload when provided", async () => {
+  const calls: Array<{ url: string; method: string; body: FormData | null }> = [];
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    calls.push({
+      url: String(input),
+      method: init?.method ?? "GET",
+      body: init?.body instanceof FormData ? init.body : null,
+    });
+    return Response.json({ id: "transcript-message-1", channel_id: "channel-1", content: "" });
+  }) as typeof fetch;
+
+  try {
+    await uploadTranscriptToChannel(
+      "channel-1",
+      "ticket-123.txt",
+      "ticket body",
+      "bot-token",
+      {
+        htmlTranscriptUrl: "https://runtime.example/transcripts/guild-1/channel-1",
+        embeds: [
+          {
+            title: "Ticket Transcript",
+            fields: [{ name: "Messages", value: "2", inline: true }],
+          },
+        ],
+      }
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0]?.url, "https://discord.com/api/v10/channels/channel-1/messages");
+  assert.equal(calls[0]?.method, "POST");
+  assert.deepEqual(JSON.parse(String(calls[0]?.body?.get("payload_json"))), {
+    content: "HTML transcript: https://runtime.example/transcripts/guild-1/channel-1",
+    embeds: [
+      {
+        title: "Ticket Transcript",
+        fields: [{ name: "Messages", value: "2", inline: true }],
+      },
+    ],
+    attachments: [{ id: 0, filename: "ticket-123.txt" }],
+  });
+  const transcriptFile = calls[0]?.body?.get("files[0]");
+  assert.ok(transcriptFile instanceof File);
+  assert.equal(await transcriptFile.text(), "ticket body");
 });

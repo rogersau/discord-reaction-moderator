@@ -1,3 +1,4 @@
+import type { DiscordEmbed } from "./discord";
 import type { TicketInstance, TicketPanelConfig, TicketQuestion, TicketTypeConfig } from "./types";
 
 const TICKET_OPEN_CUSTOM_ID_PREFIX = "ticket:open:";
@@ -38,6 +39,13 @@ export interface TicketTranscriptMessage {
   authorTag: string | null;
   content: string;
   createdAtMs: number;
+}
+
+export interface TicketTranscriptPresentationOptions {
+  guildName?: string | null;
+  channelName?: string | null;
+  openerDisplayName?: string | null;
+  closerDisplayName?: string | null;
 }
 
 interface StoredTicketPanelPayload {
@@ -132,8 +140,20 @@ export function formatTicketNumber(ticketNumber: number): string {
   return String(ticketNumber).padStart(3, "0");
 }
 
-export function buildTicketChannelName(ticketNumber: number): string {
-  return formatTicketNumber(ticketNumber);
+export function buildTicketChannelName(prefix: string, ticketNumber: number): string {
+  const suffix = `-${formatTicketNumber(ticketNumber)}`;
+  const normalizedPrefix = normalizeTicketChannelPrefix(prefix);
+  const maxPrefixLength = Math.max(1, 100 - suffix.length);
+  const trimmedPrefix = normalizedPrefix.slice(0, maxPrefixLength).replace(/-+$/g, "");
+  return `${trimmedPrefix.length > 0 ? trimmedPrefix : "ticket"}${suffix}`;
+}
+
+export function buildTicketTranscriptStorageKey(guildId: string, channelId: string): string {
+  return `${guildId}/${channelId}.html`;
+}
+
+export function buildTicketTranscriptPath(guildId: string, channelId: string): string {
+  return `/transcripts/${encodeURIComponent(guildId)}/${encodeURIComponent(channelId)}`;
 }
 
 export function extractTicketAnswersFromModal(
@@ -204,6 +224,227 @@ export function renderTicketTranscript(
   return `${lines.join("\n")}\n`;
 }
 
+export function renderTicketTranscriptHtml(
+  instance: TicketInstance,
+  messages: TicketTranscriptMessage[],
+  options: TicketTranscriptPresentationOptions = {}
+): string {
+  const sortedMessages = [...messages].sort((left, right) => left.createdAtMs - right.createdAtMs);
+  const answerMarkup =
+    instance.answers.length === 0
+      ? '<p class="empty"><em>No answers provided.</em></p>'
+      : `<ul class="answers">${instance.answers
+          .map(
+            (answer) =>
+              `<li><strong>${escapeHtml(answer.label)}:</strong> ${escapeHtml(answer.value)}</li>`
+          )
+          .join("")}</ul>`;
+  const messageMarkup =
+    sortedMessages.length === 0
+      ? '<p class="empty"><em>No messages captured.</em></p>'
+      : `<ol class="messages">${sortedMessages
+          .map((message) => {
+            const author = message.authorTag ?? message.authorId;
+            return `<li>
+  <header>
+    <span class="author">${escapeHtml(author)}</span>
+    <time datetime="${new Date(message.createdAtMs).toISOString()}">${new Date(message.createdAtMs).toISOString()}</time>
+  </header>
+  <div class="message-content">${escapeHtml(message.content)}</div>
+</li>`;
+          })
+          .join("")}</ol>`;
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Ticket Transcript ${escapeHtml(instance.channelId)}</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+    }
+    body {
+      margin: 0;
+      background: #020617;
+      color: #e2e8f0;
+    }
+    main {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 32px 20px 48px;
+    }
+    h1, h2 {
+      margin-bottom: 12px;
+    }
+    .meta, .answers, .messages {
+      background: #0f172a;
+      border: 1px solid #1e293b;
+      border-radius: 16px;
+      padding: 16px 20px;
+      box-shadow: 0 16px 40px rgba(15, 23, 42, 0.35);
+    }
+    .meta {
+      display: grid;
+      grid-template-columns: minmax(140px, 200px) 1fr;
+      gap: 10px 16px;
+      margin-bottom: 24px;
+    }
+    .meta dt {
+      font-weight: 700;
+      color: #93c5fd;
+    }
+    .meta dd {
+      margin: 0;
+      word-break: break-word;
+    }
+    .answers, .messages {
+      margin: 0;
+      padding-left: 24px;
+    }
+    .messages {
+      list-style: none;
+      padding-left: 0;
+    }
+    .messages li {
+      padding: 16px 0;
+      border-bottom: 1px solid #1e293b;
+    }
+    .messages li:last-child {
+      border-bottom: 0;
+      padding-bottom: 0;
+    }
+    .messages header {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 12px;
+      margin-bottom: 8px;
+      align-items: baseline;
+    }
+    .author {
+      font-weight: 700;
+      color: #f8fafc;
+    }
+    time {
+      color: #94a3b8;
+      font-size: 0.95rem;
+    }
+    .message-content {
+      white-space: pre-wrap;
+      word-break: break-word;
+      line-height: 1.5;
+    }
+    .empty {
+      color: #94a3b8;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Ticket Transcript</h1>
+    <dl class="meta">
+      <dt>Guild</dt><dd>${escapeHtml(formatTranscriptGuildLabel(instance, options))}</dd>
+      <dt>Ticket Type</dt><dd>${escapeHtml(instance.ticketTypeLabel)} (${escapeHtml(instance.ticketTypeId)})</dd>
+      <dt>Channel</dt><dd>${escapeHtml(formatTranscriptChannelLabel(instance, options))}</dd>
+      <dt>Opened by</dt><dd>${escapeHtml(formatTranscriptIdentity(options.openerDisplayName, instance.openerUserId))}</dd>
+      <dt>Support Role</dt><dd>${escapeHtml(instance.supportRoleId ?? "Not configured")}</dd>
+      <dt>Status</dt><dd>${escapeHtml(instance.status)}</dd>
+      <dt>Opened at</dt><dd>${escapeHtml(new Date(instance.openedAtMs).toISOString())}</dd>
+      <dt>Closed at</dt><dd>${escapeHtml(instance.closedAtMs === null ? "Not closed" : new Date(instance.closedAtMs).toISOString())}</dd>
+      <dt>Closed by</dt><dd>${escapeHtml(formatTranscriptIdentity(options.closerDisplayName, instance.closedByUserId))}</dd>
+    </dl>
+
+    <h2>Answers</h2>
+    ${answerMarkup}
+
+    <h2>Messages</h2>
+    ${messageMarkup}
+  </main>
+</body>
+</html>
+`;
+}
+
+export function buildTicketTranscriptSummaryEmbed(
+  instance: TicketInstance,
+  messages: TicketTranscriptMessage[],
+  options: TicketTranscriptPresentationOptions = {}
+): DiscordEmbed {
+  const sortedMessages = [...messages].sort((left, right) => left.createdAtMs - right.createdAtMs);
+  const participantLines = summarizeTranscriptParticipants(sortedMessages)
+    .map((participant) => `${participant.messageCount} - ${participant.displayName}`)
+    .join("\n");
+  const searchKeys = buildTicketTranscriptSearchKeys(instance);
+  const fields = [
+    {
+      name: "Server",
+      value: truncateDiscordFieldValue(formatTranscriptGuildLabel(instance, options)),
+      inline: false,
+    },
+    {
+      name: "Channel",
+      value: truncateDiscordFieldValue(formatTranscriptChannelLabel(instance, options)),
+      inline: false,
+    },
+    {
+      name: "Type",
+      value: truncateDiscordFieldValue(`${instance.ticketTypeLabel} (${instance.ticketTypeId})`),
+      inline: true,
+    },
+    {
+      name: "Messages",
+      value: String(sortedMessages.length),
+      inline: true,
+    },
+    ...(searchKeys.length > 0
+      ? [
+          {
+            name: "Search keys",
+            value: truncateDiscordFieldValue(searchKeys.join(" ")),
+            inline: false,
+          },
+        ]
+      : []),
+    {
+      name: "Ticket Owner",
+      value: truncateDiscordFieldValue(formatTranscriptIdentity(options.openerDisplayName, instance.openerUserId)),
+      inline: false,
+    },
+    ...instance.answers
+      .filter((answer) => answer.value.trim().length > 0)
+      .map((answer) => ({
+        name: truncateDiscordFieldName(answer.label),
+        value: truncateDiscordFieldValue(answer.value),
+        inline: true,
+      })),
+    ...(participantLines.length > 0
+      ? [
+          {
+            name: "Users in transcript",
+            value: truncateDiscordFieldValue(participantLines),
+            inline: false,
+          },
+        ]
+      : []),
+    {
+      name: "Closed by",
+      value: truncateDiscordFieldValue(formatTranscriptIdentity(options.closerDisplayName, instance.closedByUserId)),
+      inline: false,
+    },
+  ].slice(0, 25);
+
+  return {
+    title: "Ticket Transcript",
+    color: 5_763_719,
+    fields,
+    timestamp: new Date(instance.closedAtMs ?? instance.openedAtMs).toISOString(),
+  };
+}
+
 function buildTicketTextInput(question: TicketQuestion) {
   return {
     type: 4 as const,
@@ -213,6 +454,102 @@ function buildTicketTextInput(question: TicketQuestion) {
     placeholder: question.placeholder ?? undefined,
     required: question.required,
   };
+}
+
+function formatTranscriptGuildLabel(
+  instance: TicketInstance,
+  options: TicketTranscriptPresentationOptions
+): string {
+  if (options.guildName && options.guildName !== instance.guildId) {
+    return `${options.guildName} (${instance.guildId})`;
+  }
+
+  return instance.guildId;
+}
+
+function formatTranscriptChannelLabel(
+  instance: TicketInstance,
+  options: TicketTranscriptPresentationOptions
+): string {
+  if (options.channelName && options.channelName !== instance.channelId) {
+    return `#${options.channelName} (${instance.channelId})`;
+  }
+
+  return instance.channelId;
+}
+
+function formatTranscriptIdentity(displayName: string | null | undefined, userId: string | null): string {
+  if (!userId) {
+    return "Not closed";
+  }
+
+  if (displayName && displayName !== userId) {
+    return `${displayName} (${userId})`;
+  }
+
+  return displayName ?? userId;
+}
+
+function summarizeTranscriptParticipants(messages: TicketTranscriptMessage[]): Array<{
+  authorId: string;
+  displayName: string;
+  messageCount: number;
+}> {
+  const participants = new Map<string, { displayName: string; messageCount: number }>();
+
+  for (const message of messages) {
+    const existing = participants.get(message.authorId);
+    const displayName = message.authorTag ?? message.authorId;
+    if (existing) {
+      existing.messageCount += 1;
+      continue;
+    }
+
+    participants.set(message.authorId, {
+      displayName,
+      messageCount: 1,
+    });
+  }
+
+  return [...participants.entries()]
+    .map(([authorId, participant]) => ({ authorId, ...participant }))
+    .sort((left, right) => right.messageCount - left.messageCount || left.displayName.localeCompare(right.displayName));
+}
+
+function buildTicketTranscriptSearchKeys(instance: TicketInstance): string[] {
+  const keys = new Set<string>([`discord:${instance.openerUserId}`]);
+
+  for (const answer of instance.answers) {
+    const normalizedKey = normalizeSearchKey(answer.questionId || answer.label);
+    const normalizedValue = answer.value.trim();
+    if (!normalizedKey || !normalizedValue) {
+      continue;
+    }
+
+    if (!/^(discord|discordid|steam|steam64|steamid|userid|userid64|id)$/.test(normalizedKey)) {
+      continue;
+    }
+
+    if (/\s/.test(normalizedValue)) {
+      continue;
+    }
+
+    keys.add(`${normalizedKey}:${normalizedValue}`);
+  }
+
+  return [...keys];
+}
+
+function normalizeSearchKey(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, "");
+}
+
+function truncateDiscordFieldName(value: string): string {
+  return value.length <= 256 ? value : `${value.slice(0, 253)}...`;
+}
+
+function truncateDiscordFieldValue(value: string): string {
+  return value.length <= 1024 ? value : `${value.slice(0, 1021)}...`;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -225,4 +562,22 @@ function asStoredNullableString(value: unknown): string | null {
   }
 
   return value.trim().length > 0 ? value : null;
+}
+
+function normalizeTicketChannelPrefix(prefix: string): string {
+  return prefix
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .replace(/-{2,}/g, "-") || "ticket";
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
 }

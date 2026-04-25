@@ -1,4 +1,4 @@
-import type { GatewayController, RuntimeStore } from "../runtime/contracts";
+import type { GatewayController, RuntimeStore, TicketTranscriptBlobStore } from "../runtime/contracts";
 import type { TimedRoleService } from "../services/timed-role-service";
 import type { BlocklistService } from "../services/blocklist-service";
 
@@ -13,8 +13,9 @@ export interface InteractionRouteOptions {
   verifyDiscordRequest?: (timestamp: string, body: string, signature: string) => Promise<boolean>;
   store: RuntimeStore;
   gateway: GatewayController;
+  ticketTranscriptBlobs?: TicketTranscriptBlobStore;
   services: InteractionRouteServices;
-  handleInteractionRequest: (request: Request, options: Pick<InteractionRouteOptions, "discordPublicKey" | "discordBotToken" | "verifyDiscordRequest" | "store" | "gateway" | "services">) => Promise<Response>;
+  handleInteractionRequest: (request: Request, options: Pick<InteractionRouteOptions, "discordPublicKey" | "discordBotToken" | "verifyDiscordRequest" | "store" | "gateway" | "ticketTranscriptBlobs" | "services">) => Promise<Response>;
 }
 
 export interface RouteHandler {

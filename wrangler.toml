@@ -25,6 +25,10 @@ class_name = "ModerationStoreDO"
 name = "GATEWAY_SESSION_DO"
 class_name = "GatewaySessionDO"
 
+[[r2_buckets]]
+binding = "TICKET_TRANSCRIPTS_BUCKET"
+bucket_name = "discord-automation-workers-transcripts"
+
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["ModerationStoreDO", "GatewaySessionDO"]
