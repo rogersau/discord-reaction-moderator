@@ -10,7 +10,10 @@ import { createAdminSessionCookie } from "../src/runtime/admin-auth";
 import type { GatewayController, RuntimeStore } from "../src/runtime/contracts";
 import type { AppConfigMutation } from "../src/runtime/admin-types";
 import {
+  buildTicketCloseConfirmCustomId,
   buildTicketCloseCustomId,
+  buildTicketCloseDeclineCustomId,
+  buildTicketCloseRequestCustomId,
   buildTicketOpenCustomId,
   buildTicketModalResponse,
   buildTicketTranscriptAttachmentPath,
@@ -1847,6 +1850,12 @@ test("createRuntimeApp handles ticket open modal submit and close interactions",
           components: [
             {
               type: 2,
+              custom_id: buildTicketCloseRequestCustomId("ticket-channel-1"),
+              label: "Request Close",
+              style: 2,
+            },
+            {
+              type: 2,
               custom_id: buildTicketCloseCustomId("ticket-channel-1"),
               label: "Close Ticket",
               style: 4,
@@ -2087,6 +2096,12 @@ test("createRuntimeApp creates a ticket immediately when the ticket type has no 
           components: [
             {
               type: 2,
+              custom_id: buildTicketCloseRequestCustomId("ticket-channel-1"),
+              label: "Request Close",
+              style: 2,
+            },
+            {
+              type: 2,
               custom_id: buildTicketCloseCustomId("ticket-channel-1"),
               label: "Close Ticket",
               style: 4,
@@ -2185,6 +2200,262 @@ test("createRuntimeApp rolls back ticket creation when the opening message fails
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+test("createRuntimeApp lets support request ticket close approval from the opener", async () => {
+  const originalFetch = globalThis.fetch;
+  const discordCalls: Array<{ method: string; url: string; body: unknown }> = [];
+  const openTicket: TicketInstance = {
+    guildId: "guild-1",
+    channelId: "ticket-channel-1",
+    ticketTypeId: "appeals",
+    ticketTypeLabel: "Appeal",
+    openerUserId: "user-1",
+    supportRoleId: "role-1",
+    status: "open",
+    answers: [],
+    openedAtMs: 1_700_000_000_000,
+    closedAtMs: null,
+    closedByUserId: null,
+    transcriptMessageId: null,
+  };
+  const panel = createTicketPanelConfig();
+
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+    const method = init?.method ?? "GET";
+    const body = init?.body ? JSON.parse(String(init.body)) : null;
+    discordCalls.push({ method, url, body });
+
+    if (url.endsWith("/channels/ticket-channel-1/messages") && method === "POST") {
+      return Response.json({ id: "message-1", channel_id: "ticket-channel-1", content: "ok" });
+    }
+
+    throw new Error(`Unexpected Discord call: ${method} ${url}`);
+  }) as typeof fetch;
+
+  try {
+    const app = createRuntimeApp({
+      discordPublicKey: "a".repeat(64),
+      discordBotToken: "bot-token",
+      verifyDiscordRequest: async () => true,
+      store: {
+        async readTicketPanelConfig(guildId: string) {
+          return guildId === "guild-1" ? panel : null;
+        },
+        async readOpenTicketByChannel(guildId: string, channelId: string) {
+          return guildId === "guild-1" && channelId === "ticket-channel-1" ? openTicket : null;
+        },
+      } as unknown as RuntimeStore,
+      gateway: {} as GatewayController,
+    });
+
+    const response = await app.fetch(
+      createInteractionRequest({
+        type: 3,
+        guild_id: "guild-1",
+        channel_id: "ticket-channel-1",
+        member: { user: { id: "support-1" }, roles: ["role-1"] },
+        data: { custom_id: buildTicketCloseRequestCustomId("ticket-channel-1") },
+      })
+    );
+
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), {
+      type: 4,
+      data: { flags: 64, content: "Requested confirmation from the ticket opener." },
+    });
+
+    const requestMessageCall = discordCalls.find(
+      (call) => call.method === "POST" && call.url.endsWith("/channels/ticket-channel-1/messages")
+    );
+    assert.deepEqual(requestMessageCall?.body, {
+      content: "<@user-1> <@support-1> requested to close this ticket. Do you want to close it now?",
+      allowed_mentions: { users: ["user-1"] },
+      components: [
+        {
+          type: 1,
+          components: [
+            {
+              type: 2,
+              custom_id: buildTicketCloseConfirmCustomId("ticket-channel-1"),
+              label: "Yes, close ticket",
+              style: 4,
+            },
+            {
+              type: 2,
+              custom_id: buildTicketCloseDeclineCustomId("ticket-channel-1"),
+              label: "No, keep open",
+              style: 2,
+            },
+          ],
+        },
+      ],
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("createRuntimeApp closes a ticket after the opener approves a close request", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalDateNow = Date.now;
+  const closeCalls: Array<{
+    guildId: string;
+    channelId: string;
+    closedByUserId: string;
+    closedAtMs: number;
+    transcriptMessageId: string | null;
+  }> = [];
+  const discordCalls: Array<{ method: string; url: string; body: unknown }> = [];
+  const openTicket: TicketInstance = {
+    guildId: "guild-1",
+    channelId: "ticket-channel-1",
+    ticketTypeId: "appeals",
+    ticketTypeLabel: "Appeal",
+    openerUserId: "user-1",
+    supportRoleId: "role-1",
+    status: "open",
+    answers: [],
+    openedAtMs: 1_700_000_000_000,
+    closedAtMs: null,
+    closedByUserId: null,
+    transcriptMessageId: null,
+  };
+  const panel = createTicketPanelConfig();
+
+  Date.now = () => 1_700_000_000_000;
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+    const method = init?.method ?? "GET";
+    let body: unknown = null;
+    if (typeof init?.body === "string") {
+      body = JSON.parse(init.body);
+    } else if (init?.body instanceof FormData) {
+      body = {
+        payload_json: init.body.get("payload_json"),
+        transcript: init.body.get("files[0]"),
+      };
+    }
+    discordCalls.push({ method, url, body });
+
+    if (url.endsWith("/channels/transcript-channel/messages") && method === "POST") {
+      return Response.json({ id: "transcript-message-1", channel_id: "transcript-channel" });
+    }
+
+    if (url.endsWith("/channels/ticket-channel-1") && method === "DELETE") {
+      return new Response(null, { status: 204 });
+    }
+
+    if (url.includes("/channels/ticket-channel-1/messages") && method === "GET") {
+      return Response.json([]);
+    }
+
+    throw new Error(`Unexpected Discord call: ${method} ${url}`);
+  }) as typeof fetch;
+
+  try {
+    const app = createRuntimeApp({
+      discordPublicKey: "a".repeat(64),
+      discordBotToken: "bot-token",
+      verifyDiscordRequest: async () => true,
+      store: {
+        async readTicketPanelConfig(guildId: string) {
+          return guildId === "guild-1" ? panel : null;
+        },
+        async readOpenTicketByChannel(guildId: string, channelId: string) {
+          return guildId === "guild-1" && channelId === "ticket-channel-1" ? openTicket : null;
+        },
+        async closeTicketInstance(body: {
+          guildId: string;
+          channelId: string;
+          closedByUserId: string;
+          closedAtMs: number;
+          transcriptMessageId: string | null;
+        }) {
+          closeCalls.push(body);
+        },
+      } as unknown as RuntimeStore,
+      gateway: {} as GatewayController,
+    });
+
+    const response = await app.fetch(
+      createInteractionRequest({
+        type: 3,
+        guild_id: "guild-1",
+        channel_id: "ticket-channel-1",
+        member: { user: { id: "user-1", username: "Alice" }, roles: [] },
+        data: { custom_id: buildTicketCloseConfirmCustomId("ticket-channel-1") },
+      })
+    );
+
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), {
+      type: 4,
+      data: { flags: 64, content: "Closed ticket and uploaded the transcript." },
+    });
+    assert.deepEqual(closeCalls, [
+      {
+        guildId: "guild-1",
+        channelId: "ticket-channel-1",
+        closedByUserId: "user-1",
+        closedAtMs: 1_700_000_000_000,
+        transcriptMessageId: "transcript-message-1",
+      },
+    ]);
+  } finally {
+    Date.now = originalDateNow;
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("createRuntimeApp leaves a ticket open when the opener declines a close request", async () => {
+  const openTicket: TicketInstance = {
+    guildId: "guild-1",
+    channelId: "ticket-channel-1",
+    ticketTypeId: "appeals",
+    ticketTypeLabel: "Appeal",
+    openerUserId: "user-1",
+    supportRoleId: "role-1",
+    status: "open",
+    answers: [],
+    openedAtMs: 1_700_000_000_000,
+    closedAtMs: null,
+    closedByUserId: null,
+    transcriptMessageId: null,
+  };
+
+  const app = createRuntimeApp({
+    discordPublicKey: "a".repeat(64),
+    discordBotToken: "bot-token",
+    verifyDiscordRequest: async () => true,
+    store: {
+      async readOpenTicketByChannel(guildId: string, channelId: string) {
+        return guildId === "guild-1" && channelId === "ticket-channel-1" ? openTicket : null;
+      },
+    } as unknown as RuntimeStore,
+    gateway: {} as GatewayController,
+  });
+
+  const response = await app.fetch(
+    createInteractionRequest({
+      type: 3,
+      guild_id: "guild-1",
+      channel_id: "ticket-channel-1",
+      member: { user: { id: "user-1" }, roles: [] },
+      data: { custom_id: buildTicketCloseDeclineCustomId("ticket-channel-1") },
+    })
+  );
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), {
+    type: 7,
+    data: {
+      content: "The ticket opener chose to keep this ticket open.",
+      allowed_mentions: { parse: [] },
+      components: [],
+    },
+  });
 });
 
 test("createRuntimeApp returns an ephemeral failure when ticket channel creation fails", async () => {

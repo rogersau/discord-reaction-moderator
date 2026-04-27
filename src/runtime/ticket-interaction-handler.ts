@@ -7,7 +7,10 @@ import {
 import { buildEphemeralMessage } from "../discord-interactions";
 import {
   buildTicketChannelName,
+  buildTicketCloseConfirmCustomId,
   buildTicketCloseCustomId,
+  buildTicketCloseDeclineCustomId,
+  buildTicketCloseRequestCustomId,
   buildTicketModalResponse,
   buildTicketTranscriptSummaryEmbed,
   extractTicketAnswersFromModal,
@@ -68,15 +71,45 @@ export async function handleMessageComponentInteraction(
     return Response.json(buildTicketModalResponse(ticketType));
   }
 
-  return handleTicketCloseInteraction(
-    interaction,
-    interaction.guild_id,
-    parsedCustomId.channelId,
-    store,
-    discordBotToken,
-    requestOrigin,
-    ticketTranscriptBlobs
-  );
+  switch (parsedCustomId.action) {
+    case "close-request":
+      return handleTicketCloseRequestInteraction(
+        interaction,
+        interaction.guild_id,
+        parsedCustomId.channelId,
+        store,
+        discordBotToken
+      );
+    case "close-confirm":
+      return handleTicketCloseConfirmationInteraction(
+        interaction,
+        interaction.guild_id,
+        parsedCustomId.channelId,
+        store,
+        discordBotToken,
+        requestOrigin,
+        ticketTranscriptBlobs
+      );
+    case "close-decline":
+      return handleTicketCloseDeclineInteraction(
+        interaction,
+        interaction.guild_id,
+        parsedCustomId.channelId,
+        store
+      );
+    case "close":
+      return handleTicketCloseInteraction(
+        interaction,
+        interaction.guild_id,
+        parsedCustomId.channelId,
+        store,
+        discordBotToken,
+        requestOrigin,
+        ticketTranscriptBlobs
+      );
+    default:
+      return Response.json(buildEphemeralMessage("Unsupported interaction."));
+  }
 }
 
 export async function handleTicketModalSubmitInteraction(
@@ -224,11 +257,8 @@ async function handleTicketCloseInteraction(
     return Response.json(buildEphemeralMessage("Could not determine who is closing this ticket."));
   }
 
-  const channelId =
-    typeof interaction.channel_id === "string" && interaction.channel_id.length > 0
-      ? interaction.channel_id
-      : requestedChannelId;
-  if (channelId !== requestedChannelId) {
+  const channelId = resolveTicketChannelId(interaction, requestedChannelId);
+  if (!channelId) {
     return Response.json(buildEphemeralMessage("That ticket close button is no longer valid."));
   }
 
@@ -247,6 +277,162 @@ async function handleTicketCloseInteraction(
     );
   }
 
+  return closeTicket({
+    ticket,
+    closedByUserId: userId,
+    closerDisplayName: getInteractionUserDisplayName(interaction),
+    store,
+    discordBotToken,
+    requestOrigin,
+    ticketTranscriptBlobs,
+  });
+}
+
+async function handleTicketCloseRequestInteraction(
+  interaction: DiscordInteraction,
+  guildId: string,
+  requestedChannelId: string,
+  store: RuntimeStore,
+  discordBotToken: string
+): Promise<Response> {
+  const userId = getInteractionUserId(interaction);
+  if (!userId) {
+    return Response.json(buildEphemeralMessage("Could not determine who is requesting a ticket close."));
+  }
+
+  const channelId = resolveTicketChannelId(interaction, requestedChannelId);
+  if (!channelId) {
+    return Response.json(buildEphemeralMessage("That ticket close request button is no longer valid."));
+  }
+
+  const ticket = await store.readOpenTicketByChannel(guildId, channelId);
+  if (!ticket) {
+    return Response.json(buildEphemeralMessage("This ticket is already closed or missing."));
+  }
+
+  if (ticket.openerUserId === userId) {
+    return Response.json(buildEphemeralMessage("You can close your own ticket directly."));
+  }
+
+  const memberRoleIds = getInteractionMemberRoles(interaction);
+  const canRequestClose =
+    ticket.supportRoleId !== null && memberRoleIds.includes(ticket.supportRoleId);
+  if (!canRequestClose) {
+    return Response.json(
+      buildEphemeralMessage(
+        "Only the configured support role can request that the ticket opener close this ticket."
+      )
+    );
+  }
+
+  try {
+    await createChannelMessage(
+      channelId,
+      buildTicketCloseRequestMessage(ticket, userId),
+      discordBotToken
+    );
+  } catch (error) {
+    console.error("Failed to post ticket close request", error);
+    return Response.json(buildEphemeralMessage("Failed to request confirmation from the ticket opener."));
+  }
+
+  return Response.json(buildEphemeralMessage("Requested confirmation from the ticket opener."));
+}
+
+async function handleTicketCloseConfirmationInteraction(
+  interaction: DiscordInteraction,
+  guildId: string,
+  requestedChannelId: string,
+  store: RuntimeStore,
+  discordBotToken: string,
+  requestOrigin: string,
+  ticketTranscriptBlobs?: TicketTranscriptBlobStore
+): Promise<Response> {
+  const userId = getInteractionUserId(interaction);
+  if (!userId) {
+    return Response.json(buildEphemeralMessage("Could not determine who is responding to this ticket close request."));
+  }
+
+  const channelId = resolveTicketChannelId(interaction, requestedChannelId);
+  if (!channelId) {
+    return Response.json(buildEphemeralMessage("That ticket close request is no longer valid."));
+  }
+
+  const ticket = await store.readOpenTicketByChannel(guildId, channelId);
+  if (!ticket) {
+    return Response.json(buildEphemeralMessage("This ticket is already closed or missing."));
+  }
+
+  if (ticket.openerUserId !== userId) {
+    return Response.json(buildEphemeralMessage("Only the ticket opener can approve this close request."));
+  }
+
+  return closeTicket({
+    ticket,
+    closedByUserId: userId,
+    closerDisplayName: getInteractionUserDisplayName(interaction),
+    store,
+    discordBotToken,
+    requestOrigin,
+    ticketTranscriptBlobs,
+  });
+}
+
+async function handleTicketCloseDeclineInteraction(
+  interaction: DiscordInteraction,
+  guildId: string,
+  requestedChannelId: string,
+  store: RuntimeStore
+): Promise<Response> {
+  const userId = getInteractionUserId(interaction);
+  if (!userId) {
+    return Response.json(buildEphemeralMessage("Could not determine who is responding to this ticket close request."));
+  }
+
+  const channelId = resolveTicketChannelId(interaction, requestedChannelId);
+  if (!channelId) {
+    return Response.json(buildEphemeralMessage("That ticket close request is no longer valid."));
+  }
+
+  const ticket = await store.readOpenTicketByChannel(guildId, channelId);
+  if (!ticket) {
+    return Response.json(buildEphemeralMessage("This ticket is already closed or missing."));
+  }
+
+  if (ticket.openerUserId !== userId) {
+    return Response.json(buildEphemeralMessage("Only the ticket opener can decline this close request."));
+  }
+
+  return Response.json({
+    type: 7,
+    data: {
+      content: "The ticket opener chose to keep this ticket open.",
+      allowed_mentions: { parse: [] },
+      components: [],
+    },
+  });
+}
+
+async function closeTicket({
+  ticket,
+  closedByUserId,
+  closerDisplayName,
+  store,
+  discordBotToken,
+  requestOrigin,
+  ticketTranscriptBlobs,
+}: {
+  ticket: TicketInstance;
+  closedByUserId: string;
+  closerDisplayName: string | null;
+  store: RuntimeStore;
+  discordBotToken: string;
+  requestOrigin: string;
+  ticketTranscriptBlobs?: TicketTranscriptBlobStore;
+}): Promise<Response> {
+  const guildId = ticket.guildId;
+  const channelId = ticket.channelId;
+
   const panel = await store.readTicketPanelConfig(guildId);
   if (!panel) {
     return Response.json(buildEphemeralMessage("This ticket panel configuration is missing."));
@@ -257,7 +443,7 @@ async function handleTicketCloseInteraction(
     ...ticket,
     status: "closed",
     closedAtMs,
-    closedByUserId: userId,
+    closedByUserId,
   };
   let transcriptMessageId: string;
   try {
@@ -265,7 +451,7 @@ async function handleTicketCloseInteraction(
       guildId,
       channelId,
       closingTicket,
-      closerDisplayName: getInteractionUserDisplayName(interaction),
+      closerDisplayName,
       discordBotToken,
       requestOrigin,
       ticketTranscriptBlobs,
@@ -314,7 +500,7 @@ async function handleTicketCloseInteraction(
     await store.closeTicketInstance({
       guildId,
       channelId,
-      closedByUserId: userId,
+      closedByUserId,
       closedAtMs,
       transcriptMessageId,
     });
@@ -366,6 +552,18 @@ function getInteractionMemberRoles(interaction: DiscordInteraction): string[] {
   return interaction.member.roles.filter((roleId): roleId is string => typeof roleId === "string");
 }
 
+function resolveTicketChannelId(
+  interaction: DiscordInteraction,
+  requestedChannelId: string
+): string | null {
+  const channelId =
+    typeof interaction.channel_id === "string" && interaction.channel_id.length > 0
+      ? interaction.channel_id
+      : requestedChannelId;
+
+  return channelId === requestedChannelId ? channelId : null;
+}
+
 function buildTicketOpeningMessage(instance: TicketInstance, ticketNumber: number) {
   const fields =
     instance.answers.length === 0
@@ -374,6 +572,28 @@ function buildTicketOpeningMessage(instance: TicketInstance, ticketNumber: numbe
           name: answer.label,
           value: answer.value || "(blank)",
         }));
+  const actionButtons: Array<{
+    type: 2;
+    custom_id: string;
+    label: string;
+    style: 2 | 4;
+  }> = [];
+
+  if (instance.supportRoleId) {
+    actionButtons.push({
+      type: 2,
+      custom_id: buildTicketCloseRequestCustomId(instance.channelId),
+      label: "Request Close",
+      style: 2,
+    });
+  }
+
+  actionButtons.push({
+    type: 2,
+    custom_id: buildTicketCloseCustomId(instance.channelId),
+    label: "Close Ticket",
+    style: 4,
+  });
 
   return {
     content: `<@${instance.openerUserId}>`,
@@ -390,12 +610,31 @@ function buildTicketOpeningMessage(instance: TicketInstance, ticketNumber: numbe
     components: [
       {
         type: 1,
+        components: actionButtons,
+      },
+    ],
+  };
+}
+
+function buildTicketCloseRequestMessage(ticket: TicketInstance, requesterUserId: string) {
+  return {
+    content: `<@${ticket.openerUserId}> <@${requesterUserId}> requested to close this ticket. Do you want to close it now?`,
+    allowed_mentions: { users: [ticket.openerUserId] },
+    components: [
+      {
+        type: 1,
         components: [
           {
             type: 2,
-            custom_id: buildTicketCloseCustomId(instance.channelId),
-            label: "Close Ticket",
+            custom_id: buildTicketCloseConfirmCustomId(ticket.channelId),
+            label: "Yes, close ticket",
             style: 4,
+          },
+          {
+            type: 2,
+            custom_id: buildTicketCloseDeclineCustomId(ticket.channelId),
+            label: "No, keep open",
+            style: 2,
           },
         ],
       },

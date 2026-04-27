@@ -3,6 +3,9 @@ import type { TicketInstance, TicketPanelConfig, TicketQuestion, TicketTypeConfi
 
 const TICKET_OPEN_CUSTOM_ID_PREFIX = "ticket:open:";
 const TICKET_CLOSE_CUSTOM_ID_PREFIX = "ticket:close:";
+const TICKET_CLOSE_REQUEST_CUSTOM_ID_PREFIX = "ticket:close-request:";
+const TICKET_CLOSE_CONFIRM_CUSTOM_ID_PREFIX = "ticket:close-confirm:";
+const TICKET_CLOSE_DECLINE_CUSTOM_ID_PREFIX = "ticket:close-decline:";
 
 export interface TicketModalResponse {
   type: 9;
@@ -110,9 +113,27 @@ export function buildTicketCloseCustomId(channelId: string): string {
   return `${TICKET_CLOSE_CUSTOM_ID_PREFIX}${channelId}`;
 }
 
+export function buildTicketCloseRequestCustomId(channelId: string): string {
+  return `${TICKET_CLOSE_REQUEST_CUSTOM_ID_PREFIX}${channelId}`;
+}
+
+export function buildTicketCloseConfirmCustomId(channelId: string): string {
+  return `${TICKET_CLOSE_CONFIRM_CUSTOM_ID_PREFIX}${channelId}`;
+}
+
+export function buildTicketCloseDeclineCustomId(channelId: string): string {
+  return `${TICKET_CLOSE_DECLINE_CUSTOM_ID_PREFIX}${channelId}`;
+}
+
 export function parseTicketCustomId(
   customId: string
-): { action: "open"; ticketTypeId: string } | { action: "close"; channelId: string } | null {
+):
+  | { action: "open"; ticketTypeId: string }
+  | { action: "close"; channelId: string }
+  | { action: "close-request"; channelId: string }
+  | { action: "close-confirm"; channelId: string }
+  | { action: "close-decline"; channelId: string }
+  | null {
   if (customId.startsWith(TICKET_OPEN_CUSTOM_ID_PREFIX)) {
     return {
       action: "open",
@@ -124,6 +145,27 @@ export function parseTicketCustomId(
     return {
       action: "close",
       channelId: customId.slice(TICKET_CLOSE_CUSTOM_ID_PREFIX.length),
+    };
+  }
+
+  if (customId.startsWith(TICKET_CLOSE_REQUEST_CUSTOM_ID_PREFIX)) {
+    return {
+      action: "close-request",
+      channelId: customId.slice(TICKET_CLOSE_REQUEST_CUSTOM_ID_PREFIX.length),
+    };
+  }
+
+  if (customId.startsWith(TICKET_CLOSE_CONFIRM_CUSTOM_ID_PREFIX)) {
+    return {
+      action: "close-confirm",
+      channelId: customId.slice(TICKET_CLOSE_CONFIRM_CUSTOM_ID_PREFIX.length),
+    };
+  }
+
+  if (customId.startsWith(TICKET_CLOSE_DECLINE_CUSTOM_ID_PREFIX)) {
+    return {
+      action: "close-decline",
+      channelId: customId.slice(TICKET_CLOSE_DECLINE_CUSTOM_ID_PREFIX.length),
     };
   }
 
