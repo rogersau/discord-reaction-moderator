@@ -190,6 +190,41 @@ test("createCloudflareStoreClient.listTimedRoles sends GET to /timed-roles", asy
   ]);
 });
 
+test("createCloudflareStoreClient.listTimedRoles correctly reads and parses timed role data from storage", async () => {
+  const mockTimedRoles = [
+    {
+      guildId: "guild-123",
+      userId: "user-456",
+      roleId: "role-789",
+      durationInput: "1h",
+      expiresAtMs: 1640995200000,
+    },
+    {
+      guildId: "guild-123",
+      userId: "user-999",
+      roleId: "role-888",
+      durationInput: "2d",
+      expiresAtMs: 1641081600000,
+    },
+  ];
+
+  const storeClient = createCloudflareStoreClient({
+    fetch() {
+      return Promise.resolve(Response.json(mockTimedRoles) as any);
+    },
+  });
+
+  const result = await storeClient.listTimedRoles();
+
+  assert.deepEqual(result, mockTimedRoles);
+  assert.equal(result.length, 2);
+  assert.equal(result[0].guildId, "guild-123");
+  assert.equal(result[0].userId, "user-456");
+  assert.equal(result[0].roleId, "role-789");
+  assert.equal(result[0].durationInput, "1h");
+  assert.equal(result[0].expiresAtMs, 1640995200000);
+});
+
 test("createCloudflareStoreClient.deleteTimedRole sends POST to /timed-role/remove", async () => {
   const requests: Array<{ url: string; method: string; body: string | null }> = [];
   const storeClient = createCloudflareStoreClient({
