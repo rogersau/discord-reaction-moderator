@@ -1,4 +1,6 @@
 import type { BlocklistStore } from "../runtime/contracts";
+import { applyGuildEmojiMutation as applyGuildEmojiMutationWorkflow } from "./blocklist/apply-guild-emoji-mutation";
+import { getGuildBlocklist as getGuildBlocklistWorkflow } from "./blocklist/get-guild-blocklist";
 
 export interface BlocklistMutation {
   guildId: string;
@@ -10,11 +12,10 @@ export class BlocklistService {
   constructor(private readonly store: BlocklistStore) {}
 
   async applyMutation(mutation: BlocklistMutation): Promise<void> {
-    await this.store.applyGuildEmojiMutation(mutation);
+    await applyGuildEmojiMutationWorkflow(this.store, mutation);
   }
 
   async getGuildBlocklist(guildId: string): Promise<{ enabled: boolean; emojis: string[] }> {
-    const config = await this.store.readConfig();
-    return config.guilds?.[guildId] ?? { enabled: true, emojis: [] };
+    return getGuildBlocklistWorkflow(this.store, guildId);
   }
 }

@@ -8,6 +8,7 @@ import {
   normalizeEmoji,
 } from "../src/blocklist";
 import { ModerationStoreDO } from "../src/durable-objects/moderation-store";
+import { getGuildBlocklist } from "../src/services/blocklist/get-guild-blocklist";
 
 import assert from "node:assert/strict";
 // @ts-ignore -- The worker typecheck config omits Node built-ins and full node:test types conflict with Workers globals; tsconfig.tests provides the runtime test types.
@@ -1312,3 +1313,14 @@ function createFakeSql(options?: {
     },
   };
 }
+
+test("getGuildBlocklist falls back to an enabled empty state for unknown guilds", async () => {
+  const result = await getGuildBlocklist(
+    {
+      readConfig: async () => ({ botUserId: "bot", guilds: {} }),
+    },
+    "missing-guild"
+  );
+
+  assert.deepEqual(result, { enabled: true, emojis: [] });
+});

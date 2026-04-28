@@ -1,5 +1,8 @@
 import type { TimedRoleStore } from "../runtime/contracts";
 import type { TimedRoleAssignment } from "../types";
+import { assignTimedRole as assignTimedRoleWorkflow } from "./timed-roles/assign-timed-role";
+import { removeTimedRole as removeTimedRoleWorkflow } from "./timed-roles/remove-timed-role";
+import { listTimedRoles as listTimedRolesWorkflow } from "./timed-roles/list-timed-roles";
 
 export interface TimedRoleKey {
   guildId: string;
@@ -16,36 +19,19 @@ export class TimedRoleService {
   ) {}
 
   async assignTimedRole(assignment: TimedRoleAssignment): Promise<void> {
-    // Persist first
-    await this.store.upsertTimedRole(assignment);
-
-    try {
-      // Then assign Discord role
-      if (this.addRoleToMember) {
-        await this.addRoleToMember(assignment.guildId, assignment.userId, assignment.roleId);
-      }
-    } catch (error) {
-      // Rollback on failure
-      await this.store.deleteTimedRole({
-        guildId: assignment.guildId,
-        userId: assignment.userId,
-        roleId: assignment.roleId,
-      });
-      throw error;
+    if (!this.addRoleToMember) {
+      await this.store.upsertTimedRole(assignment);
+      return;
     }
+
+    await assignTimedRoleWorkflow(this.store, this.addRoleToMember, assignment);
   }
 
   async removeTimedRole(key: TimedRoleKey): Promise<void> {
-    // Remove from Discord first
-    if (this.removeRoleFromMember) {
-      await this.removeRoleFromMember(key.guildId, key.userId, key.roleId);
-    }
-
-    // Then delete from database
-    await this.store.deleteTimedRole(key);
+    await removeTimedRoleWorkflow(this.store, this.removeRoleFromMember, key);
   }
 
   async listTimedRoles(guildId: string): Promise<TimedRoleAssignment[]> {
-    return this.store.listTimedRolesByGuild(guildId);
+    return listTimedRolesWorkflow(this.store, guildId);
   }
 }

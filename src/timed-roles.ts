@@ -56,6 +56,10 @@ export function formatTimedRoleExpiry(expiresAtMs: number): string {
 }
 
 export function describeTimedRoleAssignmentFailure(error: unknown): string {
+  if (error instanceof Error && error.message === "Failed to assign the timed role, and rollback failed.") {
+    return error.message;
+  }
+
   if (!(error instanceof DiscordApiError)) {
     return "Failed to assign the timed role.";
   }

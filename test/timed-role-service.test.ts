@@ -6,6 +6,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { TimedRoleService } from "../src/services/timed-role-service";
+import { assignTimedRole } from "../src/services/timed-roles/assign-timed-role";
 import type { TimedRoleStore } from "../src/runtime/contracts";
 import type { TimedRoleAssignment } from "../src/types";
 
@@ -135,4 +136,34 @@ test("TimedRoleService.removeTimedRole removes from Discord then deletes from da
   assert.equal(removedRoles.length, 1, "Should remove from Discord first");
   assert.equal(deletedRoles.length, 1, "Should delete from database after Discord removal");
   assert.deepEqual(deletedRoles[0], { guildId: "guild-1", userId: "user-1", roleId: "role-1" });
+});
+
+test("assignTimedRole rolls back persisted state when the Discord add fails", async () => {
+  const calls: string[] = [];
+
+  await assert.rejects(
+    assignTimedRole(
+      {
+        upsertTimedRole: async () => {
+          calls.push("upsert");
+        },
+        deleteTimedRole: async () => {
+          calls.push("rollback");
+        },
+      },
+      async () => {
+        throw new Error("discord failed");
+      },
+      {
+        guildId: "guild",
+        userId: "user",
+        roleId: "role",
+        durationInput: "1h",
+        expiresAtMs: 123,
+      }
+    ),
+    /discord failed/
+  );
+
+  assert.deepEqual(calls, ["upsert", "rollback"]);
 });
