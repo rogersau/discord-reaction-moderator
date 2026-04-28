@@ -16,6 +16,7 @@ export function AdminBlocklistPage({
   const [emoji, setEmoji] = useState("");
   const [action, setAction] = useState<"add" | "remove">("add");
   const [currentEmojis, setCurrentEmojis] = useState<string[] | null>(null);
+  const [notificationChannelId, setNotificationChannelId] = useState("");
   const [result, setResult] = useState<string | null>(null);
   const trimmedGuildId = selectedGuildId.trim();
 
@@ -29,11 +30,34 @@ export function AdminBlocklistPage({
     try {
       const res = await fetch(`/admin/api/blocklist?guildId=${encodeURIComponent(normalizedGuildId)}`);
       if (res.ok) {
-        const data = await res.json() as { emojis: string[] };
+        const data = await res.json() as {
+          emojis: string[];
+          notificationChannelId?: string | null;
+        };
         setCurrentEmojis(data.emojis);
+        setNotificationChannelId(data.notificationChannelId ?? "");
       }
     } catch (error) {
       console.error(error);
+    }
+  }
+
+  async function handleSaveNotificationChannel() {
+    const res = await fetch("/admin/api/moderation-log-channel", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        guildId: selectedGuildId,
+        notificationChannelId: notificationChannelId.trim() || null,
+      }),
+    });
+
+    if (res.ok) {
+      setResult(
+        notificationChannelId.trim()
+          ? `Saved moderation log channel for ${selectedGuildId}.`
+          : `Cleared moderation log channel for ${selectedGuildId}.`
+      );
     }
   }
 
@@ -45,8 +69,7 @@ export function AdminBlocklistPage({
     });
 
     if (res.ok) {
-      const data = await res.json() as { guilds: Record<string, { emojis: string[] }> };
-      setCurrentEmojis(data.guilds?.[selectedGuildId]?.emojis ?? null);
+      await loadBlocklist(selectedGuildId);
       setResult(`${action === "add" ? "Blocked" : "Unblocked"} ${emoji} in ${selectedGuildId}`);
     }
   }
@@ -111,12 +134,41 @@ export function AdminBlocklistPage({
             </EditorActions>
           </EditorPanel>
 
+          <EditorPanel>
+            <div className="grid gap-4 md:grid-cols-[minmax(0,1.4fr)_auto] md:items-end">
+              <FormField label="Moderation log channel ID (optional)" htmlFor="bl-log-channel">
+                <Input
+                  id="bl-log-channel"
+                  placeholder="123456789012345678"
+                  value={notificationChannelId}
+                  onChange={(event) => setNotificationChannelId(event.target.value)}
+                />
+              </FormField>
+            </div>
+            <EditorActions>
+              <Button
+                size="sm"
+                className="w-full sm:w-auto sm:min-w-[14rem]"
+                variant="outline"
+                disabled={!trimmedGuildId}
+                onClick={() => void handleSaveNotificationChannel()}
+              >
+                Save log channel
+              </Button>
+            </EditorActions>
+          </EditorPanel>
+
           {currentEmojis !== null ? (
             <div className="rounded-lg border bg-background p-4">
               <p className="text-sm text-muted-foreground">
                 {currentEmojis.length === 0
                   ? "No emojis currently blocked in this guild."
                   : `Currently blocked: ${currentEmojis.join(" ")}`}
+              </p>
+              <p className="mt-2 text-sm text-muted-foreground">
+                {notificationChannelId.trim()
+                  ? `Updates will be posted to channel ${notificationChannelId.trim()}.`
+                  : "Updates are not currently posted to a Discord channel."}
               </p>
             </div>
           ) : null}

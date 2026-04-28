@@ -83,6 +83,23 @@ export function parseTimedRoleRemoval(body: unknown): {
   };
 }
 
+export function parseGuildNotificationChannelMutation(body: unknown): {
+  guildId: string;
+  notificationChannelId: string | null;
+} {
+  if (!isRecord(body)) {
+    throw new ModerationStoreInputError("Invalid JSON body");
+  }
+
+  return {
+    guildId: asRequiredString(body.guildId, "guildId"),
+    notificationChannelId: asOptionalNullableString(
+      body.notificationChannelId,
+      "notificationChannelId"
+    ),
+  };
+}
+
 export function parseTicketPanelConfig(body: unknown): TicketPanelConfig {
   if (!isRecord(body)) {
     throw new ModerationStoreInputError("Invalid JSON body");

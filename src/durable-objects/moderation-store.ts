@@ -1,8 +1,10 @@
 import type { Env } from "../env";
 import { removeGuildMemberRole } from "../discord";
+import { createChannelMessage } from "../discord/messages";
 import {
   ModerationStoreInputError,
   parseGuildEmojiMutation,
+  parseGuildNotificationChannelMutation,
   parseTimedRoleUpsert,
   parseTimedRoleRemoval,
   parseAppConfigMutation,
@@ -17,6 +19,7 @@ import * as blocklistStore from "./moderation-store/blocklist-store";
 import * as appConfigStore from "./moderation-store/app-config-store";
 import * as timedRoleStore from "./moderation-store/timed-role-store";
 import * as ticketStore from "./moderation-store/ticket-store";
+import { buildTimedRoleUpdateMessage } from "../services/moderation-log";
 
 export class ModerationStoreDO implements DurableObject {
   private readonly ctx: DurableObjectState;
@@ -36,6 +39,10 @@ export class ModerationStoreDO implements DurableObject {
         guild_id TEXT NOT NULL,
         normalized_emoji TEXT NOT NULL,
         PRIMARY KEY (guild_id, normalized_emoji)
+      );
+      CREATE TABLE IF NOT EXISTS guild_notification_channels (
+        guild_id TEXT PRIMARY KEY,
+        notification_channel_id TEXT NOT NULL
       );
       CREATE TABLE IF NOT EXISTS app_config (
         key TEXT PRIMARY KEY,
@@ -102,6 +109,27 @@ export class ModerationStoreDO implements DurableObject {
       try {
         const body = parseGuildEmojiMutation(await request.json());
         return Response.json(blocklistStore.applyGuildEmojiMutation(this.sql, body));
+      } catch (error) {
+        return this.errorResponse(error);
+      }
+    }
+
+    if (request.method === "GET" && url.pathname === "/guild-notification-channel") {
+      try {
+        const guildId = asRequiredSearchParam(url.searchParams, "guildId");
+        return Response.json({
+          notificationChannelId: blocklistStore.readGuildNotificationChannel(this.sql, guildId),
+        });
+      } catch (error) {
+        return this.errorResponse(error);
+      }
+    }
+
+    if (request.method === "POST" && url.pathname === "/guild-notification-channel") {
+      try {
+        const body = parseGuildNotificationChannelMutation(await request.json());
+        blocklistStore.upsertGuildNotificationChannel(this.sql, body);
+        return Response.json({ ok: true });
       } catch (error) {
         return this.errorResponse(error);
       }
@@ -236,6 +264,14 @@ export class ModerationStoreDO implements DurableObject {
           userId: row.userId,
           roleId: row.roleId,
         });
+        await this.postGuildModerationUpdate(
+          row.guildId,
+          buildTimedRoleUpdateMessage({
+            action: "expire",
+            userId: row.userId,
+            roleId: row.roleId,
+          })
+        );
       } catch (error) {
         console.error("Failed to remove expired timed role", error);
       }
@@ -262,6 +298,30 @@ export class ModerationStoreDO implements DurableObject {
 
     if (typeof storageWithDeleteAlarm.deleteAlarm === "function") {
       await storageWithDeleteAlarm.deleteAlarm();
+    }
+  }
+
+  private async postGuildModerationUpdate(
+    guildId: string,
+    body: Parameters<typeof createChannelMessage>[1]
+  ): Promise<void> {
+    try {
+      const notificationChannelId = blocklistStore.readGuildNotificationChannel(
+        this.sql,
+        guildId
+      );
+
+      if (!notificationChannelId) {
+        return;
+      }
+
+      await createChannelMessage(
+        notificationChannelId,
+        body,
+        this.env.DISCORD_BOT_TOKEN
+      );
+    } catch (error) {
+      console.error("Failed to post moderation update", error);
     }
   }
 

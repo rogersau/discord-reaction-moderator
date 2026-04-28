@@ -313,6 +313,11 @@ test("worker forwards valid guild admin add and remove slash commands to the mod
       body: { guildId: "guild-123", emoji: "✅", action: "add" },
     },
     {
+      input: "https://moderation-store/guild-notification-channel?guildId=guild-123",
+      method: "GET",
+      body: null,
+    },
+    {
       input: "https://moderation-store/config",
       method: "GET",
       body: null,
@@ -321,6 +326,78 @@ test("worker forwards valid guild admin add and remove slash commands to the mod
       input: "https://moderation-store/guild-emoji",
       method: "POST",
       body: { guildId: "guild-123", emoji: "✅", action: "remove" },
+    },
+    {
+      input: "https://moderation-store/guild-notification-channel?guildId=guild-123",
+      method: "GET",
+      body: null,
+    },
+  ]);
+});
+
+test("worker posts a moderation update message for slash blocklist changes when a log channel is configured", async () => {
+  const discordCalls: Array<{ input: string; method: string | undefined; body: unknown }> = [];
+  const { publicKeyHex, request } = await createSignedInteractionRequest(
+    createApplicationCommand({
+      guildId: "guild-123",
+      permissions: "8",
+      subcommand: "add",
+      emoji: "✅",
+    })
+  );
+
+  await withMockedFetch(
+    async (input, init) => {
+      discordCalls.push({
+        input: String(input),
+        method: init?.method,
+        body: init?.body ? JSON.parse(String(init.body)) : null,
+      });
+
+      return Response.json({ id: "message-1", channel_id: "log-channel-1", content: "ok" });
+    },
+    async () => {
+      const response = await worker.fetch(
+        request,
+        createEnv({
+          DISCORD_PUBLIC_KEY: publicKeyHex,
+          moderationFetch(input, init) {
+            const method = init?.method ?? "GET";
+
+            if (String(input).includes("/guild-notification-channel?guildId=guild-123")) {
+              return Response.json({ notificationChannelId: "log-channel-1" });
+            }
+
+            if (method === "GET") {
+              return Response.json({
+                emojis: [],
+                guilds: {},
+                botUserId: "",
+              });
+            }
+
+            return Response.json({ ok: true });
+          },
+        }),
+        {} as ExecutionContext
+      );
+
+      assert.equal(response.status, 200);
+      assert.deepEqual(
+        await response.json(),
+        buildEphemeralMessage("Blocked ✅ in this server.")
+      );
+    }
+  );
+
+  assert.deepEqual(discordCalls, [
+    {
+      input: "https://discord.com/api/v10/channels/log-channel-1/messages",
+      method: "POST",
+      body: {
+        content: "🧱 Blocklist update by <@admin-1>: blocked ✅.",
+        allowed_mentions: { parse: [] },
+      },
     },
   ]);
 });
@@ -1020,6 +1097,10 @@ test("worker removes an active timed role assignment", async () => {
         input: "https://moderation-store/timed-role/remove",
         method: "POST",
       },
+      {
+        input: "https://moderation-store/guild-notification-channel?guildId=guild-123",
+        method: "GET",
+      },
     ]
   );
   assert.deepEqual(discordCalls, [
@@ -1196,6 +1277,9 @@ function createApplicationCommand(
     guild_id: options.guildId,
     member: {
       permissions: options.permissions,
+      user: {
+        id: "admin-1",
+      },
     },
     data: {
       name: "blocklist",
@@ -1245,6 +1329,9 @@ function createTimedRoleCommand(
     guild_id: options.guildId,
     member: {
       permissions: options.permissions,
+      user: {
+        id: "admin-1",
+      },
     },
     data: {
       name: "timedrole",

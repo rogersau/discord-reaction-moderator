@@ -55,6 +55,7 @@ function TimedRolesEditor({
   const [roleId, setRoleId] = useState("");
   const [duration, setDuration] = useState("1h");
   const [assignments, setAssignments] = useState<TimedRoleAssignment[] | null>(null);
+  const [notificationChannelId, setNotificationChannelId] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const trimmedGuildId = selectedGuildId.trim();
@@ -77,8 +78,37 @@ function TimedRolesEditor({
       return;
     }
 
-    const data = (await response.json()) as { assignments: TimedRoleAssignment[] };
+    const data = (await response.json()) as {
+      assignments: TimedRoleAssignment[];
+      notificationChannelId?: string | null;
+    };
     setAssignments(data.assignments);
+    setNotificationChannelId(data.notificationChannelId ?? "");
+  }
+
+  async function handleSaveNotificationChannel() {
+    setMessage(null);
+    setError(null);
+
+    const response = await fetch("/admin/api/moderation-log-channel", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        guildId: selectedGuildId,
+        notificationChannelId: notificationChannelId.trim() || null,
+      }),
+    });
+
+    if (!response.ok) {
+      setError("Failed to save the moderation log channel.");
+      return;
+    }
+
+    setMessage(
+      notificationChannelId.trim()
+        ? `Saved moderation log channel for ${selectedGuildId}.`
+        : `Cleared moderation log channel for ${selectedGuildId}.`
+    );
   }
 
   async function handleAdd() {
@@ -180,6 +210,30 @@ function TimedRolesEditor({
         </EditorActions>
       </EditorPanel>
 
+      <EditorPanel>
+        <div className="grid gap-4 md:grid-cols-[minmax(0,1.4fr)_auto] md:items-end">
+          <FormField label="Moderation log channel ID (optional)" htmlFor="tr-log-channel">
+            <Input
+              id="tr-log-channel"
+              placeholder="123456789012345678"
+              value={notificationChannelId}
+              onChange={(event) => setNotificationChannelId(event.target.value)}
+            />
+          </FormField>
+        </div>
+        <EditorActions>
+          <Button
+            size="sm"
+            className="w-full sm:w-auto sm:min-w-[14rem]"
+            variant="outline"
+            disabled={!trimmedGuildId}
+            onClick={() => void handleSaveNotificationChannel()}
+          >
+            Save log channel
+          </Button>
+        </EditorActions>
+      </EditorPanel>
+
       {assignments !== null ? (
         assignments.length === 0 ? (
           <EmptyState message="No timed roles are active in this guild." />
@@ -221,6 +275,13 @@ function TimedRolesEditor({
         <Alert>
           <AlertDescription>{message}</AlertDescription>
         </Alert>
+      ) : null}
+      {trimmedGuildId && assignments !== null ? (
+        <div className="rounded-lg border bg-background p-4 text-sm text-muted-foreground">
+          {notificationChannelId.trim()
+            ? `Updates will be posted to channel ${notificationChannelId.trim()}.`
+            : "Updates are not currently posted to a Discord channel."}
+        </div>
       ) : null}
       {error ? (
         <Alert variant="destructive">

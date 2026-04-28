@@ -313,6 +313,51 @@ test("guild-scoped empty guild id is rejected", async () => {
   assert.equal(response.status, 400);
 });
 
+test("ModerationStoreDO stores and clears the guild moderation log channel", async () => {
+  const sql = createFakeSql();
+  const ctx = { storage: { sql } } as unknown as DurableObjectState;
+  const env = { BOT_USER_ID: "bot-1" } as never;
+  const store = new ModerationStoreDO(ctx, env);
+
+  const saveResponse = await store.fetch(
+    new Request("https://moderation-store/guild-notification-channel", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        guildId: "guild-1",
+        notificationChannelId: "log-channel-1",
+      }),
+    })
+  );
+  assert.equal(saveResponse.status, 200);
+
+  const readResponse = await store.fetch(
+    new Request("https://moderation-store/guild-notification-channel?guildId=guild-1")
+  );
+  assert.deepEqual(await readResponse.json(), {
+    notificationChannelId: "log-channel-1",
+  });
+
+  const clearResponse = await store.fetch(
+    new Request("https://moderation-store/guild-notification-channel", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        guildId: "guild-1",
+        notificationChannelId: null,
+      }),
+    })
+  );
+  assert.equal(clearResponse.status, 200);
+
+  const readClearedResponse = await store.fetch(
+    new Request("https://moderation-store/guild-notification-channel?guildId=guild-1")
+  );
+  assert.deepEqual(await readClearedResponse.json(), {
+    notificationChannelId: null,
+  });
+});
+
 // Focused test to verify the fake SQL distinguishes guild_settings from guild_blocked_emojis
 test("createFakeSql distinguishes guild tables", () => {
   const sql = createFakeSql();
@@ -915,6 +960,7 @@ function createFakeSql(options?: {
 }) {
   const appConfig = new Map<string, string>(options?.appConfigEntries ?? []);
   const guildSettings = new Map<string, number>();
+  const guildNotificationChannels = new Map<string, string>();
   const guildBlockedEmojis = new Map<string, Set<string>>();
   const timedRoles = new Map<
     string,
@@ -986,6 +1032,24 @@ function createFakeSql(options?: {
 
       if (
         query ===
+        "INSERT INTO guild_notification_channels(guild_id, notification_channel_id) VALUES(?, ?) ON CONFLICT(guild_id) DO UPDATE SET notification_channel_id = excluded.notification_channel_id"
+      ) {
+        guildNotificationChannels.set(params[0] as string, params[1] as string);
+        return [];
+      }
+
+      if (query === "SELECT notification_channel_id FROM guild_notification_channels WHERE guild_id = ?") {
+        const notification_channel_id = guildNotificationChannels.get(params[0] as string);
+        return notification_channel_id === undefined ? [] : [{ notification_channel_id }];
+      }
+
+      if (query === "DELETE FROM guild_notification_channels WHERE guild_id = ?") {
+        guildNotificationChannels.delete(params[0] as string);
+        return [];
+      }
+
+      if (
+        query ===
         "DELETE FROM guild_blocked_emojis WHERE guild_id = ? AND normalized_emoji = ?"
       ) {
         if (options?.failOnDelete) {
@@ -1050,6 +1114,10 @@ function createFakeSql(options?: {
       if (query === "SELECT 1 FROM guild_blocked_emojis LIMIT 1") {
         const hasGuildBlocked = Array.from(guildBlockedEmojis.values()).some((s) => s.size > 0);
         return hasGuildBlocked ? [{ 1: 1 }] : [];
+      }
+
+      if (query === "SELECT 1 FROM guild_notification_channels LIMIT 1") {
+        return guildNotificationChannels.size > 0 ? [{ 1: 1 }] : [];
       }
 
       if (query === "SELECT 1 FROM app_config LIMIT 1") {

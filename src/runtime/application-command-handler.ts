@@ -1,6 +1,7 @@
 import { normalizeEmoji } from "../blocklist";
 import {
   addGuildMemberRole,
+  createChannelMessage,
   removeGuildMemberRole,
 } from "../discord";
 import {
@@ -14,6 +15,7 @@ import {
   parseTimedRoleDuration,
 } from "../timed-roles";
 import { BlocklistService } from "../services/blocklist-service";
+import type { GuildNotificationChannelStore } from "../services/moderation-log";
 import { TimedRoleService } from "../services/timed-role-service";
 import type { RuntimeStores } from "./app-types";
 import type { DiscordInteraction } from "./app-types";
@@ -39,12 +41,22 @@ export async function handleApplicationCommand(
     return Response.json(buildEphemeralMessage("Unsupported command."));
   }
 
-  const blocklistService = new BlocklistService(stores.blocklist);
+  const actor = {
+    label: "Slash command",
+    userId: interaction.member?.user?.id ?? interaction.user?.id,
+  };
+
+  const blocklistService = new BlocklistService(
+    stores.blocklist,
+    (channelId, body) => createChannelMessage(channelId, body, discordBotToken).then(() => undefined)
+  );
   const timedRoleService = new TimedRoleService(
     stores.timedRoles,
     discordBotToken,
     (guildId, userId, roleId) => addGuildMemberRole(guildId, userId, roleId, discordBotToken),
-    (guildId, userId, roleId) => removeGuildMemberRole(guildId, userId, roleId, discordBotToken)
+    (guildId, userId, roleId) => removeGuildMemberRole(guildId, userId, roleId, discordBotToken),
+    stores.blocklist as Partial<GuildNotificationChannelStore>,
+    (channelId, body) => createChannelMessage(channelId, body, discordBotToken).then(() => undefined)
   );
 
   if (invocation.commandName === "blocklist" && invocation.subcommandName === "list") {
@@ -90,7 +102,7 @@ export async function handleApplicationCommand(
         roleId: invocation.roleId,
         durationInput: parsedDuration.durationInput,
         expiresAtMs: parsedDuration.expiresAtMs,
-      });
+      }, actor);
     } catch (error) {
       console.error("Timed role assignment failed", error);
       return Response.json(
@@ -123,7 +135,7 @@ export async function handleApplicationCommand(
         guildId: interaction.guild_id,
         userId: invocation.userId,
         roleId: invocation.roleId,
-      });
+      }, actor);
     } catch (error) {
       console.error("Timed role removal failed", error);
       return Response.json(buildEphemeralMessage("Failed to remove the timed role."));
@@ -141,7 +153,11 @@ export async function handleApplicationCommand(
     }
 
     try {
-      const result = await blocklistService.addEmoji(interaction.guild_id, normalizedEmoji);
+      const result = await blocklistService.addEmoji(
+        interaction.guild_id,
+        normalizedEmoji,
+        actor
+      );
       if (result.alreadyBlocked) {
         return Response.json(
           buildEphemeralMessage(`${invocation.emoji} is already blocked in this server.`)
@@ -163,7 +179,11 @@ export async function handleApplicationCommand(
     }
 
     try {
-      const result = await blocklistService.removeEmoji(interaction.guild_id, normalizedEmoji);
+      const result = await blocklistService.removeEmoji(
+        interaction.guild_id,
+        normalizedEmoji,
+        actor
+      );
       if (!result.wasBlocked) {
         return Response.json(
           buildEphemeralMessage(

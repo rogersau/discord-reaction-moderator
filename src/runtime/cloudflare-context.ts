@@ -36,6 +36,12 @@ export function createCloudflareContext(env: Env): RuntimeAppContext {
 
   const storeClient = createCloudflareStoreClient(storeStub);
   const gatewayClient = createCloudflareGatewayClient(gatewayStub);
+  const blocklistStore = {
+    readConfig: storeClient.readConfig,
+    applyGuildEmojiMutation: storeClient.applyGuildEmojiMutation,
+    readGuildNotificationChannel: storeClient.readGuildNotificationChannel,
+    upsertGuildNotificationChannel: storeClient.upsertGuildNotificationChannel,
+  };
   const ticketTranscriptBlobs: TicketTranscriptBlobStore | undefined = env.TICKET_TRANSCRIPTS_BUCKET
     ? {
         async putHtml(key: string, html: string): Promise<void> {
@@ -91,10 +97,7 @@ export function createCloudflareContext(env: Env): RuntimeAppContext {
     adminUiPassword: env.ADMIN_UI_PASSWORD,
     adminSessionSecret: env.ADMIN_SESSION_SECRET,
     stores: {
-      blocklist: {
-        readConfig: storeClient.readConfig,
-        applyGuildEmojiMutation: storeClient.applyGuildEmojiMutation,
-      },
+      blocklist: blocklistStore as BlocklistStore,
       appConfig: {
         upsertAppConfig: storeClient.upsertAppConfig,
       },

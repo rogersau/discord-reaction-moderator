@@ -17,6 +17,7 @@ import type { TimedRoleService } from "../services/timed-role-service";
 import {
   parseJsonBody,
   parseBlocklistMutationBody,
+  parseGuildNotificationChannelBody,
   parseTimedRoleMutationBody,
 } from "../runtime/admin-api-validation";
 
@@ -142,7 +143,12 @@ export function createAdminRoutes(options: AdminRouteOptions): RouteHandler {
         }
 
         const guildConfig = await options.services.blocklistService.getGuildBlocklist(guildId);
-        return Response.json({ guildId, ...guildConfig });
+        return Response.json({
+          guildId,
+          ...guildConfig,
+          notificationChannelId:
+            await options.services.blocklistService.getGuildNotificationChannel(guildId),
+        });
       }
 
       if (request.method === "POST" && url.pathname === "/admin/api/blocklist") {
@@ -156,13 +162,38 @@ export function createAdminRoutes(options: AdminRouteOptions): RouteHandler {
           return Response.json({ error: "Invalid emoji" }, { status: 400 });
         }
 
-        await options.services.blocklistService.applyMutation({
-          guildId: parsedBody.value.guildId,
-          action: parsedBody.value.action,
-          emoji: normalizedEmoji,
-        });
+        if (parsedBody.value.action === "add") {
+          await options.services.blocklistService.addEmoji(
+            parsedBody.value.guildId,
+            normalizedEmoji,
+            { label: "Admin dashboard" }
+          );
+        } else {
+          await options.services.blocklistService.removeEmoji(
+            parsedBody.value.guildId,
+            normalizedEmoji,
+            { label: "Admin dashboard" }
+          );
+        }
 
         return Response.json({ ok: true });
+      }
+
+      if (
+        request.method === "POST" &&
+        url.pathname === "/admin/api/moderation-log-channel"
+      ) {
+        const parsedBody = await parseJsonBody(request, parseGuildNotificationChannelBody);
+        if (!parsedBody.ok) {
+          return parsedBody.response;
+        }
+
+        await options.services.blocklistService.updateGuildNotificationChannel(
+          parsedBody.value.guildId,
+          parsedBody.value.notificationChannelId
+        );
+
+        return Response.json(parsedBody.value);
       }
 
       if (request.method === "GET" && url.pathname === "/admin/api/timed-roles") {
@@ -174,6 +205,8 @@ export function createAdminRoutes(options: AdminRouteOptions): RouteHandler {
         return Response.json({
           guildId,
           assignments: await options.services.timedRoleService.listTimedRoles(guildId),
+          notificationChannelId:
+            await options.services.blocklistService.getGuildNotificationChannel(guildId),
         });
       }
 
@@ -199,7 +232,7 @@ export function createAdminRoutes(options: AdminRouteOptions): RouteHandler {
               roleId: parsedBody.value.roleId,
               durationInput: parsedDuration.durationInput,
               expiresAtMs: parsedDuration.expiresAtMs,
-            });
+            }, { label: "Admin dashboard" });
           } catch (error) {
             return Response.json(
               { error: describeTimedRoleAssignmentFailure(error) },
@@ -212,7 +245,7 @@ export function createAdminRoutes(options: AdminRouteOptions): RouteHandler {
               guildId: parsedBody.value.guildId,
               userId: parsedBody.value.userId,
               roleId: parsedBody.value.roleId,
-            });
+            }, { label: "Admin dashboard" });
           } catch (error) {
             return Response.json(
               { error: describeTimedRoleRemovalFailure(error) },
@@ -224,6 +257,10 @@ export function createAdminRoutes(options: AdminRouteOptions): RouteHandler {
         return Response.json({
           guildId: parsedBody.value.guildId,
           assignments: await options.services.timedRoleService.listTimedRoles(parsedBody.value.guildId),
+          notificationChannelId:
+            await options.services.blocklistService.getGuildNotificationChannel(
+              parsedBody.value.guildId
+            ),
         });
       }
 

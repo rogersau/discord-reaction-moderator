@@ -108,6 +108,23 @@ export function parseTimedRoleMutationBody(body: unknown): {
   return { guildId, userId, roleId, action };
 }
 
+export function parseGuildNotificationChannelBody(body: unknown): {
+  guildId: string;
+  notificationChannelId: string | null;
+} {
+  if (!isRecord(body)) {
+    throw new AdminApiInputError("Invalid JSON body");
+  }
+
+  return {
+    guildId: asRequiredString(body.guildId, "guildId"),
+    notificationChannelId: asOptionalNullableString(
+      body.notificationChannelId,
+      "notificationChannelId"
+    ),
+  };
+}
+
 export function parseAppConfigMutation(body: unknown): {
   key: string;
   value: string;

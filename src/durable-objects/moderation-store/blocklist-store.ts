@@ -51,3 +51,36 @@ export function applyGuildEmojiMutation(
 
   return readConfig(sql);
 }
+
+export function readGuildNotificationChannel(
+  sql: DurableObjectStorage["sql"],
+  guildId: string
+): string | null {
+  const [row] = [...sql.exec(
+    "SELECT notification_channel_id FROM guild_notification_channels WHERE guild_id = ?",
+    guildId
+  )];
+
+  return typeof row?.notification_channel_id === "string"
+    ? (row.notification_channel_id as string)
+    : null;
+}
+
+export function upsertGuildNotificationChannel(
+  sql: DurableObjectStorage["sql"],
+  body: { guildId: string; notificationChannelId: string | null }
+): void {
+  if (body.notificationChannelId === null) {
+    sql.exec(
+      "DELETE FROM guild_notification_channels WHERE guild_id = ?",
+      body.guildId
+    );
+    return;
+  }
+
+  sql.exec(
+    "INSERT INTO guild_notification_channels(guild_id, notification_channel_id) VALUES(?, ?) ON CONFLICT(guild_id) DO UPDATE SET notification_channel_id = excluded.notification_channel_id",
+    body.guildId,
+    body.notificationChannelId
+  );
+}

@@ -861,7 +861,11 @@ test("createRuntimeApp exposes timed-role admin APIs through session auth", asyn
       })
     );
     assert.equal(listResponse.status, 200);
-    assert.deepEqual(await listResponse.json(), { guildId: "guild-1", assignments });
+    assert.deepEqual(await listResponse.json(), {
+      guildId: "guild-1",
+      assignments,
+      notificationChannelId: null,
+    });
 
     const addResponse = await app.fetch(
       new Request("https://runtime.example/admin/api/timed-roles", {

@@ -7,6 +7,26 @@ export function createCloudflareStoreClient(storeStub: { fetch: FetchLike }) {
     async readConfig(): Promise<BlocklistConfig> {
       return readJson<BlocklistConfig>(storeStub.fetch("https://moderation-store/config"));
     },
+    async readGuildNotificationChannel(guildId: string): Promise<string | null> {
+      const response = await readJson<{ notificationChannelId: string | null }>(
+        storeStub.fetch(
+          `https://moderation-store/guild-notification-channel?guildId=${encodeURIComponent(guildId)}`
+        )
+      );
+
+      return response.notificationChannelId;
+    },
+    async upsertGuildNotificationChannel(body: {
+      guildId: string;
+      notificationChannelId: string | null;
+    }): Promise<void> {
+      await readJsonVoid(
+        storeStub.fetch("https://moderation-store/guild-notification-channel", {
+          method: "POST",
+          body: JSON.stringify(body),
+        })
+      );
+    },
     async applyGuildEmojiMutation(body: { guildId: string; emoji: string; action: "add" | "remove" }): Promise<BlocklistConfig> {
       return readJson<BlocklistConfig>(
         storeStub.fetch("https://moderation-store/guild-emoji", {
