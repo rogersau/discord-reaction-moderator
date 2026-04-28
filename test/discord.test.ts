@@ -11,6 +11,8 @@ import {
   removeGuildMemberRole,
   uploadTranscriptToChannel,
 } from "../src/discord";
+import { listBotGuilds } from "../src/discord/guilds";
+import { createTicketChannel as createTicketChannelFromChannels } from "../src/discord/channels";
 
 test("addGuildMemberRole uses the Discord member-role endpoint", async () => {
   const calls: Array<{ input: string; method: string }> = [];
@@ -179,4 +181,48 @@ test("uploadTranscriptToChannel includes the HTML transcript link in the payload
   const transcriptFile = calls[0]?.body?.get("files[0]");
   assert.ok(transcriptFile instanceof File);
   assert.equal(await transcriptFile.text(), "ticket body");
+});
+
+test("listBotGuilds maps Discord guild payload through the guild client", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () =>
+    new Response(JSON.stringify([{ id: "1", name: "Guild One" }]), { status: 200 });
+
+  try {
+    const guilds = await listBotGuilds("token");
+    assert.deepEqual(guilds, [{ guildId: "1", name: "Guild One" }]);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("createTicketChannel sends the expected Discord channel payload", async () => {
+  const calls: Array<{ url: string; body: unknown }> = [];
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (input, init) => {
+    calls.push({
+      url: String(input),
+      body: JSON.parse(String(init?.body ?? "{}")),
+    });
+    return new Response(JSON.stringify({ id: "new-channel" }), { status: 200 });
+  };
+
+  try {
+    const created = await createTicketChannelFromChannels(
+      {
+        guildId: "guild-1",
+        name: "support-001",
+        parentId: "parent-1",
+        botUserId: "bot-1",
+        openerUserId: "user-1",
+        supportRoleId: "role-1",
+      },
+      "token"
+    );
+
+    assert.equal(created.id, "new-channel");
+    assert.equal(calls[0]?.url, "https://discord.com/api/v10/guilds/guild-1/channels");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
