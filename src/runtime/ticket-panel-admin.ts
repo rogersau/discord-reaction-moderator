@@ -2,11 +2,14 @@ import {
   createChannelMessage,
   DiscordApiError,
   type GuildTicketResources,
-  listGuildTicketResources,
 } from "../discord";
 import { buildTicketOpenCustomId } from "../tickets";
 import type { TicketPanelConfig, TicketQuestion, TicketTypeConfig } from "../types";
 import type { RuntimeStores } from "./app-types";
+import {
+  getCachedGuildTicketResources,
+  shouldRefreshAdminDiscordCache,
+} from "./admin-discord-cache";
 import {
   AdminApiInputError,
   asBoolean,
@@ -56,7 +59,11 @@ export async function handleTicketPanelAdminRequest(
       return Response.json({ error: "guildId is required" }, { status: 400 });
     }
 
-    const resources = await listGuildTicketResources(guildId, options.discordBotToken);
+    const resources = await getCachedGuildTicketResources(
+      guildId,
+      options.discordBotToken,
+      shouldRefreshAdminDiscordCache(url)
+    );
     return Response.json({
       guildId,
       roles: resources.roles.map(({ id, name }) => ({ id, name })),
@@ -80,7 +87,11 @@ export async function handleTicketPanelAdminRequest(
       return Response.json({ error: "Ticket panel config not found." }, { status: 404 });
     }
 
-    const resources = await listGuildTicketResources(parsedBody.value.guildId, options.discordBotToken);
+    const resources = await getCachedGuildTicketResources(
+      parsedBody.value.guildId,
+      options.discordBotToken,
+      true
+    );
     const missingTargets = getMissingTicketPanelTargets(panel, resources);
     if (missingTargets.length > 0) {
       return Response.json(

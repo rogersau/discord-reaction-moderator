@@ -1,4 +1,3 @@
-import { listBotGuilds } from "../discord";
 import type {
   AdminGuildDirectoryEntry,
   AdminGuildDirectoryResponse,
@@ -10,8 +9,12 @@ import {
   buildBlocklistPermissionChecks,
   buildTicketPermissionChecks,
   buildTimedRolePermissionChecks,
-  loadGuildPermissionContext,
 } from "./admin-permissions";
+import {
+  getCachedBotGuilds,
+  getCachedGuildPermissionContext,
+  shouldRefreshAdminDiscordCache,
+} from "./admin-discord-cache";
 import {
   parseJsonBody,
   parseAppConfigMutation,
@@ -34,6 +37,8 @@ export interface AdminApiHandlerOptions {
 
 export function createAdminApiHandler(options: AdminApiHandlerOptions) {
   return async (request: Request, url: URL): Promise<Response | null> => {
+    const refreshDiscordCache = shouldRefreshAdminDiscordCache(url);
+
     if (url.pathname.startsWith("/admin/api/tickets/")) {
       const ticketResponse = await handleTicketPanelAdminRequest(request, url, options);
       if (ticketResponse) {
@@ -57,7 +62,8 @@ export function createAdminApiHandler(options: AdminApiHandlerOptions) {
             guildId,
             featureParam,
             options.stores,
-            options.discordBotToken
+            options.discordBotToken,
+            refreshDiscordCache
           )
         );
       } catch (error) {
@@ -74,7 +80,9 @@ export function createAdminApiHandler(options: AdminApiHandlerOptions) {
     }
 
     if (request.method === "GET" && url.pathname === "/admin/api/guilds") {
-      const guilds = buildAdminGuildDirectory(await listBotGuilds(options.discordBotToken));
+      const guilds = buildAdminGuildDirectory(
+        await getCachedBotGuilds(options.discordBotToken, refreshDiscordCache)
+      );
       const body: AdminGuildDirectoryResponse = { guilds };
       return Response.json(body);
     }
@@ -101,7 +109,8 @@ export function createAdminApiHandler(options: AdminApiHandlerOptions) {
 export async function buildAdminOverviewGuilds(
   config: BlocklistConfig,
   timedRoles: TimedRoleAssignment[],
-  discordBotToken: string
+  discordBotToken: string,
+  refreshDiscordCache = false
 ): Promise<AdminOverviewGuild[]> {
   const guilds = new Map<string, AdminOverviewGuild>();
 
@@ -136,10 +145,11 @@ export async function buildAdminOverviewGuilds(
       }
 
       try {
-        const context = await loadGuildPermissionContext(
+        const context = await getCachedGuildPermissionContext(
           guild.guildId,
           config.botUserId,
-          discordBotToken
+          discordBotToken,
+          refreshDiscordCache
         );
         guild.permissionChecks = [
           ...(guild.emojis.length > 0 ? buildBlocklistPermissionChecks(context) : []),
@@ -167,10 +177,16 @@ async function buildAdminPermissionResponse(
   guildId: string,
   feature: AdminPermissionFeature,
   stores: RuntimeStores,
-  discordBotToken: string
+  discordBotToken: string,
+  refreshDiscordCache: boolean
 ): Promise<AdminPermissionCheckResponse> {
   const config = await stores.blocklist.readConfig();
-  const context = await loadGuildPermissionContext(guildId, config.botUserId, discordBotToken);
+  const context = await getCachedGuildPermissionContext(
+    guildId,
+    config.botUserId,
+    discordBotToken,
+    refreshDiscordCache
+  );
 
   if (feature === "blocklist") {
     return {
@@ -223,4 +239,3 @@ function buildAdminGuildDirectory(
           : guild.name,
     }));
 }
-

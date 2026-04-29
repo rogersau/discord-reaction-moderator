@@ -42,7 +42,7 @@ function TicketPanelsEditor({
   const [loading, setLoading] = useState(false);
   const trimmedGuildId = selectedGuildId.trim();
 
-  async function loadResources(id: string) {
+  async function loadResources(id: string, refreshDiscordCache = false) {
     const normalized = id.trim();
     if (!normalized) {
       setGuildResources(null);
@@ -54,7 +54,7 @@ function TicketPanelsEditor({
     try {
       setLoadError(null);
       const [resourcesRes, panelRes] = await Promise.all([
-        fetch(`/admin/api/tickets/resources?guildId=${encodeURIComponent(normalized)}`),
+        fetch(buildTicketResourcesApiPath(normalized, refreshDiscordCache)),
         fetch(`/admin/api/tickets/panel?guildId=${encodeURIComponent(normalized)}`),
       ]);
       if (!resourcesRes.ok) {
@@ -133,7 +133,7 @@ function TicketPanelsEditor({
             variant="outline"
             className="w-full sm:w-auto sm:min-w-[14rem]"
             disabled={!trimmedGuildId || loading}
-            onClick={() => void loadResources(selectedGuildId)}
+            onClick={() => void loadResources(selectedGuildId, loadError !== null)}
           >
             {loading ? "Loading…" : "Load ticket panel"}
           </Button>
@@ -157,4 +157,15 @@ function TicketPanelsEditor({
       ) : null}
     </div>
   );
+}
+
+export function buildTicketResourcesApiPath(
+  guildId: string,
+  refreshDiscordCache: boolean
+): string {
+  const params = new URLSearchParams({ guildId });
+  if (refreshDiscordCache) {
+    params.set("refresh", "1");
+  }
+  return `/admin/api/tickets/resources?${params.toString()}`;
 }

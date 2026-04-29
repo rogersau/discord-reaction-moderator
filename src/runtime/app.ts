@@ -47,7 +47,8 @@ export function createRuntimeApp(options: RuntimeAppOptions) {
     options.stores.blocklist,
     options.stores.timedRoles,
     options.gateway,
-    (config, timedRoles) => buildAdminOverviewGuilds(config, timedRoles, options.discordBotToken)
+    (config, timedRoles, refreshDiscordCache) =>
+      buildAdminOverviewGuilds(config, timedRoles, options.discordBotToken, refreshDiscordCache)
   );
 
   const blocklistService = new BlocklistService(

@@ -342,3 +342,35 @@ test("POST /admin/api/blocklist validates JSON before calling the blocklist work
 
   assert.equal(response?.status, 400);
 });
+
+test("GET /admin/api/overview passes refresh requests to the overview service", async () => {
+  const refreshValues: unknown[] = [];
+  const route = createAdminRoutes({
+    adminSessionSecret: "secret",
+    adminUiPassword: "password",
+    services: {
+      gatewayService: {} as never,
+      adminOverviewService: {
+        getOverview: async (refresh?: boolean) => {
+          refreshValues.push(refresh);
+          return { gateway: { status: "ready" }, guilds: [] };
+        },
+      } as never,
+      blocklistService: {} as never,
+      timedRoleService: {} as never,
+    },
+    handleAdminApiRequest: async () => null,
+    redirect: (location) => new Response(null, { status: 302, headers: { location } }),
+    getAdminLoginLocation: () => "/admin/login",
+    renderAdminShell: () => new Response("ok"),
+    isAdminUiAuthorized: async () => true,
+    requireAdminSession: async () => null,
+  });
+
+  const response = await route(
+    new Request("https://example.com/admin/api/overview?refresh=1")
+  );
+
+  assert.equal(response?.status, 200);
+  assert.deepEqual(refreshValues, [true]);
+});

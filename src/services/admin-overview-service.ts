@@ -21,11 +21,12 @@ export class AdminOverviewService {
     private readonly gateway: GatewayController,
     private readonly buildOverviewGuilds: (
       config: BlocklistConfig,
-      timedRoles: TimedRoleAssignment[]
+      timedRoles: TimedRoleAssignment[],
+      refreshDiscordCache: boolean
     ) => Promise<AdminOverviewGuild[]>
   ) {}
 
-  async getOverview(): Promise<AdminOverviewData> {
+  async getOverview(refreshDiscordCache = false): Promise<AdminOverviewData> {
     const [gateway, config, timedRoles] = await Promise.all([
       this.gateway.status(),
       this.blocklistStore.readConfig(),
@@ -34,7 +35,7 @@ export class AdminOverviewService {
 
     return {
       gateway,
-      guilds: await this.buildOverviewGuilds(config, timedRoles),
+      guilds: await this.buildOverviewGuilds(config, timedRoles, refreshDiscordCache),
     };
   }
 }

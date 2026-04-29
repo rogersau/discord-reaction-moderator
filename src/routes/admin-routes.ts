@@ -20,6 +20,7 @@ import {
   parseGuildNotificationChannelBody,
   parseTimedRoleMutationBody,
 } from "../runtime/admin-api-validation";
+import { shouldRefreshAdminDiscordCache } from "../runtime/admin-discord-cache";
 
 export interface AdminRouteServices {
   gatewayService: GatewayService;
@@ -133,7 +134,11 @@ export function createAdminRoutes(options: AdminRouteOptions): RouteHandler {
       }
 
       if (request.method === "GET" && url.pathname === "/admin/api/overview") {
-        return Response.json(await options.services.adminOverviewService.getOverview());
+        return Response.json(
+          await options.services.adminOverviewService.getOverview(
+            shouldRefreshAdminDiscordCache(url)
+          )
+        );
       }
 
       if (request.method === "GET" && url.pathname === "/admin/api/blocklist") {

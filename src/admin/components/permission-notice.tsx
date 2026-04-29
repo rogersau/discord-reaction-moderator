@@ -6,6 +6,7 @@ import type {
   AdminPermissionFeature,
 } from "../../runtime/admin-types";
 import { Alert, AlertDescription } from "./ui/alert";
+import { Button } from "./ui/button";
 
 type PermissionNoticeState =
   | { kind: "idle" }
@@ -23,6 +24,24 @@ export function PermissionNotice({
   const trimmedGuildId = selectedGuildId.trim();
   const [state, setState] = useState<PermissionNoticeState>({ kind: "idle" });
 
+  async function loadPermissionChecks(refresh: boolean) {
+    const requestPath =
+      `/admin/api/permissions?guildId=${encodeURIComponent(trimmedGuildId)}` +
+      `&feature=${encodeURIComponent(feature)}` +
+      (refresh ? "&refresh=1" : "");
+
+    setState({ kind: "loading" });
+    try {
+      const body = await readPermissionResponse(requestPath);
+      setState({ kind: "ready", checks: body.checks });
+    } catch (error) {
+      setState({
+        kind: "error",
+        message: error instanceof Error ? error.message : "Failed to load permission checks.",
+      });
+    }
+  }
+
   useEffect(() => {
     if (!trimmedGuildId) {
       setState({ kind: "idle" });
@@ -30,15 +49,15 @@ export function PermissionNotice({
     }
 
     let cancelled = false;
-    const requestPath =
-      `/admin/api/permissions?guildId=${encodeURIComponent(trimmedGuildId)}` +
-      `&feature=${encodeURIComponent(feature)}`;
 
     setState({ kind: "loading" });
 
     void (async () => {
       try {
-        const body = await readPermissionResponse(requestPath);
+        const body = await readPermissionResponse(
+          `/admin/api/permissions?guildId=${encodeURIComponent(trimmedGuildId)}` +
+            `&feature=${encodeURIComponent(feature)}`
+        );
         if (!cancelled) {
           setState({ kind: "ready", checks: body.checks });
         }
@@ -64,7 +83,12 @@ export function PermissionNotice({
   if (state.kind === "error") {
     return (
       <Alert variant="destructive">
-        <AlertDescription>{state.message}</AlertDescription>
+        <AlertDescription className="space-y-3">
+          <p>{state.message}</p>
+          <Button size="sm" variant="outline" onClick={() => void loadPermissionChecks(true)}>
+            Recheck permissions
+          </Button>
+        </AlertDescription>
       </Alert>
     );
   }
@@ -101,6 +125,9 @@ export function PermissionNotice({
               </p>
             ))}
           </div>
+          <Button size="sm" variant="outline" onClick={() => void loadPermissionChecks(true)}>
+            Recheck permissions
+          </Button>
         </div>
       </AlertDescription>
     </Alert>

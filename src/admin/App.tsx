@@ -65,9 +65,11 @@ export default function App({
   const [guildLookupError, setGuildLookupError] = useState<string | null>(null);
   const gatewayMonitorRef = useRef<GatewayStatusMonitor | null>(null);
 
-  const loadOverview = useCallback(async () => {
+  const loadOverview = useCallback(async (refreshDiscordCache = false) => {
     try {
-      const nextOverview = await readJsonOrThrow<AdminOverview>("/admin/api/overview");
+      const nextOverview = await readJsonOrThrow<AdminOverview>(
+        buildAdminOverviewApiPath(refreshDiscordCache)
+      );
       setOverview(nextOverview);
       setOverviewError(null);
       setGatewayStatus(nextOverview.gateway);
@@ -77,8 +79,10 @@ export default function App({
     }
   }, []);
 
-  const loadGuildDirectory = useCallback(async () => {
-    return readJsonOrThrow<AdminGuildDirectoryResponse>("/admin/api/guilds");
+  const loadGuildDirectory = useCallback(async (refreshDiscordCache = false) => {
+    return readJsonOrThrow<AdminGuildDirectoryResponse>(
+      buildAdminGuildDirectoryApiPath(refreshDiscordCache)
+    );
   }, []);
 
   const refreshGatewayStatus = useCallback(async () => {
@@ -211,6 +215,23 @@ export default function App({
     ]);
   }
 
+  async function handleDashboardRefresh() {
+    await Promise.all([
+      loadOverview(true),
+      pageDataPolicy.loadGuildDirectory
+        ? loadGuildDirectory(true)
+            .then((response) => {
+              setGuildDirectory(response.guilds);
+              setGuildLookupError(null);
+            })
+            .catch((error) => {
+              setGuildDirectory(null);
+              setGuildLookupError(describeError(error));
+            })
+        : Promise.resolve(),
+    ]);
+  }
+
   const handleSelectedGuildChange = useCallback((nextGuildId: string) => {
     const normalizedGuildId = nextGuildId.trim();
     setSelectedGuildId(normalizedGuildId);
@@ -246,7 +267,7 @@ export default function App({
             directoryError={guildLookupError}
             guildNamesById={guildNamesById}
             onStartGateway={handleGatewayStart}
-            onRefresh={loadOverview}
+            onRefresh={handleDashboardRefresh}
           />
         ) : null}
         {currentPath === "/admin/gateway" ? (
@@ -510,4 +531,12 @@ export function buildAdminDashboardHref(path: string, guildId: string): string {
 
   const params = new URLSearchParams({ guildId: normalizedGuildId });
   return `${path}?${params.toString()}`;
+}
+
+export function buildAdminOverviewApiPath(refreshDiscordCache: boolean): string {
+  return refreshDiscordCache ? "/admin/api/overview?refresh=1" : "/admin/api/overview";
+}
+
+export function buildAdminGuildDirectoryApiPath(refreshDiscordCache: boolean): string {
+  return refreshDiscordCache ? "/admin/api/guilds?refresh=1" : "/admin/api/guilds";
 }
