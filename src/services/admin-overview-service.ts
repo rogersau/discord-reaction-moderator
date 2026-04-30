@@ -7,6 +7,7 @@ export interface AdminOverviewGuild {
   emojis: string[];
   timedRoles: TimedRoleAssignment[];
   permissionChecks: AdminPermissionCheck[];
+  roleNamesById: Record<string, string>;
 }
 
 export interface AdminOverviewData {

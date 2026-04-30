@@ -17,6 +17,7 @@ export function AdminBlocklistPage({
   const [action, setAction] = useState<"add" | "remove">("add");
   const [currentEmojis, setCurrentEmojis] = useState<string[] | null>(null);
   const [notificationChannelId, setNotificationChannelId] = useState("");
+  const [textChannels, setTextChannels] = useState<Array<{ id: string; name: string }>>([]);
   const [result, setResult] = useState<string | null>(null);
   const trimmedGuildId = selectedGuildId.trim();
 
@@ -28,7 +29,10 @@ export function AdminBlocklistPage({
     }
 
     try {
-      const res = await fetch(`/admin/api/blocklist?guildId=${encodeURIComponent(normalizedGuildId)}`);
+      const [res, resourcesRes] = await Promise.all([
+        fetch(`/admin/api/blocklist?guildId=${encodeURIComponent(normalizedGuildId)}`),
+        fetch(`/admin/api/tickets/resources?guildId=${encodeURIComponent(normalizedGuildId)}`),
+      ]);
       if (res.ok) {
         const data = await res.json() as {
           emojis: string[];
@@ -36,6 +40,10 @@ export function AdminBlocklistPage({
         };
         setCurrentEmojis(data.emojis);
         setNotificationChannelId(data.notificationChannelId ?? "");
+      }
+      if (resourcesRes.ok) {
+        const resources = await resourcesRes.json() as { textChannels: Array<{ id: string; name: string }> };
+        setTextChannels(resources.textChannels);
       }
     } catch (error) {
       console.error(error);
@@ -136,9 +144,17 @@ export function AdminBlocklistPage({
 
           <EditorPanel>
             <div className="grid gap-4 md:grid-cols-[minmax(0,1.4fr)_auto] md:items-end">
-              <FormField label="Moderation log channel ID (optional)" htmlFor="bl-log-channel">
+              <FormField label="Moderation log channel (optional)" htmlFor="bl-log-channel">
+                {textChannels.length > 0 ? (
+                  <datalist id="bl-log-channel-list">
+                    {textChannels.map((channel) => (
+                      <option key={channel.id} value={channel.id} label={channel.name} />
+                    ))}
+                  </datalist>
+                ) : null}
                 <Input
                   id="bl-log-channel"
+                  list={textChannels.length > 0 ? "bl-log-channel-list" : undefined}
                   placeholder="123456789012345678"
                   value={notificationChannelId}
                   onChange={(event) => setNotificationChannelId(event.target.value)}

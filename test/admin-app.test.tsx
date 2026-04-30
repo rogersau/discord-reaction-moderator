@@ -26,6 +26,7 @@ const overviewGuild: AdminOverviewGuild = {
   emojis: ["✅"],
   timedRoles: [],
   permissionChecks: [],
+  roleNamesById: {},
 };
 
 const permissionSensitiveOverviewGuild: AdminOverviewGuild = {
@@ -52,6 +53,7 @@ const permissionSensitiveOverviewGuild: AdminOverviewGuild = {
       detail: "1 tracked timed role is at or above the bot's highest role.",
     },
   ],
+  roleNamesById: { "role-2": "Member" },
 };
 
 

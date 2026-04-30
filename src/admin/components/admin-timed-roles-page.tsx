@@ -24,6 +24,11 @@ interface TimedRoleAssignment {
   expiresAtMs: number;
 }
 
+interface GuildResources {
+  roles: Array<{ id: string; name: string }>;
+  textChannels: Array<{ id: string; name: string }>;
+}
+
 interface NewMemberRoleConfig {
   guildId: string;
   roleId: string | null;
@@ -64,6 +69,7 @@ function TimedRolesEditor({
   const [notificationChannelId, setNotificationChannelId] = useState("");
   const [newMemberRoleId, setNewMemberRoleId] = useState("");
   const [newMemberDuration, setNewMemberDuration] = useState("1w");
+  const [guildResources, setGuildResources] = useState<GuildResources | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const trimmedGuildId = selectedGuildId.trim();
@@ -75,12 +81,14 @@ function TimedRolesEditor({
 
     if (!nextTrimmedGuildId) {
       setAssignments(null);
+      setGuildResources(null);
       return;
     }
 
-    const response = await fetch(
-      `/admin/api/timed-roles?guildId=${encodeURIComponent(nextTrimmedGuildId)}`
-    );
+    const [response, resourcesResponse] = await Promise.all([
+      fetch(`/admin/api/timed-roles?guildId=${encodeURIComponent(nextTrimmedGuildId)}`),
+      fetch(`/admin/api/tickets/resources?guildId=${encodeURIComponent(nextTrimmedGuildId)}`),
+    ]);
     if (!response.ok) {
       setError("Failed to load timed roles.");
       return;
@@ -95,6 +103,11 @@ function TimedRolesEditor({
     setNotificationChannelId(data.notificationChannelId ?? "");
     setNewMemberRoleId(data.newMemberRoleConfig?.roleId ?? "");
     setNewMemberDuration(data.newMemberRoleConfig?.durationInput ?? "1w");
+
+    if (resourcesResponse.ok) {
+      const resources = (await resourcesResponse.json()) as GuildResources;
+      setGuildResources(resources);
+    }
   }
 
   async function handleSaveNotificationChannel() {
@@ -222,8 +235,20 @@ function TimedRolesEditor({
           <FormField label="User ID" htmlFor="tr-user">
             <Input id="tr-user" value={userId} onChange={(event) => setUserId(event.target.value)} />
           </FormField>
-          <FormField label="Role ID" htmlFor="tr-role">
-            <Input id="tr-role" value={roleId} onChange={(event) => setRoleId(event.target.value)} />
+          <FormField label="Role" htmlFor="tr-role">
+            {guildResources ? (
+              <datalist id="tr-role-list">
+                {guildResources.roles.map((role) => (
+                  <option key={role.id} value={role.id} label={role.name} />
+                ))}
+              </datalist>
+            ) : null}
+            <Input
+              id="tr-role"
+              list={guildResources ? "tr-role-list" : undefined}
+              value={roleId}
+              onChange={(event) => setRoleId(event.target.value)}
+            />
           </FormField>
           <FormField label="Duration" htmlFor="tr-duration">
             <Input
@@ -262,9 +287,17 @@ function TimedRolesEditor({
           </p>
         </div>
         <div className="grid gap-4 md:grid-cols-2">
-          <FormField label="Newbie role ID" htmlFor="tr-new-member-role">
+          <FormField label="Newbie role" htmlFor="tr-new-member-role">
+            {guildResources ? (
+              <datalist id="tr-new-member-role-list">
+                {guildResources.roles.map((role) => (
+                  <option key={role.id} value={role.id} label={role.name} />
+                ))}
+              </datalist>
+            ) : null}
             <Input
               id="tr-new-member-role"
+              list={guildResources ? "tr-new-member-role-list" : undefined}
               placeholder="123456789012345678"
               value={newMemberRoleId}
               onChange={(event) => setNewMemberRoleId(event.target.value)}
@@ -306,9 +339,17 @@ function TimedRolesEditor({
 
       <EditorPanel>
         <div className="grid gap-4 md:grid-cols-[minmax(0,1.4fr)_auto] md:items-end">
-          <FormField label="Moderation log channel ID (optional)" htmlFor="tr-log-channel">
+          <FormField label="Moderation log channel (optional)" htmlFor="tr-log-channel">
+            {guildResources ? (
+              <datalist id="tr-log-channel-list">
+                {guildResources.textChannels.map((channel) => (
+                  <option key={channel.id} value={channel.id} label={channel.name} />
+                ))}
+              </datalist>
+            ) : null}
             <Input
               id="tr-log-channel"
+              list={guildResources ? "tr-log-channel-list" : undefined}
               placeholder="123456789012345678"
               value={notificationChannelId}
               onChange={(event) => setNotificationChannelId(event.target.value)}
@@ -345,8 +386,19 @@ function TimedRolesEditor({
             <TableBody>
               {assignments.map((assignment) => (
                 <TableRow key={`${assignment.guildId}:${assignment.userId}:${assignment.roleId}`}>
-                  <TableCell>{assignment.userId}</TableCell>
-                  <TableCell>{assignment.roleId}</TableCell>
+                  <TableCell>
+                    <span className="font-mono text-xs text-muted-foreground">{assignment.userId}</span>
+                  </TableCell>
+                  <TableCell>
+                    {guildResources?.roles.find((r) => r.id === assignment.roleId)?.name ? (
+                      <span>
+                        {guildResources.roles.find((r) => r.id === assignment.roleId)!.name}
+                        <span className="ml-1 font-mono text-xs text-muted-foreground">({assignment.roleId})</span>
+                      </span>
+                    ) : (
+                      <span className="font-mono text-xs text-muted-foreground">{assignment.roleId}</span>
+                    )}
+                  </TableCell>
                   <TableCell>{assignment.durationInput}</TableCell>
                   <TableCell>{new Date(assignment.expiresAtMs).toLocaleString()}</TableCell>
                   <TableCell>

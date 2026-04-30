@@ -14,6 +14,7 @@ export interface AdminOverviewGuild {
   emojis: string[];
   timedRoles: TimedRoleAssignment[];
   permissionChecks: AdminPermissionCheck[];
+  roleNamesById: Record<string, string>;
 }
 
 export function GuildOverviewCard({
@@ -96,8 +97,19 @@ export function GuildOverviewCard({
           <TableBody>
             {guild.timedRoles.map((assignment) => (
               <TableRow key={`${assignment.guildId}:${assignment.userId}:${assignment.roleId}`}>
-                <TableCell>{assignment.userId}</TableCell>
-                <TableCell>{assignment.roleId}</TableCell>
+                <TableCell>
+                  <span className="font-mono text-xs text-muted-foreground">{assignment.userId}</span>
+                </TableCell>
+                <TableCell>
+                  {guild.roleNamesById[assignment.roleId] ? (
+                    <span>
+                      {guild.roleNamesById[assignment.roleId]}
+                      <span className="ml-1 font-mono text-xs text-muted-foreground">({assignment.roleId})</span>
+                    </span>
+                  ) : (
+                    <span className="font-mono text-xs text-muted-foreground">{assignment.roleId}</span>
+                  )}
+                </TableCell>
                 <TableCell>{assignment.durationInput}</TableCell>
                 <TableCell>{new Date(assignment.expiresAtMs).toLocaleString()}</TableCell>
               </TableRow>

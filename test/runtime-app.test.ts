@@ -624,6 +624,7 @@ test("createRuntimeApp exposes dashboard overview data for discoverability in th
               detail: "Manage Messages is missing in 1 of 2 visible text channels, so reaction cleanup can fail there.",
             },
           ],
+          roleNamesById: { "guild-1": "@everyone", "role-1": "Member", "role-bot-1": "Bot" },
         },
         {
           guildId: "guild-2",
@@ -644,12 +645,14 @@ test("createRuntimeApp exposes dashboard overview data for discoverability in th
               detail: "1 tracked timed role is at or above the bot's highest role.",
             },
           ],
+          roleNamesById: { "guild-2": "@everyone", "role-bot-2": "Bot", "role-2": "Senior" },
         },
         {
           guildId: "guild-3",
           emojis: ["🚫"],
           timedRoles: [],
           permissionChecks: [],
+          roleNamesById: { "guild-3": "@everyone", "role-bot-3": "Bot" },
         },
       ],
     });

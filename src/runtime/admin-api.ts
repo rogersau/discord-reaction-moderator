@@ -28,6 +28,7 @@ interface AdminOverviewGuild {
   emojis: string[];
   timedRoles: TimedRoleAssignment[];
   permissionChecks: AdminPermissionCheck[];
+  roleNamesById: Record<string, string>;
 }
 
 export interface AdminApiHandlerOptions {
@@ -120,6 +121,7 @@ export async function buildAdminOverviewGuilds(
       emojis: [...guildConfig.emojis],
       timedRoles: [],
       permissionChecks: [],
+      roleNamesById: {},
     });
   }
 
@@ -135,6 +137,7 @@ export async function buildAdminOverviewGuilds(
       emojis: [],
       timedRoles: [timedRole],
       permissionChecks: [],
+      roleNamesById: {},
     });
   }
 
@@ -155,6 +158,7 @@ export async function buildAdminOverviewGuilds(
           ...(guild.emojis.length > 0 ? buildBlocklistPermissionChecks(context) : []),
           ...(guild.timedRoles.length > 0 ? buildTimedRolePermissionChecks(context, guild.timedRoles) : []),
         ].filter((check) => check.status !== "ok");
+        guild.roleNamesById = Object.fromEntries(context.roles.map((role) => [role.id, role.name]));
       } catch (error) {
         guild.permissionChecks = [
           {
