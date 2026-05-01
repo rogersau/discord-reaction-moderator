@@ -1,13 +1,6 @@
-import type {
-  NewMemberTimedRoleConfig,
-  TimedRoleAssignment,
-  TimedRoleRow,
-} from "../../types";
+import type { NewMemberTimedRoleConfig, TimedRoleAssignment, TimedRoleRow } from "../../types";
 
-export function upsertTimedRole(
-  sql: DurableObjectStorage["sql"],
-  body: TimedRoleAssignment
-): void {
+export function upsertTimedRole(sql: DurableObjectStorage["sql"], body: TimedRoleAssignment): void {
   const now = Date.now();
   sql.exec(
     "INSERT INTO timed_roles(guild_id, user_id, role_id, duration_input, expires_at_ms, created_at_ms, updated_at_ms) VALUES(?, ?, ?, ?, ?, ?, ?) ON CONFLICT(guild_id, user_id, role_id) DO UPDATE SET duration_input = excluded.duration_input, expires_at_ms = excluded.expires_at_ms, updated_at_ms = excluded.updated_at_ms",
@@ -17,56 +10,54 @@ export function upsertTimedRole(
     body.durationInput,
     body.expiresAtMs,
     now,
-    now
+    now,
   );
 }
 
 export function deleteTimedRole(
   sql: DurableObjectStorage["sql"],
-  body: { guildId: string; userId: string; roleId: string }
+  body: { guildId: string; userId: string; roleId: string },
 ): void {
   sql.exec(
     "DELETE FROM timed_roles WHERE guild_id = ? AND user_id = ? AND role_id = ?",
     body.guildId,
     body.userId,
-    body.roleId
+    body.roleId,
   );
 }
 
 export function listTimedRolesByGuild(
   sql: DurableObjectStorage["sql"],
-  guildId: string
+  guildId: string,
 ): TimedRoleAssignment[] {
   return readTimedRoleSelections(
     sql,
     "SELECT guild_id, user_id, role_id, duration_input, expires_at_ms, created_at_ms, updated_at_ms FROM timed_roles WHERE guild_id = ? ORDER BY expires_at_ms ASC",
-    guildId
+    guildId,
   );
 }
 
 export function listTimedRoles(sql: DurableObjectStorage["sql"]): TimedRoleAssignment[] {
   return readTimedRoleSelections(
     sql,
-    "SELECT guild_id, user_id, role_id, duration_input, expires_at_ms, created_at_ms, updated_at_ms FROM timed_roles ORDER BY guild_id ASC, expires_at_ms ASC"
+    "SELECT guild_id, user_id, role_id, duration_input, expires_at_ms, created_at_ms, updated_at_ms FROM timed_roles ORDER BY guild_id ASC, expires_at_ms ASC",
   );
 }
 
 export function listExpiredTimedRoles(
   sql: DurableObjectStorage["sql"],
-  currentTimeMs: number
+  currentTimeMs: number,
 ): TimedRoleAssignment[] {
   return readTimedRoleSelections(
     sql,
     "SELECT guild_id, user_id, role_id, duration_input, expires_at_ms, created_at_ms, updated_at_ms FROM timed_roles WHERE expires_at_ms <= ? ORDER BY expires_at_ms ASC",
-    currentTimeMs
+    currentTimeMs,
   );
 }
 
 export function getNextTimedRoleExpiryMs(sql: DurableObjectStorage["sql"]): number | null {
   const nextRow = [
-    ...sql.exec(
-      "SELECT expires_at_ms FROM timed_roles ORDER BY expires_at_ms ASC LIMIT 1"
-    ),
+    ...sql.exec("SELECT expires_at_ms FROM timed_roles ORDER BY expires_at_ms ASC LIMIT 1"),
   ][0];
 
   if (!nextRow) {
@@ -78,12 +69,12 @@ export function getNextTimedRoleExpiryMs(sql: DurableObjectStorage["sql"]): numb
 
 export function readNewMemberTimedRoleConfig(
   sql: DurableObjectStorage["sql"],
-  guildId: string
+  guildId: string,
 ): NewMemberTimedRoleConfig {
   const row = [
     ...sql.exec(
       "SELECT role_id, duration_input FROM new_member_timed_role_configs WHERE guild_id = ?",
-      guildId
+      guildId,
     ),
   ][0] as Record<string, unknown> | undefined;
 
@@ -96,13 +87,10 @@ export function readNewMemberTimedRoleConfig(
 
 export function upsertNewMemberTimedRoleConfig(
   sql: DurableObjectStorage["sql"],
-  body: NewMemberTimedRoleConfig
+  body: NewMemberTimedRoleConfig,
 ): void {
   if (!body.roleId || !body.durationInput) {
-    sql.exec(
-      "DELETE FROM new_member_timed_role_configs WHERE guild_id = ?",
-      body.guildId
-    );
+    sql.exec("DELETE FROM new_member_timed_role_configs WHERE guild_id = ?", body.guildId);
     return;
   }
 
@@ -111,7 +99,7 @@ export function upsertNewMemberTimedRoleConfig(
     body.guildId,
     body.roleId,
     body.durationInput,
-    Date.now()
+    Date.now(),
   );
 }
 
@@ -120,9 +108,7 @@ function readTimedRoleSelections(
   query: string,
   ...params: unknown[]
 ): TimedRoleAssignment[] {
-  const rows: TimedRoleRow[] = [...sql.exec(query, ...params)].map(
-    mapTimedRoleRow
-  );
+  const rows: TimedRoleRow[] = [...sql.exec(query, ...params)].map(mapTimedRoleRow);
   return rows.map(mapTimedRoleAssignment);
 }
 

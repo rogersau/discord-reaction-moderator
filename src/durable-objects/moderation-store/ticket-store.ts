@@ -1,23 +1,13 @@
 import type { TicketInstance, TicketPanelConfig } from "../../types";
 import { parseTicketPanelStorage, serializeTicketPanelStorage } from "../../tickets";
 
-export function reserveNextTicketNumber(
-  sql: DurableObjectStorage["sql"],
-  guildId: string
-): number {
+export function reserveNextTicketNumber(sql: DurableObjectStorage["sql"], guildId: string): number {
   const row = [
-    ...sql.exec(
-      "SELECT next_ticket_number FROM ticket_counters WHERE guild_id = ?",
-      guildId
-    ),
+    ...sql.exec("SELECT next_ticket_number FROM ticket_counters WHERE guild_id = ?", guildId),
   ][0] as Record<string, unknown> | undefined;
 
   if (!row) {
-    sql.exec(
-      "INSERT INTO ticket_counters(guild_id, next_ticket_number) VALUES(?, ?)",
-      guildId,
-      2
-    );
+    sql.exec("INSERT INTO ticket_counters(guild_id, next_ticket_number) VALUES(?, ?)", guildId, 2);
     return 1;
   }
 
@@ -25,19 +15,19 @@ export function reserveNextTicketNumber(
   sql.exec(
     "UPDATE ticket_counters SET next_ticket_number = ? WHERE guild_id = ?",
     ticketNumber + 1,
-    guildId
+    guildId,
   );
   return ticketNumber;
 }
 
 export function readTicketPanelConfig(
   sql: DurableObjectStorage["sql"],
-  guildId: string
+  guildId: string,
 ): TicketPanelConfig | null {
   const row = [
     ...sql.exec(
       "SELECT guild_id, panel_channel_id, category_channel_id, transcript_channel_id, panel_message_id, ticket_types_json FROM ticket_panels WHERE guild_id = ?",
-      guildId
+      guildId,
     ),
   ][0] as Record<string, unknown> | undefined;
 
@@ -63,7 +53,7 @@ export function readTicketPanelConfig(
 
 export function upsertTicketPanelConfig(
   sql: DurableObjectStorage["sql"],
-  panel: TicketPanelConfig
+  panel: TicketPanelConfig,
 ): void {
   sql.exec(
     "INSERT INTO ticket_panels(guild_id, panel_channel_id, category_channel_id, transcript_channel_id, panel_message_id, ticket_types_json) VALUES(?, ?, ?, ?, ?, ?) ON CONFLICT(guild_id) DO UPDATE SET panel_channel_id = excluded.panel_channel_id, category_channel_id = excluded.category_channel_id, transcript_channel_id = excluded.transcript_channel_id, panel_message_id = excluded.panel_message_id, ticket_types_json = excluded.ticket_types_json",
@@ -72,13 +62,13 @@ export function upsertTicketPanelConfig(
     panel.categoryChannelId,
     panel.transcriptChannelId,
     panel.panelMessageId,
-    serializeTicketPanelStorage(panel)
+    serializeTicketPanelStorage(panel),
   );
 }
 
 export function createTicketInstance(
   sql: DurableObjectStorage["sql"],
-  instance: TicketInstance
+  instance: TicketInstance,
 ): void {
   sql.exec(
     "INSERT INTO ticket_instances(guild_id, channel_id, ticket_type_id, ticket_type_label, opener_user_id, support_role_id, status, answers_json, opened_at_ms, closed_at_ms, closed_by_user_id, transcript_message_id) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
@@ -93,28 +83,32 @@ export function createTicketInstance(
     instance.openedAtMs,
     instance.closedAtMs,
     instance.closedByUserId,
-    instance.transcriptMessageId
+    instance.transcriptMessageId,
   );
 }
 
 export function deleteTicketInstance(
   sql: DurableObjectStorage["sql"],
   guildId: string,
-  channelId: string
+  channelId: string,
 ): void {
-  sql.exec("DELETE FROM ticket_instances WHERE guild_id = ? AND channel_id = ?", guildId, channelId);
+  sql.exec(
+    "DELETE FROM ticket_instances WHERE guild_id = ? AND channel_id = ?",
+    guildId,
+    channelId,
+  );
 }
 
 export function readOpenTicketByChannel(
   sql: DurableObjectStorage["sql"],
   guildId: string,
-  channelId: string
+  channelId: string,
 ): TicketInstance | null {
   const row = [
     ...sql.exec(
       "SELECT guild_id, channel_id, ticket_type_id, ticket_type_label, opener_user_id, support_role_id, status, answers_json, opened_at_ms, closed_at_ms, closed_by_user_id, transcript_message_id FROM ticket_instances WHERE guild_id = ? AND channel_id = ? AND status = 'open'",
       guildId,
-      channelId
+      channelId,
     ),
   ][0] as Record<string, unknown> | undefined;
 
@@ -146,7 +140,7 @@ export function closeTicketInstance(
     closedByUserId: string;
     closedAtMs: number;
     transcriptMessageId: string | null;
-  }
+  },
 ): void {
   const result = sql.exec(
     "UPDATE ticket_instances SET status = 'closed', closed_by_user_id = ?, closed_at_ms = ?, transcript_message_id = ? WHERE guild_id = ? AND channel_id = ? AND status = 'open'",
@@ -154,7 +148,7 @@ export function closeTicketInstance(
     body.closedAtMs,
     body.transcriptMessageId,
     body.guildId,
-    body.channelId
+    body.channelId,
   );
 
   if (result.rowsWritten < 1) {

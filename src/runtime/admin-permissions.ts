@@ -25,7 +25,7 @@ export interface GuildPermissionContext {
 export async function loadGuildPermissionContext(
   guildId: string,
   botUserId: string,
-  botToken: string
+  botToken: string,
 ): Promise<GuildPermissionContext> {
   const resources = await getGuildPermissionResources(guildId, botUserId, botToken);
 
@@ -39,9 +39,11 @@ export async function loadGuildPermissionContext(
 }
 
 export function buildBlocklistPermissionChecks(
-  context: GuildPermissionContext
+  context: GuildPermissionContext,
 ): AdminPermissionCheck[] {
-  const textChannels = context.channels.filter((channel) => channel.type === 0 || channel.type === 5);
+  const textChannels = context.channels.filter(
+    (channel) => channel.type === 0 || channel.type === 5,
+  );
 
   if (textChannels.length === 0) {
     return [
@@ -54,10 +56,10 @@ export function buildBlocklistPermissionChecks(
   }
 
   const visibleChannels = textChannels.filter((channel) =>
-    hasPermission(getChannelPermissions(context, channel), VIEW_CHANNEL_PERMISSION)
+    hasPermission(getChannelPermissions(context, channel), VIEW_CHANNEL_PERMISSION),
   );
   const manageableChannels = visibleChannels.filter((channel) =>
-    hasPermission(getChannelPermissions(context, channel), MANAGE_MESSAGES_PERMISSION)
+    hasPermission(getChannelPermissions(context, channel), MANAGE_MESSAGES_PERMISSION),
   );
 
   return [
@@ -84,7 +86,7 @@ export function buildBlocklistPermissionChecks(
 
 export function buildTimedRolePermissionChecks(
   context: GuildPermissionContext,
-  timedRoles: TimedRoleAssignment[]
+  timedRoles: TimedRoleAssignment[],
 ): AdminPermissionCheck[] {
   const basePermissions = getBaseGuildPermissions(context);
   const highestRole = getHighestBotRole(context);
@@ -101,7 +103,9 @@ export function buildTimedRolePermissionChecks(
 
   if (timedRoles.length === 0) {
     const manageableRoles = highestRole
-      ? context.roles.filter((role) => role.id !== context.guildId && role.position < highestRole.position)
+      ? context.roles.filter(
+          (role) => role.id !== context.guildId && role.position < highestRole.position,
+        )
       : [];
 
     checks.push({
@@ -139,7 +143,7 @@ export function buildTimedRolePermissionChecks(
 
 export function buildTicketPermissionChecks(
   context: GuildPermissionContext,
-  panel: TicketPanelConfig | null
+  panel: TicketPanelConfig | null,
 ): AdminPermissionCheck[] {
   if (!panel) {
     return [];
@@ -157,7 +161,12 @@ export function buildTicketPermissionChecks(
         : "Manage Channels is missing, so new ticket channels cannot be created.",
     },
     buildConfiguredChannelCheck(context, channelMap, panel.panelChannelId, "Panel channel access"),
-    buildConfiguredChannelCheck(context, channelMap, panel.transcriptChannelId, "Transcript channel access"),
+    buildConfiguredChannelCheck(
+      context,
+      channelMap,
+      panel.transcriptChannelId,
+      "Transcript channel access",
+    ),
   ];
 
   if (panel.categoryChannelId) {
@@ -168,16 +177,17 @@ export function buildTicketPermissionChecks(
         category && hasPermission(getChannelPermissions(context, category), VIEW_CHANNEL_PERMISSION)
           ? "ok"
           : "error",
-      detail:
-        !category
-          ? "The configured ticket category no longer exists in Discord."
-          : hasPermission(getChannelPermissions(context, category), VIEW_CHANNEL_PERMISSION)
-            ? "The bot can view the configured ticket category."
-            : "The bot cannot view the configured ticket category.",
+      detail: !category
+        ? "The configured ticket category no longer exists in Discord."
+        : hasPermission(getChannelPermissions(context, category), VIEW_CHANNEL_PERMISSION)
+          ? "The bot can view the configured ticket category."
+          : "The bot cannot view the configured ticket category.",
     });
   }
 
-  const supportRoleIds = [...new Set(panel.ticketTypes.map((ticketType) => ticketType.supportRoleId).filter(Boolean))];
+  const supportRoleIds = [
+    ...new Set(panel.ticketTypes.map((ticketType) => ticketType.supportRoleId).filter(Boolean)),
+  ];
   const missingSupportRoles = supportRoleIds.filter((roleId) => !roleMap.has(roleId));
   checks.push({
     label: "Support roles",
@@ -195,7 +205,7 @@ function buildConfiguredChannelCheck(
   context: GuildPermissionContext,
   channelMap: Map<string, DiscordChannelResource>,
   channelId: string,
-  label: string
+  label: string,
 ): AdminPermissionCheck {
   const channel = channelMap.get(channelId);
   if (!channel) {
@@ -233,7 +243,7 @@ function getBaseGuildPermissions(context: GuildPermissionContext): bigint {
 
 function getChannelPermissions(
   context: GuildPermissionContext,
-  channel: DiscordChannelResource
+  channel: DiscordChannelResource,
 ): bigint {
   let permissions = getBaseGuildPermissions(context);
   if ((permissions & ADMINISTRATOR_PERMISSION) !== 0n) {
@@ -259,7 +269,7 @@ function getChannelPermissions(
   permissions |= roleAllow;
 
   const memberOverwrite = overwrites.find(
-    (overwrite) => overwrite.type === 1 && overwrite.id === context.botUserId
+    (overwrite) => overwrite.type === 1 && overwrite.id === context.botUserId,
   );
   if (memberOverwrite) {
     permissions = applyOverwrite(permissions, memberOverwrite.allow, memberOverwrite.deny);

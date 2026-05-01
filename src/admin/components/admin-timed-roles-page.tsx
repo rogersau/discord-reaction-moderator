@@ -9,14 +9,7 @@ import { Button } from "./ui/button";
 import { Card, CardContent } from "./ui/card";
 import { RefreshIcon } from "./ui/icons";
 import { Input } from "./ui/input";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "./ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
 
 interface TimedRoleAssignment {
   guildId: string;
@@ -37,11 +30,7 @@ interface NewMemberRoleConfig {
   durationInput: string | null;
 }
 
-export function AdminTimedRolesPage({
-  selectedGuildId,
-}: {
-  selectedGuildId: string;
-}) {
+export function AdminTimedRolesPage({ selectedGuildId }: { selectedGuildId: string }) {
   const trimmedGuildId = selectedGuildId.trim();
   return (
     <section className="space-y-6">
@@ -65,11 +54,7 @@ export function AdminTimedRolesPage({
   );
 }
 
-function TimedRolesEditor({
-  selectedGuildId,
-}: {
-  selectedGuildId: string;
-}) {
+function TimedRolesEditor({ selectedGuildId }: { selectedGuildId: string }) {
   const [userId, setUserId] = useState("");
   const [roleId, setRoleId] = useState("");
   const [duration, setDuration] = useState("1h");
@@ -169,7 +154,7 @@ function TimedRolesEditor({
     setMessage(
       notificationChannelId.trim()
         ? `Saved moderation log channel for ${selectedGuildId}.`
-        : `Cleared moderation log channel for ${selectedGuildId}.`
+        : `Cleared moderation log channel for ${selectedGuildId}.`,
     );
   }
 
@@ -202,7 +187,7 @@ function TimedRolesEditor({
     setMessage(
       data.newMemberRoleConfig?.roleId
         ? `New members will receive ${data.newMemberRoleConfig.roleId} for ${data.newMemberRoleConfig.durationInput}.`
-        : "New member timed role automation is disabled."
+        : "New member timed role automation is disabled.",
     );
   }
 
@@ -287,7 +272,11 @@ function TimedRolesEditor({
       <EditorPanel>
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(8rem,0.8fr)]">
           <FormField label="User ID" htmlFor="tr-user">
-            <Input id="tr-user" value={userId} onChange={(event) => setUserId(event.target.value)} />
+            <Input
+              id="tr-user"
+              value={userId}
+              onChange={(event) => setUserId(event.target.value)}
+            />
           </FormField>
           <FormField label="Role" htmlFor="tr-role">
             {guildResources ? (
@@ -432,16 +421,22 @@ function TimedRolesEditor({
               {assignments.map((assignment) => (
                 <TableRow key={`${assignment.guildId}:${assignment.userId}:${assignment.roleId}`}>
                   <TableCell>
-                    <span className="font-mono text-xs text-muted-foreground">{assignment.userId}</span>
+                    <span className="font-mono text-xs text-muted-foreground">
+                      {assignment.userId}
+                    </span>
                   </TableCell>
                   <TableCell>
                     {guildResources?.roles.find((r) => r.id === assignment.roleId)?.name ? (
                       <span>
                         {guildResources.roles.find((r) => r.id === assignment.roleId)!.name}
-                        <span className="ml-1 font-mono text-xs text-muted-foreground">({assignment.roleId})</span>
+                        <span className="ml-1 font-mono text-xs text-muted-foreground">
+                          ({assignment.roleId})
+                        </span>
                       </span>
                     ) : (
-                      <span className="font-mono text-xs text-muted-foreground">{assignment.roleId}</span>
+                      <span className="font-mono text-xs text-muted-foreground">
+                        {assignment.roleId}
+                      </span>
                     )}
                   </TableCell>
                   <TableCell>{assignment.durationInput}</TableCell>

@@ -42,6 +42,7 @@
 ### Task 1: Add Node runtime scaffolding and validated config loading
 
 **Files:**
+
 - Modify: `package.json`
 - Modify: `tsconfig.tests.json`
 - Create: `tsconfig.node.json`
@@ -86,7 +87,7 @@ test("loadNodeRuntimeConfig returns the validated portable runtime config", () =
 test("loadNodeRuntimeConfig rejects missing required values", () => {
   assert.throws(
     () => loadNodeRuntimeConfig({ PORT: "8787", SQLITE_PATH: "./data/runtime.sqlite" }),
-    /DISCORD_BOT_TOKEN/
+    /DISCORD_BOT_TOKEN/,
   );
 });
 ```
@@ -213,6 +214,7 @@ git commit -m "build: scaffold portable node runtime"
 ### Task 2: Introduce shared runtime contracts and route orchestration
 
 **Files:**
+
 - Create: `src/runtime/contracts.ts`
 - Create: `src/runtime/app.ts`
 - Test: `test/runtime-app.test.ts`
@@ -255,18 +257,42 @@ test("createRuntimeApp returns health, interaction ping, slash-command, and admi
         return [];
       },
       async readGatewaySnapshot() {
-        return { status: "idle", sessionId: null, resumeGatewayUrl: null, lastSequence: null, backoffAttempt: 0, lastError: null, heartbeatIntervalMs: null };
+        return {
+          status: "idle",
+          sessionId: null,
+          resumeGatewayUrl: null,
+          lastSequence: null,
+          backoffAttempt: 0,
+          lastError: null,
+          heartbeatIntervalMs: null,
+        };
       },
       async writeGatewaySnapshot() {},
     } as RuntimeStore,
     gateway: {
       async start() {
         calls.push("start");
-        return { status: "connecting", sessionId: null, resumeGatewayUrl: null, lastSequence: null, backoffAttempt: 0, lastError: null, heartbeatIntervalMs: null };
+        return {
+          status: "connecting",
+          sessionId: null,
+          resumeGatewayUrl: null,
+          lastSequence: null,
+          backoffAttempt: 0,
+          lastError: null,
+          heartbeatIntervalMs: null,
+        };
       },
       async status() {
         calls.push("status");
-        return { status: "idle", sessionId: null, resumeGatewayUrl: null, lastSequence: null, backoffAttempt: 0, lastError: null, heartbeatIntervalMs: null };
+        return {
+          status: "idle",
+          sessionId: null,
+          resumeGatewayUrl: null,
+          lastSequence: null,
+          backoffAttempt: 0,
+          lastError: null,
+          heartbeatIntervalMs: null,
+        };
       },
     } as GatewayController,
   });
@@ -281,7 +307,7 @@ test("createRuntimeApp returns health, interaction ping, slash-command, and admi
         "x-signature-timestamp": String(Math.floor(Date.now() / 1000)),
       },
       body: JSON.stringify({ type: 1 }),
-    })
+    }),
   );
   const listResponse = await app.fetch(
     new Request("https://runtime.example/interactions", {
@@ -300,12 +326,12 @@ test("createRuntimeApp returns health, interaction ping, slash-command, and admi
           options: [{ type: 1, name: "list" }],
         },
       }),
-    })
+    }),
   );
   const statusResponse = await app.fetch(
     new Request("https://runtime.example/admin/gateway/status", {
       headers: { Authorization: "Bearer admin-secret" },
-    })
+    }),
   );
 
   assert.equal(healthResponse.status, 200);
@@ -351,7 +377,11 @@ export interface GatewaySnapshot {
 
 export interface RuntimeStore {
   readConfig(): Promise<BlocklistConfig>;
-  applyGuildEmojiMutation(body: { guildId: string; emoji: string; action: "add" | "remove" }): Promise<BlocklistConfig>;
+  applyGuildEmojiMutation(body: {
+    guildId: string;
+    emoji: string;
+    action: "add" | "remove";
+  }): Promise<BlocklistConfig>;
   listTimedRolesByGuild(guildId: string): Promise<TimedRoleAssignment[]>;
   upsertTimedRole(body: TimedRoleAssignment): Promise<void>;
   deleteTimedRole(body: { guildId: string; userId: string; roleId: string }): Promise<void>;
@@ -429,7 +459,7 @@ export function createRuntimeApp(options: RuntimeAppOptions) {
 
 async function handleInteractionRequest(
   request: Request,
-  options: RuntimeAppOptions
+  options: RuntimeAppOptions,
 ): Promise<Response> {
   const signature = request.headers.get("x-signature-ed25519");
   const timestamp = request.headers.get("x-signature-timestamp");
@@ -469,7 +499,9 @@ async function handleApplicationCommand(interaction: any, store: RuntimeStore): 
   }
   if (!hasGuildAdminPermission(interaction?.member?.permissions ?? "")) {
     return Response.json(
-      buildEphemeralMessage("You need Administrator or Manage Guild permissions to use this command.")
+      buildEphemeralMessage(
+        "You need Administrator or Manage Guild permissions to use this command.",
+      ),
     );
   }
 
@@ -485,8 +517,8 @@ async function handleApplicationCommand(interaction: any, store: RuntimeStore): 
       buildEphemeralMessage(
         guildEmojis.length === 0
           ? "No emojis are blocked in this server."
-          : `Blocked emojis in this server:\n${guildEmojis.map((emoji) => `- ${emoji}`).join("\n")}`
-      )
+          : `Blocked emojis in this server:\n${guildEmojis.map((emoji) => `- ${emoji}`).join("\n")}`,
+      ),
     );
   }
 
@@ -502,7 +534,9 @@ async function handleApplicationCommand(interaction: any, store: RuntimeStore): 
   if (invocation.commandName === "timedrole" && invocation.subcommandName === "add") {
     const parsedDuration = parseTimedRoleDuration(invocation.duration, Date.now());
     if (!parsedDuration) {
-      return Response.json(buildEphemeralMessage("Invalid duration. Use values like 1h, 1w, or 1m."));
+      return Response.json(
+        buildEphemeralMessage("Invalid duration. Use values like 1h, 1w, or 1m."),
+      );
     }
     await store.upsertTimedRole({
       guildId: interaction.guild_id,
@@ -515,8 +549,8 @@ async function handleApplicationCommand(interaction: any, store: RuntimeStore): 
     });
     return Response.json(
       buildEphemeralMessage(
-        `Assigned <@&${invocation.roleId}> to <@${invocation.userId}> until ${formatTimedRoleExpiry(parsedDuration.expiresAtMs)}.`
-      )
+        `Assigned <@&${invocation.roleId}> to <@${invocation.userId}> until ${formatTimedRoleExpiry(parsedDuration.expiresAtMs)}.`,
+      ),
     );
   }
 
@@ -560,6 +594,7 @@ git commit -m "refactor: add shared runtime app contracts"
 ### Task 3: Move the Cloudflare worker onto the shared runtime layer
 
 **Files:**
+
 - Create: `src/runtime/cloudflare-runtime.ts`
 - Modify: `src/index.ts`
 - Modify: `test/admin-routes.test.ts`
@@ -577,7 +612,7 @@ test("worker keeps routing /admin/gateway/status through the shared runtime laye
         return Response.json({ status: "idle" });
       },
     }),
-    {} as ExecutionContext
+    {} as ExecutionContext,
   );
 
   assert.equal(response.status, 200);
@@ -590,7 +625,7 @@ test("worker still answers Discord PING interactions after the runtime split", a
   const response = await worker.fetch(
     request,
     createEnv({ DISCORD_PUBLIC_KEY: publicKeyHex }),
-    {} as ExecutionContext
+    {} as ExecutionContext,
   );
 
   assert.equal(response.status, 200);
@@ -613,7 +648,7 @@ import type { Env } from "../env";
 
 export function createCloudflareRuntime(env: Env) {
   const gatewayStub = env.GATEWAY_SESSION_DO.get(
-    env.GATEWAY_SESSION_DO.idFromName("gateway-session")
+    env.GATEWAY_SESSION_DO.idFromName("gateway-session"),
   );
   const storeStub = getModerationStoreStub(env);
 
@@ -635,7 +670,9 @@ export function createCloudflareRuntime(env: Env) {
         return response.json();
       },
       async listTimedRolesByGuild(guildId) {
-        const response = await storeStub.fetch(`https://moderation-store/timed-roles?guildId=${encodeURIComponent(guildId)}`);
+        const response = await storeStub.fetch(
+          `https://moderation-store/timed-roles?guildId=${encodeURIComponent(guildId)}`,
+        );
         return response.json();
       },
       async upsertTimedRole(body) {
@@ -661,7 +698,9 @@ export function createCloudflareRuntime(env: Env) {
     },
     gateway: {
       async start() {
-        const response = await gatewayStub.fetch("https://gateway-session/start", { method: "POST" });
+        const response = await gatewayStub.fetch("https://gateway-session/start", {
+          method: "POST",
+        });
         return response.json();
       },
       async status() {
@@ -704,6 +743,7 @@ git commit -m "refactor: route cloudflare worker through shared runtime"
 ### Task 4: Add the SQLite-backed portable store
 
 **Files:**
+
 - Create: `src/runtime/sqlite-store.ts`
 - Modify: `src/reaction-moderation.ts`
 - Test: `test/sqlite-store.test.ts`
@@ -778,34 +818,47 @@ export function createSqliteRuntimeStore(options: {
     CREATE TABLE IF NOT EXISTS timed_roles (guild_id TEXT NOT NULL, user_id TEXT NOT NULL, role_id TEXT NOT NULL, duration_input TEXT NOT NULL, expires_at_ms INTEGER NOT NULL, created_at_ms INTEGER NOT NULL, updated_at_ms INTEGER NOT NULL, PRIMARY KEY (guild_id, user_id, role_id));
     CREATE TABLE IF NOT EXISTS gateway_state (key TEXT PRIMARY KEY, value TEXT NOT NULL);
   `);
-  db.prepare("INSERT OR IGNORE INTO app_config(key, value) VALUES(?, ?)").run("bot_user_id", options.botUserId);
+  db.prepare("INSERT OR IGNORE INTO app_config(key, value) VALUES(?, ?)").run(
+    "bot_user_id",
+    options.botUserId,
+  );
 
   return {
     async readConfig() {
       const guildRows = db.prepare("SELECT guild_id, moderation_enabled FROM guild_settings").all();
-      const emojiRows = db.prepare("SELECT guild_id, normalized_emoji FROM guild_blocked_emojis").all();
+      const emojiRows = db
+        .prepare("SELECT guild_id, normalized_emoji FROM guild_blocked_emojis")
+        .all();
       const configRows = db.prepare("SELECT key, value FROM app_config").all();
       return buildBlocklistConfig(guildRows as never, emojiRows as never, configRows as never);
     },
     async applyGuildEmojiMutation(body) {
       if (body.action === "add") {
-        db.prepare("INSERT OR IGNORE INTO guild_settings(guild_id, moderation_enabled) VALUES(?, 1)").run(body.guildId);
-        db.prepare("INSERT OR IGNORE INTO guild_blocked_emojis(guild_id, normalized_emoji) VALUES(?, ?)").run(body.guildId, normalizeEmoji(body.emoji));
+        db.prepare(
+          "INSERT OR IGNORE INTO guild_settings(guild_id, moderation_enabled) VALUES(?, 1)",
+        ).run(body.guildId);
+        db.prepare(
+          "INSERT OR IGNORE INTO guild_blocked_emojis(guild_id, normalized_emoji) VALUES(?, ?)",
+        ).run(body.guildId, normalizeEmoji(body.emoji));
       } else {
-        db.prepare("DELETE FROM guild_blocked_emojis WHERE guild_id = ? AND normalized_emoji = ?").run(body.guildId, normalizeEmoji(body.emoji));
+        db.prepare(
+          "DELETE FROM guild_blocked_emojis WHERE guild_id = ? AND normalized_emoji = ?",
+        ).run(body.guildId, normalizeEmoji(body.emoji));
       }
       return this.readConfig();
     },
     async listTimedRolesByGuild(guildId) {
       return db
-        .prepare("SELECT guild_id, user_id, role_id, duration_input, expires_at_ms, created_at_ms, updated_at_ms FROM timed_roles WHERE guild_id = ? ORDER BY expires_at_ms ASC")
+        .prepare(
+          "SELECT guild_id, user_id, role_id, duration_input, expires_at_ms, created_at_ms, updated_at_ms FROM timed_roles WHERE guild_id = ? ORDER BY expires_at_ms ASC",
+        )
         .all(guildId)
         .map(mapTimedRoleRow);
     },
     async upsertTimedRole(body) {
       const now = Date.now();
       db.prepare(
-        "INSERT INTO timed_roles(guild_id, user_id, role_id, duration_input, expires_at_ms, created_at_ms, updated_at_ms) VALUES(?, ?, ?, ?, ?, ?, ?) ON CONFLICT(guild_id, user_id, role_id) DO UPDATE SET duration_input = excluded.duration_input, expires_at_ms = excluded.expires_at_ms, updated_at_ms = excluded.updated_at_ms"
+        "INSERT INTO timed_roles(guild_id, user_id, role_id, duration_input, expires_at_ms, created_at_ms, updated_at_ms) VALUES(?, ?, ?, ?, ?, ?, ?) ON CONFLICT(guild_id, user_id, role_id) DO UPDATE SET duration_input = excluded.duration_input, expires_at_ms = excluded.expires_at_ms, updated_at_ms = excluded.updated_at_ms",
       ).run(
         body.guildId,
         body.userId,
@@ -813,24 +866,29 @@ export function createSqliteRuntimeStore(options: {
         body.durationInput,
         body.expiresAtMs,
         body.createdAtMs ?? now,
-        body.updatedAtMs ?? now
+        body.updatedAtMs ?? now,
       );
     },
     async deleteTimedRole(body) {
       db.prepare("DELETE FROM timed_roles WHERE guild_id = ? AND user_id = ? AND role_id = ?").run(
         body.guildId,
         body.userId,
-        body.roleId
+        body.roleId,
       );
     },
     async listExpiredTimedRoles(nowMs) {
       return db
-        .prepare("SELECT guild_id, user_id, role_id, duration_input, expires_at_ms, created_at_ms, updated_at_ms FROM timed_roles WHERE expires_at_ms <= ? ORDER BY expires_at_ms ASC")
+        .prepare(
+          "SELECT guild_id, user_id, role_id, duration_input, expires_at_ms, created_at_ms, updated_at_ms FROM timed_roles WHERE expires_at_ms <= ? ORDER BY expires_at_ms ASC",
+        )
         .all(nowMs)
         .map(mapTimedRoleRow);
     },
     async readGatewaySnapshot() {
-      const rows = db.prepare("SELECT key, value FROM gateway_state").all() as Array<{ key: string; value: string }>;
+      const rows = db.prepare("SELECT key, value FROM gateway_state").all() as Array<{
+        key: string;
+        value: string;
+      }>;
       const map = new Map(rows.map((row) => [row.key, row.value]));
       return {
         status: (map.get("status") ?? "idle") as GatewaySnapshot["status"],
@@ -839,7 +897,9 @@ export function createSqliteRuntimeStore(options: {
         lastSequence: map.has("last_sequence") ? Number(map.get("last_sequence")) : null,
         backoffAttempt: map.has("backoff_attempt") ? Number(map.get("backoff_attempt")) : 0,
         lastError: map.get("last_error") ?? null,
-        heartbeatIntervalMs: map.has("heartbeat_interval_ms") ? Number(map.get("heartbeat_interval_ms")) : null,
+        heartbeatIntervalMs: map.has("heartbeat_interval_ms")
+          ? Number(map.get("heartbeat_interval_ms"))
+          : null,
       };
     },
     async writeGatewaySnapshot(snapshot) {
@@ -850,13 +910,18 @@ export function createSqliteRuntimeStore(options: {
         ["last_sequence", snapshot.lastSequence === null ? null : String(snapshot.lastSequence)],
         ["backoff_attempt", String(snapshot.backoffAttempt)],
         ["last_error", snapshot.lastError],
-        ["heartbeat_interval_ms", snapshot.heartbeatIntervalMs === null ? null : String(snapshot.heartbeatIntervalMs)],
+        [
+          "heartbeat_interval_ms",
+          snapshot.heartbeatIntervalMs === null ? null : String(snapshot.heartbeatIntervalMs),
+        ],
       ] as const;
       for (const [key, value] of entries) {
         if (value === null) {
           db.prepare("DELETE FROM gateway_state WHERE key = ?").run(key);
         } else {
-          db.prepare("INSERT INTO gateway_state(key, value) VALUES(?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(key, value);
+          db.prepare(
+            "INSERT INTO gateway_state(key, value) VALUES(?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+          ).run(key, value);
         }
       }
     },
@@ -881,7 +946,7 @@ export function createSqliteRuntimeStore(options: {
 export async function moderateReactionAdd(
   reaction: DiscordReaction | null,
   env: { DISCORD_BOT_TOKEN: string },
-  loadConfig: () => Promise<BlocklistConfig>
+  loadConfig: () => Promise<BlocklistConfig>,
 ): Promise<void> {
   if (!reaction) {
     return;
@@ -907,6 +972,7 @@ git commit -m "feat: add sqlite-backed portable runtime store"
 ### Task 5: Implement the Node gateway service and timed-role scheduler
 
 **Files:**
+
 - Create: `src/runtime/node-gateway-service.ts`
 - Create: `src/runtime/node-scheduler.ts`
 - Modify: `src/gateway.ts`
@@ -935,7 +1001,15 @@ test("node gateway service identifies on HELLO and persists READY state", async 
       return { emojis: [], guilds: {}, botUserId: "bot-user-id" };
     },
     async readGatewaySnapshot() {
-      return { status: "idle", sessionId: null, resumeGatewayUrl: null, lastSequence: null, backoffAttempt: 0, lastError: null, heartbeatIntervalMs: null };
+      return {
+        status: "idle",
+        sessionId: null,
+        resumeGatewayUrl: null,
+        lastSequence: null,
+        backoffAttempt: 0,
+        lastError: null,
+        heartbeatIntervalMs: null,
+      };
     },
     async writeGatewaySnapshot(snapshot: any) {
       persisted = snapshot;
@@ -959,7 +1033,17 @@ test("node gateway service identifies on HELLO and persists READY state", async 
 
   await gateway.start();
   onMessage?.(JSON.stringify({ op: 10, d: { heartbeat_interval: 45000 } }));
-  onMessage?.(JSON.stringify({ op: 0, t: "READY", s: 7, d: { session_id: "session-7", resume_gateway_url: "wss://resume.discord.gg/?v=10&encoding=json" } }));
+  onMessage?.(
+    JSON.stringify({
+      op: 0,
+      t: "READY",
+      s: 7,
+      d: {
+        session_id: "session-7",
+        resume_gateway_url: "wss://resume.discord.gg/?v=10&encoding=json",
+      },
+    }),
+  );
 
   assert.match(sent[0] ?? "", /"op":2/);
   assert.equal(persisted.sessionId, "session-7");
@@ -986,15 +1070,17 @@ test("timed role scheduler removes expired roles and deletes successful rows", a
     now: () => 1_700_000_000_000,
     store: {
       async listExpiredTimedRoles() {
-        return [{
-          guildId: "guild-1",
-          userId: "user-1",
-          roleId: "role-1",
-          durationInput: "1h",
-          expiresAtMs: 1_699_999_999_000,
-          createdAtMs: 1_699_999_000_000,
-          updatedAtMs: 1_699_999_000_000,
-        }];
+        return [
+          {
+            guildId: "guild-1",
+            userId: "user-1",
+            roleId: "role-1",
+            durationInput: "1h",
+            expiresAtMs: 1_699_999_999_000,
+            createdAtMs: 1_699_999_000_000,
+            updatedAtMs: 1_699_999_000_000,
+          },
+        ];
       },
       async deleteTimedRole(body) {
         deleted.push(body);
@@ -1043,18 +1129,27 @@ export function buildIdentifyPayload(token: string, os = "cloudflare"): GatewayF
 
 ```ts
 // src/runtime/node-gateway-service.ts
-import { buildHeartbeatPayload, buildIdentifyPayload, buildResumePayload, nextBackoffMillis, shouldHandleDispatch } from "../gateway";
+import {
+  buildHeartbeatPayload,
+  buildIdentifyPayload,
+  buildResumePayload,
+  nextBackoffMillis,
+  shouldHandleDispatch,
+} from "../gateway";
 import { moderateReactionAdd } from "../reaction-moderation";
 import type { GatewayController, GatewaySnapshot, RuntimeStore } from "./contracts";
 
 export function createNodeGatewayService(options: {
   botToken: string;
   store: RuntimeStore;
-  openWebSocket: (url: string, handlers: {
-    onMessage(payload: string): void;
-    onClose(): void;
-    onError(error: unknown): void;
-  }) => { send(data: string): void; close(): void };
+  openWebSocket: (
+    url: string,
+    handlers: {
+      onMessage(payload: string): void;
+      onClose(): void;
+      onError(error: unknown): void;
+    },
+  ) => { send(data: string): void; close(): void };
 }): GatewayController {
   let socket: { send(data: string): void; close(): void } | null = null;
   let snapshot: GatewaySnapshot = {
@@ -1069,20 +1164,29 @@ export function createNodeGatewayService(options: {
   const controller: GatewayController = {
     async start() {
       snapshot = await options.store.readGatewaySnapshot();
-      socket = options.openWebSocket(snapshot.resumeGatewayUrl ?? "wss://gateway.discord.gg/?v=10&encoding=json", {
-        onMessage(payload) {
-          void handleMessage(payload);
+      socket = options.openWebSocket(
+        snapshot.resumeGatewayUrl ?? "wss://gateway.discord.gg/?v=10&encoding=json",
+        {
+          onMessage(payload) {
+            void handleMessage(payload);
+          },
+          onClose() {
+            snapshot = {
+              ...snapshot,
+              status: "backoff",
+              backoffAttempt: snapshot.backoffAttempt + 1,
+            };
+            void options.store.writeGatewaySnapshot(snapshot);
+            setTimeout(() => {
+              void controller.start();
+            }, nextBackoffMillis(snapshot.backoffAttempt));
+          },
+          onError(error) {
+            snapshot = { ...snapshot, lastError: String(error) };
+            void options.store.writeGatewaySnapshot(snapshot);
+          },
         },
-        onClose() {
-          snapshot = { ...snapshot, status: "backoff", backoffAttempt: snapshot.backoffAttempt + 1 };
-          void options.store.writeGatewaySnapshot(snapshot);
-          setTimeout(() => { void controller.start(); }, nextBackoffMillis(snapshot.backoffAttempt));
-        },
-        onError(error) {
-          snapshot = { ...snapshot, lastError: String(error) };
-          void options.store.writeGatewaySnapshot(snapshot);
-        },
-      });
+      );
       snapshot = { ...snapshot, status: snapshot.sessionId ? "resuming" : "connecting" };
       await options.store.writeGatewaySnapshot(snapshot);
       return snapshot;
@@ -1093,16 +1197,23 @@ export function createNodeGatewayService(options: {
   };
 
   async function handleMessage(payload: string): Promise<void> {
-    const frame = JSON.parse(payload) as { op: number; t?: string | null; s?: number | null; d?: any };
+    const frame = JSON.parse(payload) as {
+      op: number;
+      t?: string | null;
+      s?: number | null;
+      d?: any;
+    };
     if (typeof frame.s === "number") {
       snapshot = { ...snapshot, lastSequence: frame.s };
     }
     if (frame.op === 10 && socket) {
-      socket.send(JSON.stringify(
-        snapshot.sessionId && snapshot.lastSequence !== null
-          ? buildResumePayload(options.botToken, snapshot.sessionId, snapshot.lastSequence)
-          : buildIdentifyPayload(options.botToken, "node")
-      ));
+      socket.send(
+        JSON.stringify(
+          snapshot.sessionId && snapshot.lastSequence !== null
+            ? buildResumePayload(options.botToken, snapshot.sessionId, snapshot.lastSequence)
+            : buildIdentifyPayload(options.botToken, "node"),
+        ),
+      );
       return;
     }
     if (frame.t === "READY") {
@@ -1118,7 +1229,9 @@ export function createNodeGatewayService(options: {
       return;
     }
     if (shouldHandleDispatch({ op: frame.op, t: frame.t ?? null })) {
-      await moderateReactionAdd(frame.d, { DISCORD_BOT_TOKEN: options.botToken }, () => options.store.readConfig());
+      await moderateReactionAdd(frame.d, { DISCORD_BOT_TOKEN: options.botToken }, () =>
+        options.store.readConfig(),
+      );
     }
   }
 
@@ -1146,7 +1259,7 @@ export function createTimedRoleScheduler(options: {
           await options.removeGuildMemberRole(
             assignment.guildId,
             assignment.userId,
-            assignment.roleId
+            assignment.roleId,
           );
           await options.store.deleteTimedRole({
             guildId: assignment.guildId,
@@ -1178,6 +1291,7 @@ git commit -m "feat: add node gateway runtime services"
 ### Task 6: Add the Node HTTP server, process entrypoint, Docker image, and docs
 
 **Files:**
+
 - Create: `src/runtime/node-server.ts`
 - Create: `src/runtime/node-main.ts`
 - Create: `Dockerfile`
@@ -1209,7 +1323,7 @@ test("startNodeRuntimeServer serves /health from the portable runtime", async ()
         return Promise.resolve(
           new URL(request.url).pathname === "/health"
             ? new Response("OK", { status: 200 })
-            : new Response("Not found", { status: 404 })
+            : new Response("Not found", { status: 404 }),
         );
       },
     },
@@ -1219,12 +1333,17 @@ test("startNodeRuntimeServer serves /health from the portable runtime", async ()
     const address = server.address();
     const port = typeof address === "object" && address ? address.port : 0;
     const responseBody = await new Promise<string>((resolve, reject) => {
-      const req = request({ host: "127.0.0.1", port, path: "/health", method: "GET" }, (response) => {
-        let body = "";
-        response.setEncoding("utf8");
-        response.on("data", (chunk) => { body += chunk; });
-        response.on("end", () => resolve(body));
-      });
+      const req = request(
+        { host: "127.0.0.1", port, path: "/health", method: "GET" },
+        (response) => {
+          let body = "";
+          response.setEncoding("utf8");
+          response.on("data", (chunk) => {
+            body += chunk;
+          });
+          response.on("end", () => resolve(body));
+        },
+      );
       req.on("error", reject);
       req.end();
     });
@@ -1366,8 +1485,9 @@ dist-node
 .git
 ```
 
-```md
+````md
 <!-- README.md -->
+
 ## Run outside Cloudflare with Docker
 
 1. Build the image:
@@ -1375,6 +1495,7 @@ dist-node
    ```bash
    pnpm run docker:build
    ```
+````
 
 2. Start the self-contained runtime:
 
@@ -1390,7 +1511,8 @@ dist-node
    ```
 
 This container hosts the HTTP API, Discord gateway connection, scheduler, and SQLite database in one process. Windows packaging can build on the same portable runtime later, but it is not part of this phase.
-```
+
+````
 
 - [ ] **Step 4: Run test to verify it passes**
 
@@ -1402,11 +1524,12 @@ Expected: PASS for the portable HTTP server test and no type errors across Cloud
 ```bash
 git add src/runtime/node-server.ts src/runtime/node-main.ts Dockerfile .dockerignore README.md test/node-server.test.ts
 git commit -m "feat: add docker-first portable runtime"
-```
+````
 
 ### Task 7: Run full verification for both deployment paths
 
 **Files:**
+
 - Modify: `README.md` if any command/output mismatches are discovered
 
 - [ ] **Step 1: Run the complete automated checks**

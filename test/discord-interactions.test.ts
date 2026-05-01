@@ -16,12 +16,10 @@ import {
 import { SLASH_COMMAND_DEFINITIONS } from "../src/discord-commands";
 
 type IsExact<A, B> =
-  (<T>() => T extends A ? 1 : 2) extends
-  (<T>() => T extends B ? 1 : 2)
-    ? ((<T>() => T extends B ? 1 : 2) extends
-      (<T>() => T extends A ? 1 : 2)
-        ? true
-        : false)
+  (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2
+    ? (<T>() => T extends B ? 1 : 2) extends <T>() => T extends A ? 1 : 2
+      ? true
+      : false
     : false;
 
 function expectTrue<T extends true>(_value: T) {}
@@ -29,14 +27,8 @@ function expectTrue<T extends true>(_value: T) {}
 expectTrue<IsExact<ReturnType<typeof extractCommandInvocation>, CommandInvocation | null>>(true);
 
 test("hasGuildAdminPermission accepts Administrator and Manage Guild", () => {
-  assert.equal(
-    hasGuildAdminPermission(ADMINISTRATOR_PERMISSION.toString()),
-    true
-  );
-  assert.equal(
-    hasGuildAdminPermission(MANAGE_GUILD_PERMISSION.toString()),
-    true
-  );
+  assert.equal(hasGuildAdminPermission(ADMINISTRATOR_PERMISSION.toString()), true);
+  assert.equal(hasGuildAdminPermission(MANAGE_GUILD_PERMISSION.toString()), true);
   assert.equal(hasGuildAdminPermission("0"), false);
 });
 
@@ -83,52 +75,65 @@ test("extractCommandInvocation returns blocklist add/remove requests", () => {
 });
 
 test("extractCommandInvocation returns timedrole add/remove/list requests", () => {
-  assert.deepEqual(extractCommandInvocation({
-    data: {
-      name: "timedrole",
-      options: [{
-        name: "add",
-        type: 1,
+  assert.deepEqual(
+    extractCommandInvocation({
+      data: {
+        name: "timedrole",
         options: [
-          { name: "user", value: "user-1" },
-          { name: "role", value: "role-1" },
-          { name: "duration", value: "1w" },
+          {
+            name: "add",
+            type: 1,
+            options: [
+              { name: "user", value: "user-1" },
+              { name: "role", value: "role-1" },
+              { name: "duration", value: "1w" },
+            ],
+          },
         ],
-      }],
+      },
+    } as any),
+    {
+      commandName: "timedrole",
+      subcommandName: "add",
+      userId: "user-1",
+      roleId: "role-1",
+      duration: "1w",
     },
-  } as any), {
-    commandName: "timedrole",
-    subcommandName: "add",
-    userId: "user-1",
-    roleId: "role-1",
-    duration: "1w",
-  });
+  );
 
-  assert.deepEqual(extractCommandInvocation({
-    data: {
-      name: "timedrole",
-      options: [{
-        name: "remove",
-        type: 1,
+  assert.deepEqual(
+    extractCommandInvocation({
+      data: {
+        name: "timedrole",
         options: [
-          { name: "user", value: "user-1" },
-          { name: "role", value: "role-1" },
+          {
+            name: "remove",
+            type: 1,
+            options: [
+              { name: "user", value: "user-1" },
+              { name: "role", value: "role-1" },
+            ],
+          },
         ],
-      }],
+      },
+    } as any),
+    {
+      commandName: "timedrole",
+      subcommandName: "remove",
+      userId: "user-1",
+      roleId: "role-1",
     },
-  } as any), {
-    commandName: "timedrole",
-    subcommandName: "remove",
-    userId: "user-1",
-    roleId: "role-1",
-  });
+  );
 
-  assert.deepEqual(extractCommandInvocation({
-    data: { name: "timedrole", options: [{ name: "list", type: 1 }] },
-  } as any), {
-    commandName: "timedrole",
-    subcommandName: "list",
-  });
+  assert.deepEqual(
+    extractCommandInvocation({
+      data: { name: "timedrole", options: [{ name: "list", type: 1 }] },
+    } as any),
+    {
+      commandName: "timedrole",
+      subcommandName: "list",
+    },
+  );
 });
 
 test("extractCommandInvocation rejects unknown commands and subcommands", () => {
@@ -175,20 +180,25 @@ test("extractCommandInvocation rejects future commands with timedrole-shaped opt
   });
 
   try {
-    assert.equal(extractCommandInvocation({
-      data: {
-        name: "futurecommand",
-        options: [{
-          name: "add",
-          type: 1,
+    assert.equal(
+      extractCommandInvocation({
+        data: {
+          name: "futurecommand",
           options: [
-            { name: "user", value: "user-1" },
-            { name: "role", value: "role-1" },
-            { name: "duration", value: "1w" },
+            {
+              name: "add",
+              type: 1,
+              options: [
+                { name: "user", value: "user-1" },
+                { name: "role", value: "role-1" },
+                { name: "duration", value: "1w" },
+              ],
+            },
           ],
-        }],
-      },
-    } as any), null);
+        },
+      } as any),
+      null,
+    );
   } finally {
     SLASH_COMMAND_DEFINITIONS.pop();
   }
@@ -221,17 +231,13 @@ test("SLASH_COMMAND_DEFINITIONS matches expected blocklist command tree", () => 
           type: 1,
           name: "add",
           description: "Block an emoji in this server",
-          options: [
-            { type: 3, name: "emoji", description: "Emoji to block", required: true },
-          ],
+          options: [{ type: 3, name: "emoji", description: "Emoji to block", required: true }],
         },
         {
           type: 1,
           name: "remove",
           description: "Unblock an emoji in this server",
-          options: [
-            { type: 3, name: "emoji", description: "Emoji to unblock", required: true },
-          ],
+          options: [{ type: 3, name: "emoji", description: "Emoji to unblock", required: true }],
         },
         {
           type: 1,
@@ -251,7 +257,12 @@ test("SLASH_COMMAND_DEFINITIONS matches expected blocklist command tree", () => 
           options: [
             { type: 6, name: "user", description: "User to assign the role to", required: true },
             { type: 8, name: "role", description: "Role to assign", required: true },
-            { type: 3, name: "duration", description: "How long to keep the role (for example 1h, 1w, 1m)", required: true },
+            {
+              type: 3,
+              name: "duration",
+              description: "How long to keep the role (for example 1h, 1w, 1m)",
+              required: true,
+            },
           ],
         },
         {
@@ -276,11 +287,10 @@ test("SLASH_COMMAND_DEFINITIONS matches expected blocklist command tree", () => 
 });
 
 test("SLASH_COMMAND_DEFINITIONS includes the blocklist list subcommand", () => {
-  assert.deepEqual(SLASH_COMMAND_DEFINITIONS[0].options?.map((option) => option.name), [
-    "add",
-    "remove",
-    "list",
-  ]);
+  assert.deepEqual(
+    SLASH_COMMAND_DEFINITIONS[0].options?.map((option) => option.name),
+    ["add", "remove", "list"],
+  );
 });
 
 test("extractCommandInvocation returns a list invocation without an emoji", () => {

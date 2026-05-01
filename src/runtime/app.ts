@@ -37,10 +37,13 @@ export function createRuntimeApp(options: RuntimeAppOptions) {
   const timedRoleService = new TimedRoleService(
     options.stores.timedRoles,
     options.discordBotToken,
-    (guildId, userId, roleId) => addGuildMemberRole(guildId, userId, roleId, options.discordBotToken),
-    (guildId, userId, roleId) => removeGuildMemberRole(guildId, userId, roleId, options.discordBotToken),
+    (guildId, userId, roleId) =>
+      addGuildMemberRole(guildId, userId, roleId, options.discordBotToken),
+    (guildId, userId, roleId) =>
+      removeGuildMemberRole(guildId, userId, roleId, options.discordBotToken),
     options.stores.blocklist as Partial<GuildNotificationChannelStore>,
-    (channelId, body) => createChannelMessage(channelId, body, options.discordBotToken).then(() => undefined)
+    (channelId, body) =>
+      createChannelMessage(channelId, body, options.discordBotToken).then(() => undefined),
   );
 
   const adminOverviewService = new AdminOverviewService(
@@ -48,12 +51,11 @@ export function createRuntimeApp(options: RuntimeAppOptions) {
     options.stores.timedRoles,
     options.gateway,
     (config, timedRoles, refreshDiscordCache) =>
-      buildAdminOverviewGuilds(config, timedRoles, options.discordBotToken, refreshDiscordCache)
+      buildAdminOverviewGuilds(config, timedRoles, options.discordBotToken, refreshDiscordCache),
   );
 
-  const blocklistService = new BlocklistService(
-    options.stores.blocklist,
-    (channelId, body) => createChannelMessage(channelId, body, options.discordBotToken).then(() => undefined)
+  const blocklistService = new BlocklistService(options.stores.blocklist, (channelId, body) =>
+    createChannelMessage(channelId, body, options.discordBotToken).then(() => undefined),
   );
   const handleAdminApiRequest = createAdminApiHandler({
     stores: options.stores,

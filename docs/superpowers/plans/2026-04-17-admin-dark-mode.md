@@ -13,6 +13,7 @@
 ### Task 1: Lock the dark palette behavior with a focused test
 
 **Files:**
+
 - Create: `test/admin-styles.test.ts`
 - Check: `src/admin/styles.css`
 - Check: `tsconfig.tests.json`
@@ -79,6 +80,7 @@ test("admin styles define a dark default palette", () => {
 ### Task 2: Replace the shared admin palette and regenerate the embedded bundle
 
 **Files:**
+
 - Modify: `src/admin/styles.css`
 - Regenerate: `src/runtime/admin-bundle.ts`
 - Check: `src/admin/components/ui/card.tsx`
@@ -140,6 +142,7 @@ Expected: PASS with the new `admin styles define a dark default palette` test su
 ### Task 3: Run the existing repository verification and commit only the dark mode files
 
 **Files:**
+
 - Verify: `test/admin-styles.test.ts`
 - Verify: `src/admin/styles.css`
 - Verify: `src/runtime/admin-bundle.ts`

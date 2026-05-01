@@ -29,11 +29,11 @@ test("gateway status monitor refreshes immediately and on each timer tick", asyn
     setInterval(
       callback: GatewayStatusMonitorOptions<{ status: string }>["setInterval"] extends (
         cb: infer Callback,
-        delayMs: number
+        delayMs: number,
       ) => unknown
         ? Callback
         : never,
-      delayMs: number
+      delayMs: number,
     ) {
       assert.equal(delayMs, 5000);
       intervalCallbacks.push(callback);

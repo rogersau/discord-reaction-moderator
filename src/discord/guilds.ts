@@ -36,11 +36,11 @@ export interface GuildTicketResources {
 }
 
 export async function listBotGuilds(
-  botToken: string
+  botToken: string,
 ): Promise<Array<{ guildId: string; name: string }>> {
   const guilds = await discordGetJson<Array<{ id: string; name: string }>>(
     `${DISCORD_API}/users/@me/guilds`,
-    botToken
+    botToken,
   );
 
   return guilds.map(({ id, name }) => ({ guildId: id, name }));
@@ -55,7 +55,7 @@ export interface DiscordGuildEmojiResource {
 
 export async function listGuildTicketResources(
   guildId: string,
-  botToken: string
+  botToken: string,
 ): Promise<GuildTicketResources> {
   const [channels, roles] = await Promise.all([
     discordGetJson<DiscordChannelResource[]>(`${DISCORD_API}/guilds/${guildId}/channels`, botToken),
@@ -70,18 +70,18 @@ export async function listGuildTicketResources(
 
 export async function listGuildEmojis(
   guildId: string,
-  botToken: string
+  botToken: string,
 ): Promise<DiscordGuildEmojiResource[]> {
   return discordGetJson<DiscordGuildEmojiResource[]>(
     `${DISCORD_API}/guilds/${guildId}/emojis`,
-    botToken
+    botToken,
   );
 }
 
 export async function getGuildPermissionResources(
   guildId: string,
   botUserId: string,
-  botToken: string
+  botToken: string,
 ): Promise<{
   channels: DiscordChannelResource[];
   roles: DiscordRoleResource[];
@@ -90,7 +90,10 @@ export async function getGuildPermissionResources(
   const [channels, roles, member] = await Promise.all([
     discordGetJson<DiscordChannelResource[]>(`${DISCORD_API}/guilds/${guildId}/channels`, botToken),
     discordGetJson<DiscordRoleResource[]>(`${DISCORD_API}/guilds/${guildId}/roles`, botToken),
-    discordGetJson<DiscordGuildMemberResource>(`${DISCORD_API}/guilds/${guildId}/members/${botUserId}`, botToken),
+    discordGetJson<DiscordGuildMemberResource>(
+      `${DISCORD_API}/guilds/${guildId}/members/${botUserId}`,
+      botToken,
+    ),
   ]);
 
   return {

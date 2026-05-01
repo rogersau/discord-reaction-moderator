@@ -56,7 +56,7 @@ export function PermissionNotice({
       try {
         const body = await readPermissionResponse(
           `/admin/api/permissions?guildId=${encodeURIComponent(trimmedGuildId)}` +
-            `&feature=${encodeURIComponent(feature)}`
+            `&feature=${encodeURIComponent(feature)}`,
         );
         if (!cancelled) {
           setState({ kind: "ready", checks: body.checks });
@@ -110,10 +110,7 @@ export function PermissionNotice({
         <div className="space-y-3">
           <div className="flex flex-wrap gap-2">
             {failingChecks.map((check) => (
-              <span
-                key={check.label}
-                className={getBadgeClassName(check.status)}
-              >
+              <span key={check.label} className={getBadgeClassName(check.status)}>
                 {check.label}
               </span>
             ))}
@@ -142,9 +139,9 @@ async function readPermissionResponse(path: string): Promise<AdminPermissionChec
   if (!response.ok) {
     throw new Error(
       parsedBody?.error ??
-      (looksLikeHtmlError(rawBody)
-        ? "Permission check failed right now."
-        : rawBody || `Permission check failed (${response.status})`)
+        (looksLikeHtmlError(rawBody)
+          ? "Permission check failed right now."
+          : rawBody || `Permission check failed (${response.status})`),
     );
   }
 
@@ -155,7 +152,9 @@ async function readPermissionResponse(path: string): Promise<AdminPermissionChec
   return parsedBody;
 }
 
-function parsePermissionBody(rawBody: string): (AdminPermissionCheckResponse & { error?: string }) | null {
+function parsePermissionBody(
+  rawBody: string,
+): (AdminPermissionCheckResponse & { error?: string }) | null {
   if (!rawBody) {
     return null;
   }

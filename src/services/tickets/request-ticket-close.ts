@@ -1,7 +1,4 @@
-import {
-  buildTicketCloseConfirmCustomId,
-  buildTicketCloseDeclineCustomId,
-} from "../../tickets";
+import { buildTicketCloseConfirmCustomId, buildTicketCloseDeclineCustomId } from "../../tickets";
 import type { TicketInstance } from "../../types";
 
 export async function requestTicketClose(
@@ -12,13 +9,13 @@ export async function requestTicketClose(
         content: string;
         allowed_mentions: { users: string[] };
         components: unknown[];
-      }
+      },
     ) => Promise<void>;
   },
   options: {
     ticket: TicketInstance;
     requesterUserId: string;
-  }
+  },
 ): Promise<void> {
   await adapters.createChannelMessage(options.ticket.channelId, {
     content: `<@${options.ticket.openerUserId}> <@${options.requesterUserId}> requested to close this ticket. Do you want to close it now?`,

@@ -11,11 +11,7 @@ import { Card, CardContent } from "./ui/card";
 import { Input } from "./ui/input";
 import { RefreshIcon } from "./ui/icons";
 
-export function AdminBlocklistPage({
-  selectedGuildId,
-}: {
-  selectedGuildId: string;
-}) {
+export function AdminBlocklistPage({ selectedGuildId }: { selectedGuildId: string }) {
   const [emoji, setEmoji] = useState("");
   const [action, setAction] = useState<"add" | "remove">("add");
   const [currentEmojis, setCurrentEmojis] = useState<string[] | null>(null);
@@ -105,7 +101,7 @@ export function AdminBlocklistPage({
       setResult(
         notificationChannelId.trim()
           ? `Saved moderation log channel for ${selectedGuildId}.`
-          : `Cleared moderation log channel for ${selectedGuildId}.`
+          : `Cleared moderation log channel for ${selectedGuildId}.`,
       );
     }
   }
@@ -200,7 +196,8 @@ export function AdminBlocklistPage({
                   onSelect={(picked) => setEmoji(picked.name)}
                 />
                 <p className="text-[11px] text-muted-foreground">
-                  Click a server emoji to fill the field. Custom emojis are blocked by name (matches Discord reaction names).
+                  Click a server emoji to fill the field. Custom emojis are blocked by name (matches
+                  Discord reaction names).
                 </p>
               </FormField>
               <EditorActions>

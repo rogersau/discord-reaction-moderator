@@ -19,12 +19,14 @@ The admin dashboard currently makes operators enter and read raw Discord `guildI
 Fetch the bot's visible guild list for the admin UI, show server names in a shared picker, and continue submitting `guildId` to every existing route.
 
 **Pros**
+
 - Removes manual ID entry from the main admin workflow
 - Preserves current storage and Discord API behavior
 - Keeps the change concentrated in the admin UI and authenticated admin routes
 - Gives a clean way to handle duplicate server names
 
 **Cons**
+
 - Needs one new admin API route plus client-side mapping logic
 - Still needs an explicit fallback when the guild directory cannot be loaded
 
@@ -33,10 +35,12 @@ Fetch the bot's visible guild list for the admin UI, show server names in a shar
 Keep the existing text inputs but let operators type a server name, then resolve that name to a `guildId` when loading or saving.
 
 **Pros**
+
 - Smaller UI refactor
 - Reuses most of the current form layout
 
 **Cons**
+
 - Ambiguous when multiple guilds share the same name
 - Harder to give clear feedback for typos and partial matches
 - Makes error handling more awkward than a picker-driven flow
@@ -46,9 +50,11 @@ Keep the existing text inputs but let operators type a server name, then resolve
 Leave the inputs as raw IDs and only improve display labels where the UI renders existing guilds.
 
 **Pros**
+
 - Smallest implementation
 
 **Cons**
+
 - Does not solve the core pain point of entering and working from server names
 
 ## Selected approach

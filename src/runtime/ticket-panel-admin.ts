@@ -1,8 +1,4 @@
-import {
-  createChannelMessage,
-  DiscordApiError,
-  type GuildTicketResources,
-} from "../discord";
+import { createChannelMessage, DiscordApiError, type GuildTicketResources } from "../discord";
 import { buildTicketOpenCustomId } from "../tickets";
 import type { TicketPanelConfig, TicketQuestion, TicketTypeConfig } from "../types";
 import type { RuntimeStores } from "./app-types";
@@ -31,7 +27,7 @@ export interface TicketPanelAdminOptions {
 export async function handleTicketPanelAdminRequest(
   request: Request,
   url: URL,
-  options: TicketPanelAdminOptions
+  options: TicketPanelAdminOptions,
 ): Promise<Response | null> {
   if (request.method === "GET" && url.pathname === "/admin/api/tickets/panel") {
     const guildId = url.searchParams.get("guildId");
@@ -99,7 +95,7 @@ export async function handleTicketPanelAdminRequest(
     const resources = await getCachedGuildTicketResources(
       parsedBody.value.guildId,
       options.discordBotToken,
-      true
+      true,
     );
     const missingTargets = getMissingTicketPanelTargets(panel, resources);
     if (missingTargets.length > 0) {
@@ -107,7 +103,7 @@ export async function handleTicketPanelAdminRequest(
         {
           error: `Ticket panel config references missing Discord targets: ${missingTargets.join(", ")}`,
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -122,7 +118,7 @@ export async function handleTicketPanelAdminRequest(
               ? error.message
               : "Failed to publish the ticket panel to Discord.",
         },
-        { status: 502 }
+        { status: 502 },
       );
     }
     await options.stores.tickets.upsertTicketPanelConfig({
@@ -186,42 +182,53 @@ function parseTicketTypes(value: unknown): TicketPanelConfig["ticketTypes"] {
       label: asRequiredString(ticketType.label, `ticketTypes[${index}].label`),
       emoji: asNullableString(ticketType.emoji, `ticketTypes[${index}].emoji`),
       buttonStyle: asTicketButtonStyle(ticketType.buttonStyle),
-      supportRoleId: asRequiredString(ticketType.supportRoleId, `ticketTypes[${index}].supportRoleId`),
-      channelNamePrefix: asRequiredString(ticketType.channelNamePrefix, `ticketTypes[${index}].channelNamePrefix`),
+      supportRoleId: asRequiredString(
+        ticketType.supportRoleId,
+        `ticketTypes[${index}].supportRoleId`,
+      ),
+      channelNamePrefix: asRequiredString(
+        ticketType.channelNamePrefix,
+        `ticketTypes[${index}].channelNamePrefix`,
+      ),
       questions: parseTicketQuestions(ticketType.questions, index),
     };
   });
 }
 
-function parseTicketQuestions(
-  value: unknown,
-  ticketTypeIndex: number
-): TicketQuestion[] {
+function parseTicketQuestions(value: unknown, ticketTypeIndex: number): TicketQuestion[] {
   if (!Array.isArray(value)) {
     throw new AdminApiInputError(`Missing ticketTypes[${ticketTypeIndex}].questions`);
   }
   if (value.length > 5) {
-    throw new AdminApiInputError(`ticketTypes[${ticketTypeIndex}].questions cannot exceed 5 entries`);
+    throw new AdminApiInputError(
+      `ticketTypes[${ticketTypeIndex}].questions cannot exceed 5 entries`,
+    );
   }
 
   return value.map((question, questionIndex) => {
     if (!isRecord(question)) {
       throw new AdminApiInputError(
-        `Invalid ticketTypes[${ticketTypeIndex}].questions[${questionIndex}]`
+        `Invalid ticketTypes[${ticketTypeIndex}].questions[${questionIndex}]`,
       );
     }
 
     return {
-      id: asRequiredString(question.id, `ticketTypes[${ticketTypeIndex}].questions[${questionIndex}].id`),
-      label: asRequiredString(question.label, `ticketTypes[${ticketTypeIndex}].questions[${questionIndex}].label`),
+      id: asRequiredString(
+        question.id,
+        `ticketTypes[${ticketTypeIndex}].questions[${questionIndex}].id`,
+      ),
+      label: asRequiredString(
+        question.label,
+        `ticketTypes[${ticketTypeIndex}].questions[${questionIndex}].label`,
+      ),
       style: asTicketQuestionStyle(question.style),
       placeholder: asNullableString(
         question.placeholder,
-        `ticketTypes[${ticketTypeIndex}].questions[${questionIndex}].placeholder`
+        `ticketTypes[${ticketTypeIndex}].questions[${questionIndex}].placeholder`,
       ),
       required: asBoolean(
         question.required,
-        `ticketTypes[${ticketTypeIndex}].questions[${questionIndex}].required`
+        `ticketTypes[${ticketTypeIndex}].questions[${questionIndex}].required`,
       ),
     };
   });
@@ -245,13 +252,13 @@ function asTicketQuestionStyle(value: unknown): TicketQuestion["style"] {
 
 function getMissingTicketPanelTargets(
   panel: TicketPanelConfig,
-  resources: GuildTicketResources
+  resources: GuildTicketResources,
 ): string[] {
   const categoryIds = new Set(
-    resources.channels.filter((channel) => channel.type === 4).map((channel) => channel.id)
+    resources.channels.filter((channel) => channel.type === 4).map((channel) => channel.id),
   );
   const textChannelIds = new Set(
-    resources.channels.filter((channel) => channel.type === 0).map((channel) => channel.id)
+    resources.channels.filter((channel) => channel.type === 0).map((channel) => channel.id),
   );
   const roleIds = new Set(resources.roles.map((role) => role.id));
   const missing: string[] = [];
@@ -309,10 +316,7 @@ function buildTicketPanelEmbed(panel: TicketPanelConfig) {
   };
 }
 
-function formatTicketPanelEmbedTitle(
-  panelEmoji: string | null,
-  panelTitle: string | null
-): string {
+function formatTicketPanelEmbedTitle(panelEmoji: string | null, panelTitle: string | null): string {
   const emoji = panelEmoji?.trim();
   const title = panelTitle?.trim();
 
@@ -349,7 +353,7 @@ function mapTicketButtonStyle(style: TicketTypeConfig["buttonStyle"]): 1 | 2 | 3
 
 async function publishTicketPanel(
   panel: TicketPanelConfig,
-  discordBotToken: string
+  discordBotToken: string,
 ): Promise<string> {
   const message = buildTicketPanelMessage(panel);
 
@@ -359,7 +363,7 @@ async function publishTicketPanel(
         panel.panelChannelId,
         panel.panelMessageId,
         message,
-        discordBotToken
+        discordBotToken,
       );
       return refreshed.id;
     } catch (error) {
@@ -377,19 +381,16 @@ async function updateDiscordChannelMessage(
   channelId: string,
   messageId: string,
   body: Record<string, unknown>,
-  discordBotToken: string
+  discordBotToken: string,
 ): Promise<{ id: string }> {
-  const response = await fetch(
-    `${DISCORD_API_BASE}/channels/${channelId}/messages/${messageId}`,
-    {
-      method: "PATCH",
-      headers: {
-        Authorization: `Bot ${discordBotToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
-    }
-  );
+  const response = await fetch(`${DISCORD_API_BASE}/channels/${channelId}/messages/${messageId}`, {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bot ${discordBotToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
 
   return parseDiscordJsonResponse(response, "Failed to update channel message");
 }
@@ -397,7 +398,11 @@ async function updateDiscordChannelMessage(
 async function parseDiscordJsonResponse<T>(response: Response, message: string): Promise<T> {
   if (!response.ok) {
     const details = await response.text().catch(() => "Unknown error");
-    throw new DiscordApiError(`${message}: ${response.status} ${details}`, response.status, details);
+    throw new DiscordApiError(
+      `${message}: ${response.status} ${details}`,
+      response.status,
+      details,
+    );
   }
 
   return response.json() as Promise<T>;

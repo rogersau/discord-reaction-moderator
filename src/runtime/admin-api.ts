@@ -15,10 +15,7 @@ import {
   getCachedGuildPermissionContext,
   shouldRefreshAdminDiscordCache,
 } from "./admin-discord-cache";
-import {
-  parseJsonBody,
-  parseAppConfigMutation,
-} from "./admin-api-validation";
+import { parseJsonBody, parseAppConfigMutation } from "./admin-api-validation";
 import type { RuntimeStores } from "./app-types";
 import { handleTicketPanelAdminRequest } from "./ticket-panel-admin";
 import type { BlocklistConfig, TimedRoleAssignment } from "../types";
@@ -54,7 +51,10 @@ export function createAdminApiHandler(options: AdminApiHandlerOptions) {
         return Response.json({ error: "guildId is required" }, { status: 400 });
       }
       if (!isAdminPermissionFeature(featureParam)) {
-        return Response.json({ error: "feature must be blocklist, timed-roles, or tickets" }, { status: 400 });
+        return Response.json(
+          { error: "feature must be blocklist, timed-roles, or tickets" },
+          { status: 400 },
+        );
       }
 
       try {
@@ -64,8 +64,8 @@ export function createAdminApiHandler(options: AdminApiHandlerOptions) {
             featureParam,
             options.stores,
             options.discordBotToken,
-            refreshDiscordCache
-          )
+            refreshDiscordCache,
+          ),
         );
       } catch (error) {
         return Response.json(
@@ -75,14 +75,14 @@ export function createAdminApiHandler(options: AdminApiHandlerOptions) {
                 ? error.message
                 : "Failed to load the bot's current Discord permissions.",
           },
-          { status: 502 }
+          { status: 502 },
         );
       }
     }
 
     if (request.method === "GET" && url.pathname === "/admin/api/guilds") {
       const guilds = buildAdminGuildDirectory(
-        await getCachedBotGuilds(options.discordBotToken, refreshDiscordCache)
+        await getCachedBotGuilds(options.discordBotToken, refreshDiscordCache),
       );
       const body: AdminGuildDirectoryResponse = { guilds };
       return Response.json(body);
@@ -111,7 +111,7 @@ export async function buildAdminOverviewGuilds(
   config: BlocklistConfig,
   timedRoles: TimedRoleAssignment[],
   discordBotToken: string,
-  refreshDiscordCache = false
+  refreshDiscordCache = false,
 ): Promise<AdminOverviewGuild[]> {
   const guilds = new Map<string, AdminOverviewGuild>();
 
@@ -152,11 +152,13 @@ export async function buildAdminOverviewGuilds(
           guild.guildId,
           config.botUserId,
           discordBotToken,
-          refreshDiscordCache
+          refreshDiscordCache,
         );
         guild.permissionChecks = [
           ...(guild.emojis.length > 0 ? buildBlocklistPermissionChecks(context) : []),
-          ...(guild.timedRoles.length > 0 ? buildTimedRolePermissionChecks(context, guild.timedRoles) : []),
+          ...(guild.timedRoles.length > 0
+            ? buildTimedRolePermissionChecks(context, guild.timedRoles)
+            : []),
         ].filter((check) => check.status !== "ok");
         guild.roleNamesById = Object.fromEntries(context.roles.map((role) => [role.id, role.name]));
       } catch (error) {
@@ -171,7 +173,7 @@ export async function buildAdminOverviewGuilds(
           },
         ];
       }
-    })
+    }),
   );
 
   return [...guilds.values()].sort((left, right) => left.guildId.localeCompare(right.guildId));
@@ -182,14 +184,14 @@ async function buildAdminPermissionResponse(
   feature: AdminPermissionFeature,
   stores: RuntimeStores,
   discordBotToken: string,
-  refreshDiscordCache: boolean
+  refreshDiscordCache: boolean,
 ): Promise<AdminPermissionCheckResponse> {
   const config = await stores.blocklist.readConfig();
   const context = await getCachedGuildPermissionContext(
     guildId,
     config.botUserId,
     discordBotToken,
-    refreshDiscordCache
+    refreshDiscordCache,
   );
 
   if (feature === "blocklist") {
@@ -204,14 +206,20 @@ async function buildAdminPermissionResponse(
     return {
       guildId,
       feature,
-      checks: buildTimedRolePermissionChecks(context, await stores.timedRoles.listTimedRolesByGuild(guildId)),
+      checks: buildTimedRolePermissionChecks(
+        context,
+        await stores.timedRoles.listTimedRolesByGuild(guildId),
+      ),
     };
   }
 
   return {
     guildId,
     feature,
-    checks: buildTicketPermissionChecks(context, await stores.tickets.readTicketPanelConfig(guildId)),
+    checks: buildTicketPermissionChecks(
+      context,
+      await stores.tickets.readTicketPanelConfig(guildId),
+    ),
   };
 }
 
@@ -220,7 +228,7 @@ function isAdminPermissionFeature(value: string | null): value is AdminPermissio
 }
 
 function buildAdminGuildDirectory(
-  guilds: Array<{ guildId: string; name: string }>
+  guilds: Array<{ guildId: string; name: string }>,
 ): AdminGuildDirectoryEntry[] {
   const nameCounts = new Map<string, number>();
 
@@ -231,15 +239,12 @@ function buildAdminGuildDirectory(
   return [...guilds]
     .sort(
       (left, right) =>
-        left.name.localeCompare(right.name) ||
-        left.guildId.localeCompare(right.guildId)
+        left.name.localeCompare(right.name) || left.guildId.localeCompare(right.guildId),
     )
     .map((guild) => ({
       guildId: guild.guildId,
       name: guild.name,
       label:
-        (nameCounts.get(guild.name) ?? 0) > 1
-          ? `${guild.name} (${guild.guildId})`
-          : guild.name,
+        (nameCounts.get(guild.name) ?? 0) > 1 ? `${guild.name} (${guild.guildId})` : guild.name,
     }));
 }

@@ -4,7 +4,7 @@ export class DiscordApiError extends Error {
   constructor(
     message: string,
     readonly status: number,
-    readonly details: string
+    readonly details: string,
   ) {
     super(message);
     this.name = "DiscordApiError";
@@ -15,20 +15,24 @@ export async function discordRequest(
   url: string,
   method: string,
   botToken: string,
-  init: RequestInit = {}
+  init: RequestInit = {},
 ): Promise<Response> {
+  const headers = new Headers(init.headers);
+  headers.set("Authorization", `Bot ${botToken}`);
+
   const response = await fetch(url, {
     ...init,
     method,
-    headers: {
-      Authorization: `Bot ${botToken}`,
-      ...(init.headers ?? {}),
-    },
+    headers,
   });
 
   if (!response.ok) {
     const details = await response.text().catch(() => "Unknown error");
-    throw new DiscordApiError(`Discord API error: ${response.status} ${details}`, response.status, details);
+    throw new DiscordApiError(
+      `Discord API error: ${response.status} ${details}`,
+      response.status,
+      details,
+    );
   }
 
   return response;

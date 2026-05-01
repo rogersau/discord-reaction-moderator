@@ -61,7 +61,7 @@ test("shouldHandleDispatch returns true for message reaction add events", () => 
       s: 101,
       d: { message_id: "message-1" },
     }),
-    true
+    true,
   );
 });
 
@@ -73,7 +73,7 @@ test("shouldHandleDispatch returns true for guild member add events", () => {
       s: 102,
       d: { guild_id: "guild-1", user: { id: "user-1" } },
     }),
-    true
+    true,
   );
 });
 
@@ -85,7 +85,7 @@ test("shouldHandleDispatch ignores non-dispatch and unrelated events", () => {
       s: null,
       d: { heartbeat_interval: 45000 },
     }),
-    false
+    false,
   );
   assert.equal(
     shouldHandleDispatch({
@@ -94,7 +94,7 @@ test("shouldHandleDispatch ignores non-dispatch and unrelated events", () => {
       s: 1,
       d: { session_id: "session-1" },
     }),
-    false
+    false,
   );
 });
 

@@ -18,11 +18,13 @@ The admin web interface currently uses a light theme palette. The requested chan
 Update the CSS custom properties in `src/admin/styles.css` so the existing UI renders with a dark surface and light foreground colors.
 
 **Pros**
+
 - Smallest change
 - Consistent across the full admin UI
 - No new React state, storage, or runtime logic
 
 **Cons**
+
 - Does not prepare a user-facing theme toggle
 
 ### 2. Introduce a `.dark` class and apply it globally
@@ -30,9 +32,11 @@ Update the CSS custom properties in `src/admin/styles.css` so the existing UI re
 Define both light and dark tokens, then set the root into dark mode by default.
 
 **Pros**
+
 - Easier future path to a toggle
 
 **Cons**
+
 - More moving parts than needed for the current request
 - Adds structure that is unused today
 
@@ -41,9 +45,11 @@ Define both light and dark tokens, then set the root into dark mode by default.
 Manually adjust classes in `App.tsx` and individual UI primitives.
 
 **Pros**
+
 - Fine-grained control
 
 **Cons**
+
 - Highest maintenance cost
 - Easy to miss surfaces and create inconsistent styling
 
@@ -69,10 +75,12 @@ Use option 1: replace the shared admin palette with dark token values in `src/ad
 ### Scope boundaries
 
 In scope:
+
 - Admin UI palette updates needed to make the interface dark by default
 - Regenerating the embedded admin bundle after the CSS change
 
 Out of scope:
+
 - User-selectable theme switching
 - Automatic light/dark switching from OS preferences
 - Broader restyling outside what is needed for a coherent dark default
@@ -85,4 +93,3 @@ No new runtime error handling is needed because the change is static styling onl
 
 - Confirm the admin build still succeeds after the CSS token changes.
 - Confirm the existing test and typecheck commands still pass.
-

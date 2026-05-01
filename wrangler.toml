@@ -3,9 +3,9 @@ main = "src/index.ts"
 compatibility_date = "2024-01-01"
 
 [vars]
-BOT_USER_ID = "1493404817677090856"  # Set your bot's user ID after creating it in Discord Developer Portal
-DISCORD_PUBLIC_KEY = "9113b842d4ade29e412959490d5a7dff2e74c41b12500c73612285bf4ca0e6b5"  # Copy from Discord Developer Portal > General Information
-DISCORD_APPLICATION_ID = "1493404817677090856"  # Copy the application ID for slash command syncs
+BOT_USER_ID = "1493404817677090856" # Set your bot's user ID after creating it in Discord Developer Portal
+DISCORD_PUBLIC_KEY = "9113b842d4ade29e412959490d5a7dff2e74c41b12500c73612285bf4ca0e6b5" # Copy from Discord Developer Portal > General Information
+DISCORD_APPLICATION_ID = "1493404817677090856" # Copy the application ID for slash command syncs
 
 [triggers]
 crons = ["*/5 * * * *"]

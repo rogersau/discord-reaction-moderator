@@ -142,4 +142,3 @@ The rollback should follow the upstream shadcn model rather than inventing a new
 - Use beautiful defaults instead of bespoke decoration
 - Keep shared primitives generic; page-level styling belongs in the page
 - Stay close to standard shadcn class structure unless a project-specific deviation is clearly justified
-

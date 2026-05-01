@@ -73,12 +73,17 @@ test("ticket transcript path helpers build stable public paths and storage keys"
   assert.equal(buildTicketTranscriptStorageKey("guild-1", "channel-1"), "guild-1/channel-1.html");
   assert.equal(buildTicketTranscriptPath("guild-1", "channel-1"), "/transcripts/guild-1/channel-1");
   assert.equal(
-    buildTicketTranscriptAttachmentStorageKey("guild-1", "channel-1", "attachment-1", "proof image.png"),
-    "guild-1/channel-1/attachments/attachment-1/proof%20image.png"
+    buildTicketTranscriptAttachmentStorageKey(
+      "guild-1",
+      "channel-1",
+      "attachment-1",
+      "proof image.png",
+    ),
+    "guild-1/channel-1/attachments/attachment-1/proof%20image.png",
   );
   assert.equal(
     buildTicketTranscriptAttachmentPath("guild-1", "channel-1", "attachment-1", "proof image.png"),
-    "/transcripts/guild-1/channel-1/media/attachment-1/proof%20image.png"
+    "/transcripts/guild-1/channel-1/media/attachment-1/proof%20image.png",
   );
 });
 
@@ -111,7 +116,7 @@ test("extractTicketAnswersFromModal reads submitted modal fields", () => {
         placeholder: null,
         required: false,
       },
-    ]
+    ],
   );
 
   assert.deepEqual(answers, [
@@ -130,9 +135,7 @@ test("renderTicketTranscript includes ticket metadata, answers, and chronologica
       openerUserId: "user-1",
       supportRoleId: "role-1",
       status: "closed",
-      answers: [
-        { questionId: "reason", label: "Reason", value: "I need help" },
-      ],
+      answers: [{ questionId: "reason", label: "Reason", value: "I need help" }],
       openedAtMs: 1_700_000_000_000,
       closedAtMs: 1_700_000_001_000,
       closedByUserId: "staff-1",
@@ -151,7 +154,7 @@ test("renderTicketTranscript includes ticket metadata, answers, and chronologica
         content: "Hello",
         createdAtMs: 1_700_000_000_500,
       },
-    ]
+    ],
   );
 
   assert.match(transcript, /Guild: guild-1/);
@@ -163,7 +166,9 @@ test("renderTicketTranscript includes ticket metadata, answers, and chronologica
   assert.match(transcript, /Reason: I need help/);
   assert.match(transcript, /Support#0002: First reply/);
   assert.match(transcript, /User#0001: Hello/);
-  assert.ok(transcript.indexOf("Support#0002: First reply") < transcript.indexOf("User#0001: Hello"));
+  assert.ok(
+    transcript.indexOf("Support#0002: First reply") < transcript.indexOf("User#0001: Hello"),
+  );
 });
 
 test("renderTicketTranscript includes attachment links below their messages", () => {
@@ -211,12 +216,16 @@ test("renderTicketTranscript includes attachment links below their messages", ()
           },
         ],
       },
-    ]
+    ],
   );
 
   assert.match(transcript, /User#0001: Here is the proof/);
-  assert.ok(transcript.includes("  Image: proof.png (image/png, 1.5 KB) - https://cdn.example/proof.png"));
-  assert.ok(transcript.includes("  Video: clip.mp4 (video/mp4, 1 MB) - https://cdn.example/clip.mp4"));
+  assert.ok(
+    transcript.includes("  Image: proof.png (image/png, 1.5 KB) - https://cdn.example/proof.png"),
+  );
+  assert.ok(
+    transcript.includes("  Video: clip.mp4 (video/mp4, 1 MB) - https://cdn.example/clip.mp4"),
+  );
 });
 
 test("renderTicketTranscriptHtml escapes content and includes transcript metadata", () => {
@@ -242,7 +251,7 @@ test("renderTicketTranscriptHtml escapes content and includes transcript metadat
         content: "Hello <script>alert('x')</script>",
         createdAtMs: 1_700_000_000_500,
       },
-    ]
+    ],
   );
 
   assert.match(html, /<title>Ticket Transcript channel-1<\/title>/);
@@ -307,11 +316,19 @@ test("renderTicketTranscriptHtml renders image and video attachments inline", ()
           },
         ],
       },
-    ]
+    ],
   );
 
-  assert.ok(html.includes('<img src="https://cdn.example/proof.png?ex=1&amp;is=2" alt="proof &lt;image&gt;.png" loading="lazy" />'));
-  assert.ok(html.includes('<video controls preload="metadata"><source src="https://cdn.example/clip.mp4" type="video/mp4" /></video>'));
+  assert.ok(
+    html.includes(
+      '<img src="https://cdn.example/proof.png?ex=1&amp;is=2" alt="proof &lt;image&gt;.png" loading="lazy" />',
+    ),
+  );
+  assert.ok(
+    html.includes(
+      '<video controls preload="metadata"><source src="https://cdn.example/clip.mp4" type="video/mp4" /></video>',
+    ),
+  );
   assert.match(html, /Attachment URL unavailable/);
   assert.doesNotMatch(html, /javascript:alert/);
 });
@@ -338,7 +355,7 @@ test("renderTicketTranscriptHtml prefers display names for opener and closer met
       channelName: "ticket-001",
       openerDisplayName: "Alice",
       closerDisplayName: "Support",
-    }
+    },
   );
 
   assert.match(html, /Guild<\/dt><dd>Guild Name \(guild-1\)<\/dd>/);
@@ -386,22 +403,34 @@ test("buildTicketTranscriptSummaryEmbed includes transcript overview and identif
       channelName: "ticket-0011",
       openerDisplayName: "summertrain",
       closerDisplayName: "Postal",
-    }
+    },
   );
 
   assert.equal(embed.title, "Ticket Transcript");
-  assert.equal(embed.fields?.find((field) => field.name === "Server")?.value, "COLD AS FK (guild-1)");
-  assert.equal(embed.fields?.find((field) => field.name === "Channel")?.value, "#ticket-0011 (channel-1)");
+  assert.equal(
+    embed.fields?.find((field) => field.name === "Server")?.value,
+    "COLD AS FK (guild-1)",
+  );
+  assert.equal(
+    embed.fields?.find((field) => field.name === "Channel")?.value,
+    "#ticket-0011 (channel-1)",
+  );
   assert.equal(
     embed.fields?.find((field) => field.name === "Search keys")?.value,
-    "discord:1493598719340318791 steam64:76561198439127312"
+    "discord:1493598719340318791 steam64:76561198439127312",
   );
   assert.equal(
     embed.fields?.find((field) => field.name === "Users in transcript")?.value,
-    "1 - summertrain\n1 - Support"
+    "1 - summertrain\n1 - Support",
   );
-  assert.equal(embed.fields?.find((field) => field.name === "Ticket Owner")?.value, "summertrain (1493598719340318791)");
-  assert.equal(embed.fields?.find((field) => field.name === "Closed by")?.value, "Postal (staff-1)");
+  assert.equal(
+    embed.fields?.find((field) => field.name === "Ticket Owner")?.value,
+    "summertrain (1493598719340318791)",
+  );
+  assert.equal(
+    embed.fields?.find((field) => field.name === "Closed by")?.value,
+    "Postal (staff-1)",
+  );
 });
 
 test("openTicket deletes the created channel when persistence fails", async () => {
@@ -457,9 +486,9 @@ test("openTicket deletes the created channel when persistence fails", async () =
           questions: [],
         },
         answers: [],
-      }
+      },
     ),
-    /persist failed/
+    /persist failed/,
   );
 
   assert.deepEqual(calls, ["create-channel", "delete-channel"]);

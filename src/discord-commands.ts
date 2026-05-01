@@ -7,17 +7,13 @@ export const SLASH_COMMAND_DEFINITIONS = [
         type: 1,
         name: "add",
         description: "Block an emoji in this server",
-        options: [
-          { type: 3, name: "emoji", description: "Emoji to block", required: true },
-        ],
+        options: [{ type: 3, name: "emoji", description: "Emoji to block", required: true }],
       },
       {
         type: 1,
         name: "remove",
         description: "Unblock an emoji in this server",
-        options: [
-          { type: 3, name: "emoji", description: "Emoji to unblock", required: true },
-        ],
+        options: [{ type: 3, name: "emoji", description: "Emoji to unblock", required: true }],
       },
       {
         type: 1,
@@ -37,7 +33,12 @@ export const SLASH_COMMAND_DEFINITIONS = [
         options: [
           { type: 6, name: "user", description: "User to assign the role to", required: true },
           { type: 8, name: "role", description: "Role to assign", required: true },
-          { type: 3, name: "duration", description: "How long to keep the role (for example 1h, 1w, 1m)", required: true },
+          {
+            type: 3,
+            name: "duration",
+            description: "How long to keep the role (for example 1h, 1w, 1m)",
+            required: true,
+          },
         ],
       },
       {

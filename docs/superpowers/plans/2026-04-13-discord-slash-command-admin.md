@@ -28,6 +28,7 @@
 ### Task 1: Build the interaction helpers and command registry
 
 **Files:**
+
 - Create: `src/discord-interactions.ts`
 - Create: `src/discord-commands.ts`
 - Test: `test/discord-interactions.test.ts`
@@ -86,17 +87,13 @@ test("SLASH_COMMAND_DEFINITIONS exposes the blocklist command tree", () => {
           type: 1,
           name: "add",
           description: "Block an emoji in this server",
-          options: [
-            { type: 3, name: "emoji", description: "Emoji to block", required: true },
-          ],
+          options: [{ type: 3, name: "emoji", description: "Emoji to block", required: true }],
         },
         {
           type: 1,
           name: "remove",
           description: "Unblock an emoji in this server",
-          options: [
-            { type: 3, name: "emoji", description: "Emoji to unblock", required: true },
-          ],
+          options: [{ type: 3, name: "emoji", description: "Emoji to unblock", required: true }],
         },
       ],
     },
@@ -128,10 +125,7 @@ export const MANAGE_GUILD_PERMISSION = 1n << 5n;
 
 export function hasGuildAdminPermission(permissions: string): boolean {
   const bits = BigInt(permissions);
-  return (
-    (bits & ADMINISTRATOR_PERMISSION) !== 0n ||
-    (bits & MANAGE_GUILD_PERMISSION) !== 0n
-  );
+  return (bits & ADMINISTRATOR_PERMISSION) !== 0n || (bits & MANAGE_GUILD_PERMISSION) !== 0n;
 }
 
 export function extractCommandInvocation(interaction: {
@@ -188,17 +182,13 @@ export const SLASH_COMMAND_DEFINITIONS = [
         type: 1,
         name: "add",
         description: "Block an emoji in this server",
-        options: [
-          { type: 3, name: "emoji", description: "Emoji to block", required: true },
-        ],
+        options: [{ type: 3, name: "emoji", description: "Emoji to block", required: true }],
       },
       {
         type: 1,
         name: "remove",
         description: "Unblock an emoji in this server",
-        options: [
-          { type: 3, name: "emoji", description: "Emoji to unblock", required: true },
-        ],
+        options: [{ type: 3, name: "emoji", description: "Emoji to unblock", required: true }],
       },
     ],
   },
@@ -220,6 +210,7 @@ git commit -m "feat: add Discord interaction helpers"
 ### Task 2: Add guild-scoped emoji mutations to `ModerationStoreDO`
 
 **Files:**
+
 - Modify: `src/durable-objects/moderation-store.ts`
 - Test: `test/blocklist.test.ts`
 
@@ -238,7 +229,7 @@ test("ModerationStoreDO applies guild-scoped emoji add and remove mutations", as
         emoji: "✅",
         action: "add",
       }),
-    })
+    }),
   );
 
   assert.equal(addResponse.status, 200);
@@ -257,7 +248,7 @@ test("ModerationStoreDO applies guild-scoped emoji add and remove mutations", as
         emoji: "✅",
         action: "remove",
       }),
-    })
+    }),
   );
 
   const afterRemove = await removeResponse.json();
@@ -348,6 +339,7 @@ git commit -m "feat: add guild blocklist mutations"
 ### Task 3: Wire the `/interactions` route and slash command execution
 
 **Files:**
+
 - Modify: `src/index.ts`
 - Modify: `src/env.ts`
 - Modify: `src/discord.ts`
@@ -368,7 +360,7 @@ test("worker answers Discord PING interactions", async () => {
   const response = await worker.fetch(
     await createSignedRequest("https://worker.example/interactions", { type: 1 }),
     createEnv({ DISCORD_PUBLIC_KEY: publicKey }),
-    {} as ExecutionContext
+    {} as ExecutionContext,
   );
 
   assert.equal(response.status, 200);
@@ -394,11 +386,14 @@ test("worker rejects slash commands from members without guild admin permissions
       },
     }),
     createEnv({ DISCORD_PUBLIC_KEY: publicKey }),
-    {} as ExecutionContext
+    {} as ExecutionContext,
   );
 
   assert.equal(response.status, 200);
-  assert.equal((await response.json()).data.content, "You need Administrator or Manage Guild to use this command.");
+  assert.equal(
+    (await response.json()).data.content,
+    "You need Administrator or Manage Guild to use this command.",
+  );
 });
 ```
 
@@ -427,20 +422,12 @@ if (url.pathname === "/interactions" && request.method === "POST") {
   return handleInteractionRequest(request, env);
 }
 
-async function handleInteractionRequest(
-  request: Request,
-  env: Env
-): Promise<Response> {
+async function handleInteractionRequest(request: Request, env: Env): Promise<Response> {
   const signature = request.headers.get("x-signature-ed25519") ?? "";
   const timestamp = request.headers.get("x-signature-timestamp") ?? "";
   const body = await request.text();
 
-  const isValid = await verifyDiscordSignature(
-    body,
-    signature,
-    timestamp,
-    env.DISCORD_PUBLIC_KEY
-  );
+  const isValid = await verifyDiscordSignature(body, signature, timestamp, env.DISCORD_PUBLIC_KEY);
 
   if (!isValid) {
     return new Response("Invalid signature", { status: 401 });
@@ -460,7 +447,7 @@ async function handleApplicationCommand(
     member?: { permissions?: string };
     data?: unknown;
   },
-  env: Env
+  env: Env,
 ): Promise<Response> {
   if (!interaction.guild_id) {
     return Response.json(buildEphemeralMessage("This command can only be used in a server."));
@@ -468,7 +455,7 @@ async function handleApplicationCommand(
 
   if (!hasGuildAdminPermission(interaction.member?.permissions ?? "0")) {
     return Response.json(
-      buildEphemeralMessage("You need Administrator or Manage Guild to use this command.")
+      buildEphemeralMessage("You need Administrator or Manage Guild to use this command."),
     );
   }
 
@@ -502,7 +489,7 @@ export async function verifyDiscordSignature(
   body: string,
   signature: string,
   timestamp: string,
-  publicKeyHex: string
+  publicKeyHex: string,
 ): Promise<boolean> {
   const publicKey = hexToBytes(publicKeyHex);
   const signedPayload = new TextEncoder().encode(timestamp + body);
@@ -527,6 +514,7 @@ git commit -m "feat: add Discord interactions endpoint"
 ### Task 4: Sync slash commands during bootstrap and document the setup
 
 **Files:**
+
 - Modify: `src/index.ts`
 - Modify: `src/env.ts`
 - Modify: `src/discord.ts`
@@ -550,11 +538,11 @@ test("worker scheduled handler syncs slash commands before starting the gateway 
   });
 
   const waitUntilPromises: Promise<unknown>[] = [];
-  worker.scheduled(
-    {} as ScheduledController,
-    env,
-    { waitUntil(promise) { waitUntilPromises.push(promise); } } as ExecutionContext
-  );
+  worker.scheduled({} as ScheduledController, env, {
+    waitUntil(promise) {
+      waitUntilPromises.push(promise);
+    },
+  } as ExecutionContext);
 
   await Promise.all(waitUntilPromises);
 
@@ -591,7 +579,7 @@ import { SLASH_COMMAND_DEFINITIONS } from "./discord-commands";
 
 export async function syncApplicationCommands(
   applicationId: string,
-  botToken: string
+  botToken: string,
 ): Promise<void> {
   const response = await fetch(
     `https://discord.com/api/v10/applications/${applicationId}/commands`,
@@ -602,7 +590,7 @@ export async function syncApplicationCommands(
         Authorization: `Bot ${botToken}`,
       },
       body: JSON.stringify(SLASH_COMMAND_DEFINITIONS),
-    }
+    },
   );
 
   if (!response.ok) {
@@ -648,6 +636,7 @@ DISCORD_APPLICATION_ID = ""
 
 ```md
 <!-- README.md -->
+
 Set these non-secret vars in `wrangler.toml`:
 
 [vars]

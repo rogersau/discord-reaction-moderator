@@ -45,7 +45,8 @@ const permissionSensitiveOverviewGuild: AdminOverviewGuild = {
     {
       label: "Manage Messages in text channels",
       status: "warning",
-      detail: "Manage Messages is missing in 1 of 2 visible text channels, so reaction cleanup can fail there.",
+      detail:
+        "Manage Messages is missing in 1 of 2 visible text channels, so reaction cleanup can fail there.",
     },
     {
       label: "Timed role targets below the bot",
@@ -55,8 +56,6 @@ const permissionSensitiveOverviewGuild: AdminOverviewGuild = {
   ],
   roleNamesById: { "role-2": "Member" },
 };
-
-
 
 test("authenticated admin dashboard renders a sidebar shell with an overview landing page", () => {
   const html = renderToString(<App initialAuthenticated initialPath="/admin" />);
@@ -112,9 +111,7 @@ test("authenticated admin dashboard keeps navigation labels for future workflow 
 });
 
 test("authenticated admin dashboard renders the gateway workspace on /admin/gateway", () => {
-  const html = renderToString(
-    <App initialAuthenticated initialPath="/admin/gateway" />
-  );
+  const html = renderToString(<App initialAuthenticated initialPath="/admin/gateway" />);
 
   assert.match(html, /aria-current="page"[^>]*>Gateway</);
   assert.match(html, /Start gateway/i);
@@ -125,9 +122,7 @@ test("authenticated admin dashboard renders the gateway workspace on /admin/gate
 });
 
 test("authenticated admin dashboard renders the blocklist workspace on /admin/blocklist", () => {
-  const html = renderToString(
-    <App initialAuthenticated initialPath="/admin/blocklist" />
-  );
+  const html = renderToString(<App initialAuthenticated initialPath="/admin/blocklist" />);
 
   assert.match(html, /aria-current="page"[^>]*>Blocklist</);
   assert.match(html, /id="sidebar-guild-query"/);
@@ -141,9 +136,7 @@ test("authenticated admin dashboard renders the blocklist workspace on /admin/bl
 });
 
 test("authenticated admin dashboard renders the timed roles workspace on /admin/timed-roles", () => {
-  const html = renderToString(
-    <App initialAuthenticated initialPath="/admin/timed-roles" />
-  );
+  const html = renderToString(<App initialAuthenticated initialPath="/admin/timed-roles" />);
 
   assert.match(html, /aria-current="page"[^>]*>Timed Roles</);
   assert.match(html, /id="sidebar-guild-query"/);
@@ -191,7 +184,7 @@ test("getAdminLoginRequestPath preserves the current deep-link query", () => {
 
   assert.equal(
     getAdminLoginRequestPath("/admin/login", "?next=%2Fadmin%2Fgateway"),
-    "/admin/login?next=%2Fadmin%2Fgateway"
+    "/admin/login?next=%2Fadmin%2Fgateway",
   );
   assert.equal(getAdminLoginRequestPath("/admin/login", ""), "/admin/login");
 });
@@ -200,15 +193,21 @@ test("getAdminLoginNavigationTarget follows redirected dashboard responses", () 
   const helper = (AdminAppModule as Record<string, unknown>).getAdminLoginNavigationTarget;
 
   assert.equal(typeof helper, "function");
-  const getAdminLoginNavigationTarget = helper as (responseUrl: string, redirected: boolean) => string | null;
+  const getAdminLoginNavigationTarget = helper as (
+    responseUrl: string,
+    redirected: boolean,
+  ) => string | null;
 
   assert.equal(
     getAdminLoginNavigationTarget("https://runtime.example/admin/gateway", true),
-    "/admin/gateway"
+    "/admin/gateway",
   );
   assert.equal(
-    getAdminLoginNavigationTarget("https://runtime.example/admin/login?next=%2Fadmin%2Fgateway", false),
-    null
+    getAdminLoginNavigationTarget(
+      "https://runtime.example/admin/login?next=%2Fadmin%2Fgateway",
+      false,
+    ),
+    null,
   );
 });
 
@@ -272,14 +271,17 @@ test("buildAdminDashboardHref keeps the selected guild in sidebar navigation lin
   assert.equal(typeof helper, "function");
   const buildAdminDashboardHref = helper as (path: string, guildId: string) => string;
 
-  assert.equal(buildAdminDashboardHref("/admin/tickets", "guild-2"), "/admin/tickets?guildId=guild-2");
+  assert.equal(
+    buildAdminDashboardHref("/admin/tickets", "guild-2"),
+    "/admin/tickets?guildId=guild-2",
+  );
   assert.equal(buildAdminDashboardHref("/admin/tickets", ""), "/admin/tickets");
 });
 
 test("combineDashboardErrors preserves both overview and gateway failures", () => {
   assert.equal(
     combineDashboardErrors("Overview failed.", "Gateway failed."),
-    "Overview failed. Gateway failed."
+    "Overview failed. Gateway failed.",
   );
   assert.equal(combineDashboardErrors(null, "Gateway failed."), "Gateway failed.");
   assert.equal(combineDashboardErrors("Overview failed.", null), "Overview failed.");
@@ -293,16 +295,15 @@ test("describeError collapses HTML worker failures into a friendly dashboard mes
   const describeError = helper as (error: unknown) => string;
 
   assert.equal(
-    describeError(new Error("<!DOCTYPE html><html><head><title>Worker threw exception</title></head></html>")),
-    "Discord lookup failed right now."
+    describeError(
+      new Error("<!DOCTYPE html><html><head><title>Worker threw exception</title></head></html>"),
+    ),
+    "Discord lookup failed right now.",
   );
 });
 
-
 test("authenticated admin dashboard keeps the initial dashboard path available to the client shell", () => {
-  const html = renderToString(
-    <App initialAuthenticated initialPath="/admin/tickets" />
-  );
+  const html = renderToString(<App initialAuthenticated initialPath="/admin/tickets" />);
 
   assert.match(html, /data-current-path="\/admin\/tickets"/);
 });
@@ -315,7 +316,7 @@ test("guild picker renders searchable server labels from the guild directory", (
       guildDirectory={guildDirectory}
       loadError={null}
       onChange={() => {}}
-    />
+    />,
   );
 
   assert.match(html, /Filter servers/);
@@ -331,7 +332,7 @@ test("guild picker falls back to a raw guild ID input when lookup fails", () => 
       guildDirectory={null}
       loadError="Discord lookup failed"
       onChange={() => {}}
-    />
+    />,
   );
 
   assert.match(html, /Guild ID/);
@@ -339,9 +340,7 @@ test("guild picker falls back to a raw guild ID input when lookup fails", () => 
 });
 
 test("guild overview card prefers the server name and keeps the guild ID secondary", () => {
-  const html = renderToString(
-    <GuildOverviewCard guild={overviewGuild} guildName="Alpha" />
-  );
+  const html = renderToString(<GuildOverviewCard guild={overviewGuild} guildName="Alpha" />);
 
   assert.match(html, />Alpha</);
   assert.match(html, /guild-1/);
@@ -349,16 +348,14 @@ test("guild overview card prefers the server name and keeps the guild ID seconda
 });
 
 test("guild overview card falls back to the raw guild ID when no server name is available", () => {
-  const html = renderToString(
-    <GuildOverviewCard guild={overviewGuild} guildName={null} />
-  );
+  const html = renderToString(<GuildOverviewCard guild={overviewGuild} guildName={null} />);
 
   assert.match(html, />guild-1</);
 });
 
 test("guild overview card highlights permission-sensitive moderation features", () => {
   const html = renderToString(
-    <GuildOverviewCard guild={permissionSensitiveOverviewGuild} guildName="Bravo" />
+    <GuildOverviewCard guild={permissionSensitiveOverviewGuild} guildName="Bravo" />,
   );
 
   assert.match(html, /Permission watch/);
@@ -391,7 +388,7 @@ test("ticket panel editor shows friendly Discord names instead of raw IDs", () =
       onChange={() => {}}
       onSave={async () => {}}
       onPublish={async () => {}}
-    />
+    />,
   );
 
   assert.match(html, />Open Tickets</);
@@ -441,7 +438,7 @@ test("ticket panel editor renders controls for editing ticket types and modal qu
       onChange={() => {}}
       onSave={async () => {}}
       onPublish={async () => {}}
-    />
+    />,
   );
 
   assert.match(html, /Add ticket type/);

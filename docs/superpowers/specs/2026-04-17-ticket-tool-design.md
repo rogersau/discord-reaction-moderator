@@ -37,11 +37,13 @@ Out of scope:
 Use the admin UI to manage panel and ticket-type configuration, then let Discord buttons and modal submissions drive the live lifecycle.
 
 **Pros**
+
 - Matches the requested split between web configuration and Discord operations
 - Fits the current architecture cleanly
 - Keeps the operator workflow centralized without duplicating day-to-day ticket actions in the web UI
 
 **Cons**
+
 - Requires the interaction layer to support message components and modal submissions, not just slash commands
 
 ### 2. Admin-managed ticketing with Discord as a thin client
@@ -49,9 +51,11 @@ Use the admin UI to manage panel and ticket-type configuration, then let Discord
 Keep the same persisted config, but also add live ticket browsing and closure controls in the admin dashboard.
 
 **Pros**
+
 - Gives operators a second place to inspect ticket state
 
 **Cons**
+
 - Duplicates lifecycle controls the user wants in Discord
 - Adds more UI and runtime complexity than needed
 
@@ -60,9 +64,11 @@ Keep the same persisted config, but also add live ticket browsing and closure co
 Use slash commands for ticket-type setup and reserve the web UI for only a few defaults.
 
 **Pros**
+
 - Smaller initial build
 
 **Cons**
+
 - Does not satisfy the requirement that buttons, roles, and questions be created from the web interface
 
 ## Selected approach

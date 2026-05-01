@@ -39,7 +39,7 @@ test("admin card and input use standard shadcn surface classes", () => {
         <CardContent>Body</CardContent>
       </Card>
       <Input value="" onChange={() => undefined} />
-    </>
+    </>,
   );
 
   assert.match(html, /rounded-lg border bg-card text-card-foreground shadow-sm/);
@@ -66,7 +66,7 @@ test("admin table and alert drop the custom accent-heavy chrome", () => {
       <Alert>
         <AlertDescription>Saved.</AlertDescription>
       </Alert>
-    </>
+    </>,
   );
 
   assert.match(html, /w-full caption-bottom text-sm/);

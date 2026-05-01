@@ -86,8 +86,11 @@ export function serializeTicketPanelStorage(panel: TicketPanelConfig): string {
 }
 
 export function parseTicketPanelStorage(
-  payload: string
-): Pick<TicketPanelConfig, "ticketTypes" | "panelEmoji" | "panelTitle" | "panelDescription" | "panelFooter"> {
+  payload: string,
+): Pick<
+  TicketPanelConfig,
+  "ticketTypes" | "panelEmoji" | "panelTitle" | "panelDescription" | "panelFooter"
+> {
   const parsed = JSON.parse(payload) as unknown;
 
   if (Array.isArray(parsed)) {
@@ -130,7 +133,7 @@ export function buildTicketCloseDeclineCustomId(channelId: string): string {
 }
 
 export function parseTicketCustomId(
-  customId: string
+  customId: string,
 ):
   | { action: "open"; ticketTypeId: string }
   | { action: "close"; channelId: string }
@@ -214,7 +217,7 @@ export function buildTicketTranscriptAttachmentStorageKey(
   guildId: string,
   channelId: string,
   attachmentId: string,
-  filename: string
+  filename: string,
 ): string {
   return `${guildId}/${channelId}/attachments/${attachmentId}/${encodeURIComponent(filename)}`;
 }
@@ -227,14 +230,14 @@ export function buildTicketTranscriptAttachmentPath(
   guildId: string,
   channelId: string,
   attachmentId: string,
-  filename: string
+  filename: string,
 ): string {
   return `${buildTicketTranscriptPath(guildId, channelId)}/media/${encodeURIComponent(attachmentId)}/${encodeURIComponent(filename)}`;
 }
 
 export function extractTicketAnswersFromModal(
   interaction: TicketModalSubmitInteraction,
-  questions: TicketQuestion[]
+  questions: TicketQuestion[],
 ): Array<{ questionId: string; label: string; value: string }> {
   const valuesByCustomId = new Map<string, string>();
 
@@ -255,7 +258,7 @@ export function extractTicketAnswersFromModal(
 
 export function renderTicketTranscript(
   instance: TicketInstance,
-  messages: TicketTranscriptMessage[]
+  messages: TicketTranscriptMessage[],
 ): string {
   const lines: string[] = [];
   const sortedMessages = [...messages].sort((left, right) => left.createdAtMs - right.createdAtMs);
@@ -269,7 +272,7 @@ export function renderTicketTranscript(
   lines.push(`Status: ${instance.status}`);
   lines.push(`Opened at: ${new Date(instance.openedAtMs).toISOString()}`);
   lines.push(
-    `Closed at: ${instance.closedAtMs === null ? "Not closed" : new Date(instance.closedAtMs).toISOString()}`
+    `Closed at: ${instance.closedAtMs === null ? "Not closed" : new Date(instance.closedAtMs).toISOString()}`,
   );
   lines.push(`Closed by: ${instance.closedByUserId ?? "Not closed"}`);
   lines.push("");
@@ -292,9 +295,7 @@ export function renderTicketTranscript(
     for (const message of sortedMessages) {
       const author = message.authorTag ?? message.authorId;
       const content = message.content.length > 0 ? message.content : "[no text content]";
-      lines.push(
-        `[${new Date(message.createdAtMs).toISOString()}] ${author}: ${content}`
-      );
+      lines.push(`[${new Date(message.createdAtMs).toISOString()}] ${author}: ${content}`);
       for (const attachment of message.attachments ?? []) {
         lines.push(formatTranscriptAttachmentTextLine(attachment));
       }
@@ -307,7 +308,7 @@ export function renderTicketTranscript(
 export function renderTicketTranscriptHtml(
   instance: TicketInstance,
   messages: TicketTranscriptMessage[],
-  options: TicketTranscriptPresentationOptions = {}
+  options: TicketTranscriptPresentationOptions = {},
 ): string {
   const sortedMessages = [...messages].sort((left, right) => left.createdAtMs - right.createdAtMs);
   const answerMarkup =
@@ -316,7 +317,7 @@ export function renderTicketTranscriptHtml(
       : `<ul class="answers">${instance.answers
           .map(
             (answer) =>
-              `<li><strong>${escapeHtml(answer.label)}:</strong> ${escapeHtml(answer.value)}</li>`
+              `<li><strong>${escapeHtml(answer.label)}:</strong> ${escapeHtml(answer.value)}</li>`,
           )
           .join("")}</ul>`;
   const messageMarkup =
@@ -325,9 +326,10 @@ export function renderTicketTranscriptHtml(
       : `<ol class="messages">${sortedMessages
           .map((message) => {
             const author = message.authorTag ?? message.authorId;
-            const contentMarkup = message.content.length > 0
-              ? `<div class="message-content">${escapeHtml(message.content)}</div>`
-              : "";
+            const contentMarkup =
+              message.content.length > 0
+                ? `<div class="message-content">${escapeHtml(message.content)}</div>`
+                : "";
             const attachmentMarkup = renderTranscriptAttachments(message.attachments ?? []);
             return `<li>
   <header>
@@ -504,7 +506,7 @@ export function renderTicketTranscriptHtml(
 export function buildTicketTranscriptSummaryEmbed(
   instance: TicketInstance,
   messages: TicketTranscriptMessage[],
-  options: TicketTranscriptPresentationOptions = {}
+  options: TicketTranscriptPresentationOptions = {},
 ): DiscordEmbed {
   const sortedMessages = [...messages].sort((left, right) => left.createdAtMs - right.createdAtMs);
   const participantLines = summarizeTranscriptParticipants(sortedMessages)
@@ -512,7 +514,7 @@ export function buildTicketTranscriptSummaryEmbed(
     .join("\n");
   const attachmentCount = sortedMessages.reduce(
     (total, message) => total + (message.attachments?.length ?? 0),
-    0
+    0,
   );
   const searchKeys = buildTicketTranscriptSearchKeys(instance);
   const fields = [
@@ -556,7 +558,9 @@ export function buildTicketTranscriptSummaryEmbed(
       : []),
     {
       name: "Ticket Owner",
-      value: truncateDiscordFieldValue(formatTranscriptIdentity(options.openerDisplayName, instance.openerUserId)),
+      value: truncateDiscordFieldValue(
+        formatTranscriptIdentity(options.openerDisplayName, instance.openerUserId),
+      ),
       inline: false,
     },
     ...instance.answers
@@ -577,7 +581,9 @@ export function buildTicketTranscriptSummaryEmbed(
       : []),
     {
       name: "Closed by",
-      value: truncateDiscordFieldValue(formatTranscriptIdentity(options.closerDisplayName, instance.closedByUserId)),
+      value: truncateDiscordFieldValue(
+        formatTranscriptIdentity(options.closerDisplayName, instance.closedByUserId),
+      ),
       inline: false,
     },
   ].slice(0, 25);
@@ -624,17 +630,21 @@ function renderTranscriptAttachment(attachment: TicketTranscriptAttachment): str
 function renderTranscriptAttachmentPreview(
   attachment: TicketTranscriptAttachment,
   safeUrl: string,
-  kind: TranscriptAttachmentKind
+  kind: TranscriptAttachmentKind,
 ): string {
   const escapedUrl = escapeHtml(safeUrl);
-  const escapedFilename = escapeHtml(attachment.filename.trim().length > 0 ? attachment.filename : "attachment");
+  const escapedFilename = escapeHtml(
+    attachment.filename.trim().length > 0 ? attachment.filename : "attachment",
+  );
 
   if (kind === "image") {
     return `<a class="attachment-preview" href="${escapedUrl}" target="_blank" rel="noopener noreferrer"><img src="${escapedUrl}" alt="${escapedFilename}" loading="lazy" /></a>`;
   }
 
   if (kind === "video") {
-    const contentType = attachment.contentType ? ` type="${escapeHtml(attachment.contentType)}"` : "";
+    const contentType = attachment.contentType
+      ? ` type="${escapeHtml(attachment.contentType)}"`
+      : "";
     return `<video controls preload="metadata"><source src="${escapedUrl}"${contentType} /></video>`;
   }
 
@@ -651,7 +661,9 @@ function formatTranscriptAttachmentTextLine(attachment: TicketTranscriptAttachme
 
 type TranscriptAttachmentKind = "image" | "video" | "file";
 
-function getTranscriptAttachmentKind(attachment: TicketTranscriptAttachment): TranscriptAttachmentKind {
+function getTranscriptAttachmentKind(
+  attachment: TicketTranscriptAttachment,
+): TranscriptAttachmentKind {
   const contentType = attachment.contentType?.toLowerCase() ?? "";
   if (contentType.startsWith("image/")) {
     return "image";
@@ -704,7 +716,8 @@ function formatBytes(size: number | null): string | null {
   let value = size / 1024;
   for (const unit of units) {
     if (value < 1024 || unit === units[units.length - 1]) {
-      const formatted = value >= 10 || Number.isInteger(value) ? String(Math.round(value)) : value.toFixed(1);
+      const formatted =
+        value >= 10 || Number.isInteger(value) ? String(Math.round(value)) : value.toFixed(1);
       return `${formatted} ${unit}`;
     }
     value /= 1024;
@@ -739,7 +752,7 @@ function buildTicketTextInput(question: TicketQuestion) {
 
 function formatTranscriptGuildLabel(
   instance: TicketInstance,
-  options: TicketTranscriptPresentationOptions
+  options: TicketTranscriptPresentationOptions,
 ): string {
   if (options.guildName && options.guildName !== instance.guildId) {
     return `${options.guildName} (${instance.guildId})`;
@@ -750,7 +763,7 @@ function formatTranscriptGuildLabel(
 
 function formatTranscriptChannelLabel(
   instance: TicketInstance,
-  options: TicketTranscriptPresentationOptions
+  options: TicketTranscriptPresentationOptions,
 ): string {
   if (options.channelName && options.channelName !== instance.channelId) {
     return `#${options.channelName} (${instance.channelId})`;
@@ -759,7 +772,10 @@ function formatTranscriptChannelLabel(
   return instance.channelId;
 }
 
-function formatTranscriptIdentity(displayName: string | null | undefined, userId: string | null): string {
+function formatTranscriptIdentity(
+  displayName: string | null | undefined,
+  userId: string | null,
+): string {
   if (!userId) {
     return "Not closed";
   }
@@ -794,14 +810,19 @@ function summarizeTranscriptParticipants(messages: TicketTranscriptMessage[]): A
 
   return [...participants.entries()]
     .map(([authorId, participant]) => ({ authorId, ...participant }))
-    .sort((left, right) => right.messageCount - left.messageCount || left.displayName.localeCompare(right.displayName));
+    .sort(
+      (left, right) =>
+        right.messageCount - left.messageCount || left.displayName.localeCompare(right.displayName),
+    );
 }
 
 function buildTicketTranscriptSearchKeys(instance: TicketInstance): string[] {
   const keys = new Set<string>([`discord:${instance.openerUserId}`]);
 
   for (const answer of instance.answers) {
-    const normalizedKey = canonicalizeSearchKey(normalizeSearchKey(answer.questionId || answer.label));
+    const normalizedKey = canonicalizeSearchKey(
+      normalizeSearchKey(answer.questionId || answer.label),
+    );
     const normalizedValue = answer.value.trim();
     if (!normalizedKey || !normalizedValue) {
       continue;
@@ -866,12 +887,14 @@ function asStoredNullableString(value: unknown): string | null {
 }
 
 function normalizeTicketChannelPrefix(prefix: string): string {
-  return prefix
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .replace(/-{2,}/g, "-") || "ticket";
+  return (
+    prefix
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .replace(/-{2,}/g, "-") || "ticket"
+  );
 }
 
 function escapeHtml(value: string): string {

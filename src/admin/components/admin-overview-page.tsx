@@ -6,13 +6,7 @@ import { Alert, AlertDescription } from "./ui/alert";
 import { Badge, StatusDot } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
-import {
-  ActivityIcon,
-  ClockIcon,
-  PlayIcon,
-  RefreshIcon,
-  ServerIcon,
-} from "./ui/icons";
+import { ActivityIcon, ClockIcon, PlayIcon, RefreshIcon, ServerIcon } from "./ui/icons";
 
 interface GatewayStatus {
   status: string;
@@ -96,9 +90,7 @@ export function AdminOverviewPage({
           value={totalTimedRoles === null ? "—" : String(totalTimedRoles)}
           icon={<ClockIcon className="h-4 w-4" />}
           tone="default"
-          footer={
-            <span className="text-xs text-muted-foreground">Active assignments tracked</span>
-          }
+          footer={<span className="text-xs text-muted-foreground">Active assignments tracked</span>}
         />
       </div>
 
@@ -131,7 +123,9 @@ export function AdminOverviewPage({
         <CardHeader className="flex flex-row items-center justify-between gap-2">
           <CardTitle className="text-lg">Stored server data</CardTitle>
           {overview ? (
-            <Badge variant="info">{overview.guilds.length} server{overview.guilds.length === 1 ? "" : "s"}</Badge>
+            <Badge variant="info">
+              {overview.guilds.length} server{overview.guilds.length === 1 ? "" : "s"}
+            </Badge>
           ) : null}
         </CardHeader>
         <CardContent className="space-y-4">
@@ -201,16 +195,13 @@ function StatCard({
           </p>
           <span
             className={
-              "flex h-8 w-8 items-center justify-center rounded-md ring-1 ring-inset " +
-              ringTone
+              "flex h-8 w-8 items-center justify-center rounded-md ring-1 ring-inset " + ringTone
             }
           >
             {icon}
           </span>
         </div>
-        <p className="break-words text-2xl font-semibold tracking-tight text-foreground">
-          {value}
-        </p>
+        <p className="break-words text-2xl font-semibold tracking-tight text-foreground">{value}</p>
         {footer ? <div className="border-t border-border/60 pt-3">{footer}</div> : null}
       </CardContent>
     </Card>

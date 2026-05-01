@@ -78,7 +78,7 @@ test("TicketService.openTicket creates channel and persists ticket instance", as
         parentId: config.parentId,
       });
       return { id: "channel-new", name: config.name };
-    }
+    },
   );
 
   const result = await service.openTicket({
@@ -154,7 +154,7 @@ test("TicketService.closeTicket deletes channel and closes ticket instance", asy
     undefined,
     async (channelId: string) => {
       deletedChannels.push(channelId);
-    }
+    },
   );
 
   await service.closeTicket({
@@ -231,7 +231,7 @@ test("TicketService.openTicket deletes channel when persistence fails", async ()
     },
     async (channelId: string) => {
       deletedChannels.push(channelId);
-    }
+    },
   );
 
   await assert.rejects(
@@ -242,7 +242,7 @@ test("TicketService.openTicket deletes channel when persistence fails", async ()
       ticketType: panel.ticketTypes[0],
       answers: [],
     }),
-    /persistence failed/
+    /persistence failed/,
   );
 
   assert.equal(createdChannels.length, 1, "Should create channel");
@@ -319,7 +319,7 @@ test("TicketService.openTicket rolls back ticket instance when opening message f
     },
     async (channelId: string) => {
       deletedChannels.push(channelId);
-    }
+    },
   );
 
   const result = await service.openTicket({

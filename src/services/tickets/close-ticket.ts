@@ -2,10 +2,7 @@ import { renderTicketTranscript, buildTicketTranscriptSummaryEmbed } from "../..
 import type { TicketStore } from "../../runtime/contracts";
 import type { TicketInstance, TicketPanelConfig } from "../../types";
 import type { TicketTranscriptBlobStore } from "../../runtime/contracts";
-import type {
-  TicketTranscriptMessage,
-  TicketTranscriptPresentationOptions,
-} from "../../tickets";
+import type { TicketTranscriptMessage, TicketTranscriptPresentationOptions } from "../../tickets";
 import type { DiscordEmbed } from "../../discord/messages";
 
 export interface CloseTicketTranscriptArtifacts {
@@ -39,7 +36,7 @@ export async function closeTicket(
       options: {
         htmlTranscriptUrl?: string;
         embeds?: DiscordEmbed[];
-      }
+      },
     ) => Promise<{ id: string }>;
     buildTranscriptArtifacts: (options: {
       guildId: string;
@@ -48,10 +45,7 @@ export async function closeTicket(
       closerDisplayName: string | null;
       ticketTranscriptBlobs?: TicketTranscriptBlobStore;
     }) => Promise<CloseTicketTranscriptArtifacts>;
-    createChannelMessage?: (
-      channelId: string,
-      body: { content: string }
-    ) => Promise<void>;
+    createChannelMessage?: (channelId: string, body: { content: string }) => Promise<void>;
   },
   options: {
     ticket: TicketInstance;
@@ -59,7 +53,7 @@ export async function closeTicket(
     closerDisplayName: string | null;
     panel: TicketPanelConfig;
     ticketTranscriptBlobs?: TicketTranscriptBlobStore;
-  }
+  },
 ): Promise<void> {
   const closedAtMs = Date.now();
   const closingTicket: TicketInstance = {
@@ -90,10 +84,10 @@ export async function closeTicket(
           buildTicketTranscriptSummaryEmbed(
             closingTicket,
             transcriptArtifacts.messages,
-            transcriptArtifacts.presentation
+            transcriptArtifacts.presentation,
           ),
         ],
-      }
+      },
     );
     transcriptMessageId = transcriptMessage.id;
   } catch (error) {

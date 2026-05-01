@@ -1,13 +1,6 @@
 import type { TimedRoleAssignment } from "../../types";
 import type { AdminPermissionCheck } from "../../runtime/admin-types";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "./ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
 
 export interface AdminOverviewGuild {
   guildId: string;
@@ -32,9 +25,7 @@ export function GuildOverviewCard({
         <div>
           <p className="text-xs font-medium text-muted-foreground">Guild</p>
           <h3 className="mt-2 text-lg font-semibold tracking-tight">{heading}</h3>
-          {guildName ? (
-            <p className="mt-1 text-xs text-muted-foreground">{guild.guildId}</p>
-          ) : null}
+          {guildName ? <p className="mt-1 text-xs text-muted-foreground">{guild.guildId}</p> : null}
           <p className="mt-1 text-sm text-muted-foreground">
             Stored moderation data for this server.
           </p>
@@ -98,16 +89,22 @@ export function GuildOverviewCard({
             {guild.timedRoles.map((assignment) => (
               <TableRow key={`${assignment.guildId}:${assignment.userId}:${assignment.roleId}`}>
                 <TableCell>
-                  <span className="font-mono text-xs text-muted-foreground">{assignment.userId}</span>
+                  <span className="font-mono text-xs text-muted-foreground">
+                    {assignment.userId}
+                  </span>
                 </TableCell>
                 <TableCell>
                   {guild.roleNamesById[assignment.roleId] ? (
                     <span>
                       {guild.roleNamesById[assignment.roleId]}
-                      <span className="ml-1 font-mono text-xs text-muted-foreground">({assignment.roleId})</span>
+                      <span className="ml-1 font-mono text-xs text-muted-foreground">
+                        ({assignment.roleId})
+                      </span>
                     </span>
                   ) : (
-                    <span className="font-mono text-xs text-muted-foreground">{assignment.roleId}</span>
+                    <span className="font-mono text-xs text-muted-foreground">
+                      {assignment.roleId}
+                    </span>
                   )}
                 </TableCell>
                 <TableCell>{assignment.durationInput}</TableCell>

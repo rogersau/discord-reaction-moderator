@@ -10,11 +10,7 @@ import { Button } from "./ui/button";
 import { Card, CardContent } from "./ui/card";
 import { RefreshIcon } from "./ui/icons";
 
-export function AdminTicketsPage({
-  selectedGuildId,
-}: {
-  selectedGuildId: string;
-}) {
+export function AdminTicketsPage({ selectedGuildId }: { selectedGuildId: string }) {
   return (
     <section className="space-y-6">
       <AdminPageHeader
@@ -43,11 +39,7 @@ function emptyPanelConfig(guildId: string): TicketPanelConfig {
   };
 }
 
-function TicketPanelsEditor({
-  selectedGuildId,
-}: {
-  selectedGuildId: string;
-}) {
+function TicketPanelsEditor({ selectedGuildId }: { selectedGuildId: string }) {
   const [guildResources, setGuildResources] = useState<GuildResources | null>(null);
   const [panelConfig, setPanelConfig] = useState<TicketPanelConfig | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -259,10 +251,7 @@ function SkeletonBar({ className = "" }: { className?: string }) {
   return <div className={`animate-pulse rounded-md bg-muted/40 ${className}`.trim()} />;
 }
 
-export function buildTicketResourcesApiPath(
-  guildId: string,
-  refreshDiscordCache: boolean
-): string {
+export function buildTicketResourcesApiPath(guildId: string, refreshDiscordCache: boolean): string {
   const params = new URLSearchParams({ guildId });
   if (refreshDiscordCache) {
     params.set("refresh", "1");

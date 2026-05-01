@@ -13,7 +13,7 @@ test("worker serves the admin shell for nested dashboard routes", async () => {
   const response = await worker.fetch(
     new Request("https://worker.example/admin/blocklist?guildId=guild-1"),
     createEnv(),
-    {} as ExecutionContext
+    {} as ExecutionContext,
   );
 
   assert.equal(response.status, 200);
@@ -34,7 +34,7 @@ test("worker returns 404 for legacy /admin/gateway/status endpoint", async () =>
         return Response.json({ status: "idle" });
       },
     }),
-    {} as ExecutionContext
+    {} as ExecutionContext,
   );
 
   assert.equal(response.status, 404);
@@ -57,7 +57,7 @@ test("worker returns 404 for legacy /admin/gateway/start endpoint", async () => 
         return Response.json({ status: "connecting" });
       },
     }),
-    {} as ExecutionContext
+    {} as ExecutionContext,
   );
 
   assert.equal(response.status, 404);
@@ -68,11 +68,7 @@ test("worker scheduled handler bootstraps the gateway session durable object", a
   const gatewayFetches: Array<{ input: string; method: string }> = [];
   const waitUntils: Promise<unknown>[] = [];
   const scheduledWorker = worker as {
-    scheduled?: (
-      controller: ScheduledController,
-      env: never,
-      ctx: ExecutionContext
-    ) => void;
+    scheduled?: (controller: ScheduledController, env: never, ctx: ExecutionContext) => void;
   };
 
   scheduledWorker.scheduled?.(
@@ -90,7 +86,7 @@ test("worker scheduled handler bootstraps the gateway session durable object", a
       waitUntil(promise) {
         waitUntils.push(promise);
       },
-    } as ExecutionContext
+    } as ExecutionContext,
   );
 
   await Promise.all(waitUntils);
@@ -114,11 +110,7 @@ test("worker scheduled handler syncs slash commands before starting the gateway 
   }> = [];
   const waitUntils: Promise<unknown>[] = [];
   const scheduledWorker = worker as {
-    scheduled?: (
-      controller: ScheduledController,
-      env: never,
-      ctx: ExecutionContext
-    ) => void;
+    scheduled?: (controller: ScheduledController, env: never, ctx: ExecutionContext) => void;
   };
   const originalFetch = globalThis.fetch;
 
@@ -157,7 +149,7 @@ test("worker scheduled handler syncs slash commands before starting the gateway 
         waitUntil(promise) {
           waitUntils.push(promise);
         },
-      } as ExecutionContext
+      } as ExecutionContext,
     );
 
     await Promise.all(waitUntils);
@@ -186,7 +178,7 @@ test("worker rejects the legacy signed HTTP reaction ingress path", async () => 
   const response = await worker.fetch(
     new Request("https://worker.example", { method: "POST", body: "{}" }),
     createEnv(),
-    {} as ExecutionContext
+    {} as ExecutionContext,
   );
 
   assert.equal(response.status, 404);
@@ -205,7 +197,7 @@ test("worker proxies /admin/api/gateway/status to the gateway session durable ob
         return Response.json({ status: "idle" });
       },
     }),
-    {} as ExecutionContext
+    {} as ExecutionContext,
   );
 
   // Should be 401 without a valid session, but the route should exist
@@ -230,7 +222,7 @@ test("worker proxies /admin/api/gateway/start to the gateway session durable obj
         return Response.json({ status: "connecting" });
       },
     }),
-    {} as ExecutionContext
+    {} as ExecutionContext,
   );
 
   // Should be 401 without a valid session, but the route should exist
@@ -269,8 +261,7 @@ function createEnv(options?: {
       get() {
         return {
           fetch: async (input: Request | string | URL, init?: RequestInit) =>
-            options?.gatewayFetch?.(input, init) ??
-            Response.json({ status: "idle" }),
+            options?.gatewayFetch?.(input, init) ?? Response.json({ status: "idle" }),
         };
       },
     } as never,
@@ -281,11 +272,11 @@ test("worker returns 404 for /admin/api/* when ADMIN_UI_PASSWORD is not configur
   const response = await worker.fetch(
     new Request("https://worker.example/admin/api/gateway/status"),
     createEnv(),
-    {} as ExecutionContext
+    {} as ExecutionContext,
   );
 
   assert.equal(response.status, 404);
-  const body = await response.json() as { error: string };
+  const body = (await response.json()) as { error: string };
   assert.equal(body.error, "Admin API is not configured.");
 });
 
@@ -293,11 +284,11 @@ test("worker returns 401 for /admin/api/* when ADMIN_UI_PASSWORD is set but no v
   const response = await worker.fetch(
     new Request("https://worker.example/admin/api/gateway/status"),
     createEnv({ ADMIN_UI_PASSWORD: "secret", ADMIN_SESSION_SECRET: "session-secret" }),
-    {} as ExecutionContext
+    {} as ExecutionContext,
   );
 
   assert.equal(response.status, 401);
-  const body = await response.json() as { error: string };
+  const body = (await response.json()) as { error: string };
   assert.equal(body.error, "Unauthorized");
 });
 
@@ -305,7 +296,7 @@ test("worker returns 404 for GET /admin/api/config when ADMIN_UI_PASSWORD is not
   const response = await worker.fetch(
     new Request("https://worker.example/admin/api/config"),
     createEnv(),
-    {} as ExecutionContext
+    {} as ExecutionContext,
   );
 
   assert.equal(response.status, 404);
@@ -337,7 +328,7 @@ test("POST /admin/api/blocklist validates JSON before calling the blocklist work
     new Request("https://example.com/admin/api/blocklist", {
       method: "POST",
       body: JSON.stringify({ guildId: 123 }),
-    })
+    }),
   );
 
   assert.equal(response?.status, 400);
@@ -367,9 +358,7 @@ test("GET /admin/api/overview passes refresh requests to the overview service", 
     requireAdminSession: async () => null,
   });
 
-  const response = await route(
-    new Request("https://example.com/admin/api/overview?refresh=1")
-  );
+  const response = await route(new Request("https://example.com/admin/api/overview?refresh=1"));
 
   assert.equal(response?.status, 200);
   assert.deepEqual(refreshValues, [true]);

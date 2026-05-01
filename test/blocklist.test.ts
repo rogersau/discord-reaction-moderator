@@ -18,7 +18,7 @@ test("buildBlocklistConfig materializes guild rules", () => {
   const config = buildBlocklistConfig(
     [{ guild_id: "guild-disabled", moderation_enabled: 0 }],
     [{ guild_id: "guild-1", normalized_emoji: "❌" }],
-    [{ key: "bot_user_id", value: "bot-1" }]
+    [{ key: "bot_user_id", value: "bot-1" }],
   );
 
   assert.equal(isEmojiBlocked("❌", config, "guild-1"), true);
@@ -36,7 +36,7 @@ test("guild-specific blocklists stay isolated per guild", () => {
       { guild_id: "guild-disabled", normalized_emoji: "❌" },
       { guild_id: "guild-1", normalized_emoji: "✅" },
     ],
-    []
+    [],
   );
 
   assert.equal(isEmojiBlocked("✅", config, "guild-1"), true);
@@ -67,12 +67,10 @@ test("getBlocklistFromStore reads the latest config from the moderation store", 
   const expected = buildBlocklistConfig(
     [{ guild_id: "guild-1", moderation_enabled: 1 }],
     [{ guild_id: "guild-1", normalized_emoji: "❌" }],
-    [{ key: "bot_user_id", value: "bot-1" }]
+    [{ key: "bot_user_id", value: "bot-1" }],
   );
 
-  const actual = await getBlocklistFromStore(() =>
-    Promise.resolve(Response.json(expected))
-  );
+  const actual = await getBlocklistFromStore(() => Promise.resolve(Response.json(expected)));
 
   assert.deepEqual(actual, expected);
 });
@@ -101,17 +99,12 @@ test("ModerationStoreDO preserves stored bot user id across reconstruction", asy
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ key: "bot_user_id", value: "stored-bot-id" }),
-    })
+    }),
   );
   assert.equal(writeResponse.status, 200);
 
-  const rehydratedStore = new ModerationStoreDO(
-    ctx,
-    { BOT_USER_ID: "fresh-env-bot-id" } as never
-  );
-  const response = await rehydratedStore.fetch(
-    new Request("https://moderation-store/config")
-  );
+  const rehydratedStore = new ModerationStoreDO(ctx, { BOT_USER_ID: "fresh-env-bot-id" } as never);
+  const response = await rehydratedStore.fetch(new Request("https://moderation-store/config"));
   const config = (await response.json()) as { botUserId: string };
 
   assert.equal(config.botUserId, "stored-bot-id");
@@ -129,37 +122,37 @@ test("ModerationStoreDO maps invalid input to 400 and storage faults to 500", as
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: "{",
-    })
+    }),
   );
   const invalidInputResponse = await store.fetch(
     new Request("https://moderation-store/guild-emoji", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ guildId: "guild-1", action: "remove" }),
-    })
+    }),
   );
 
   const failingStore = new ModerationStoreDO(
     {
       storage: { sql: createFakeSql({ failOnDelete: true }) },
     } as unknown as DurableObjectState,
-    env
+    env,
   );
   const originalConsoleError = console.error;
   let storageFailureResponse: Response;
 
-    console.error = () => {};
-    try {
-      storageFailureResponse = await failingStore.fetch(
-        new Request("https://moderation-store/guild-emoji", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            guildId: "guild-1",
-            emoji: "✅",
-            action: "remove",
-          }),
-        })
+  console.error = () => {};
+  try {
+    storageFailureResponse = await failingStore.fetch(
+      new Request("https://moderation-store/guild-emoji", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          guildId: "guild-1",
+          emoji: "✅",
+          action: "remove",
+        }),
+      }),
     );
   } finally {
     console.error = originalConsoleError;
@@ -182,7 +175,7 @@ test("ModerationStoreDO rejects empty app-config keys with 400", async () => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ key: "", value: "bot-2" }),
-    })
+    }),
   );
 
   assert.equal(response.status, 400);
@@ -219,7 +212,7 @@ test("guild-scoped emoji add and remove", async () => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ guildId: "guild-1", emoji: "✅", action: "add" }),
-    })
+    }),
   );
   assert.equal(addResponse.status, 200);
 
@@ -228,7 +221,7 @@ test("guild-scoped emoji add and remove", async () => {
   const expectedAfterAdd = buildBlocklistConfig(
     [{ guild_id: "guild-1", moderation_enabled: 1 }],
     [{ guild_id: "guild-1", normalized_emoji: "✅" }],
-    [{ key: "bot_user_id", value: "bot-1" }]
+    [{ key: "bot_user_id", value: "bot-1" }],
   );
 
   assert.deepEqual(addBody, expectedAfterAdd);
@@ -242,7 +235,7 @@ test("guild-scoped emoji add and remove", async () => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ guildId: "guild-1", emoji: "✅", action: "remove" }),
-    })
+    }),
   );
   assert.equal(removeResponse.status, 200);
 
@@ -251,7 +244,7 @@ test("guild-scoped emoji add and remove", async () => {
   const expectedAfterRemove = buildBlocklistConfig(
     [{ guild_id: "guild-1", moderation_enabled: 1 }],
     [],
-    [{ key: "bot_user_id", value: "bot-1" }]
+    [{ key: "bot_user_id", value: "bot-1" }],
   );
 
   assert.deepEqual(removeBody, expectedAfterRemove);
@@ -272,27 +265,19 @@ test("guild-scoped remove from untouched guild does not create guild settings", 
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ guildId: "guild-untouched", emoji: "✅", action: "remove" }),
-    })
+    }),
   );
 
   assert.equal(removeResponse.status, 200);
   assert.deepEqual(
     await removeResponse.json(),
-    buildBlocklistConfig(
-      [],
-      [],
-      [{ key: "bot_user_id", value: "bot-1" }]
-    )
+    buildBlocklistConfig([], [], [{ key: "bot_user_id", value: "bot-1" }]),
   );
 
   const configResponse = await store.fetch(new Request("https://moderation-store/config"));
   assert.deepEqual(
     await configResponse.json(),
-    buildBlocklistConfig(
-      [],
-      [],
-      [{ key: "bot_user_id", value: "bot-1" }]
-    )
+    buildBlocklistConfig([], [], [{ key: "bot_user_id", value: "bot-1" }]),
   );
 });
 
@@ -307,7 +292,7 @@ test("guild-scoped empty guild id is rejected", async () => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ guildId: "", emoji: "✅", action: "add" }),
-    })
+    }),
   );
 
   assert.equal(response.status, 400);
@@ -327,12 +312,12 @@ test("ModerationStoreDO stores and clears the guild moderation log channel", asy
         guildId: "guild-1",
         notificationChannelId: "log-channel-1",
       }),
-    })
+    }),
   );
   assert.equal(saveResponse.status, 200);
 
   const readResponse = await store.fetch(
-    new Request("https://moderation-store/guild-notification-channel?guildId=guild-1")
+    new Request("https://moderation-store/guild-notification-channel?guildId=guild-1"),
   );
   assert.deepEqual(await readResponse.json(), {
     notificationChannelId: "log-channel-1",
@@ -346,12 +331,12 @@ test("ModerationStoreDO stores and clears the guild moderation log channel", asy
         guildId: "guild-1",
         notificationChannelId: null,
       }),
-    })
+    }),
   );
   assert.equal(clearResponse.status, 200);
 
   const readClearedResponse = await store.fetch(
-    new Request("https://moderation-store/guild-notification-channel?guildId=guild-1")
+    new Request("https://moderation-store/guild-notification-channel?guildId=guild-1"),
   );
   assert.deepEqual(await readClearedResponse.json(), {
     notificationChannelId: null,
@@ -363,7 +348,11 @@ test("createFakeSql distinguishes guild tables", () => {
   const sql = createFakeSql();
 
   // Insert only into guild_blocked_emojis
-  sql.exec("INSERT OR IGNORE INTO guild_blocked_emojis(guild_id, normalized_emoji) VALUES(?, ?)", "guild-1", "✅");
+  sql.exec(
+    "INSERT OR IGNORE INTO guild_blocked_emojis(guild_id, normalized_emoji) VALUES(?, ?)",
+    "guild-1",
+    "✅",
+  );
 
   const settingsResult = sql.exec("SELECT 1 FROM guild_settings LIMIT 1");
   const blockedResult = sql.exec("SELECT 1 FROM guild_blocked_emojis LIMIT 1");
@@ -384,10 +373,10 @@ test("ModerationStoreDO upserts and lists active timed roles by guild", async ()
     },
   } as unknown as DurableObjectState;
 
-  const store = new ModerationStoreDO(
-    ctx,
-    { BOT_USER_ID: "bot-1", DISCORD_BOT_TOKEN: "token" } as never
-  );
+  const store = new ModerationStoreDO(ctx, {
+    BOT_USER_ID: "bot-1",
+    DISCORD_BOT_TOKEN: "token",
+  } as never);
 
   const response = await store.fetch(
     new Request("https://moderation-store/timed-role", {
@@ -400,13 +389,13 @@ test("ModerationStoreDO upserts and lists active timed roles by guild", async ()
         durationInput: "1w",
         expiresAtMs: 1_700_604_800_000,
       }),
-    })
+    }),
   );
 
   assert.equal(response.status, 200);
 
   const listResponse = await store.fetch(
-    new Request("https://moderation-store/timed-roles?guildId=guild-1")
+    new Request("https://moderation-store/timed-roles?guildId=guild-1"),
   );
 
   assert.deepEqual(await listResponse.json(), [
@@ -431,10 +420,10 @@ test("ModerationStoreDO stores new member timed role configuration", async () =>
     },
   } as unknown as DurableObjectState;
 
-  const store = new ModerationStoreDO(
-    ctx,
-    { BOT_USER_ID: "bot-1", DISCORD_BOT_TOKEN: "token" } as never
-  );
+  const store = new ModerationStoreDO(ctx, {
+    BOT_USER_ID: "bot-1",
+    DISCORD_BOT_TOKEN: "token",
+  } as never);
 
   const saveResponse = await store.fetch(
     new Request("https://moderation-store/timed-role/new-member-config", {
@@ -445,13 +434,13 @@ test("ModerationStoreDO stores new member timed role configuration", async () =>
         roleId: "role-newbie",
         durationInput: "2h",
       }),
-    })
+    }),
   );
 
   assert.equal(saveResponse.status, 200);
 
   const readResponse = await store.fetch(
-    new Request("https://moderation-store/timed-role/new-member-config?guildId=guild-1")
+    new Request("https://moderation-store/timed-role/new-member-config?guildId=guild-1"),
   );
 
   assert.deepEqual(await readResponse.json(), {
@@ -469,13 +458,13 @@ test("ModerationStoreDO stores new member timed role configuration", async () =>
         roleId: null,
         durationInput: null,
       }),
-    })
+    }),
   );
 
   assert.equal(disableResponse.status, 200);
 
   const disabledReadResponse = await store.fetch(
-    new Request("https://moderation-store/timed-role/new-member-config?guildId=guild-1")
+    new Request("https://moderation-store/timed-role/new-member-config?guildId=guild-1"),
   );
 
   assert.deepEqual(await disabledReadResponse.json(), {
@@ -499,10 +488,10 @@ test("ModerationStoreDO replaces timed role expiry when upserting the same assig
     },
   } as unknown as DurableObjectState;
 
-  const store = new ModerationStoreDO(
-    ctx,
-    { BOT_USER_ID: "bot-1", DISCORD_BOT_TOKEN: "token" } as never
-  );
+  const store = new ModerationStoreDO(ctx, {
+    BOT_USER_ID: "bot-1",
+    DISCORD_BOT_TOKEN: "token",
+  } as never);
 
   try {
     Date.now = () => 1_700_000_000_000;
@@ -517,7 +506,7 @@ test("ModerationStoreDO replaces timed role expiry when upserting the same assig
           durationInput: "1w",
           expiresAtMs: 1_700_604_800_000,
         }),
-      })
+      }),
     );
 
     Date.now = () => 1_700_000_060_000;
@@ -532,18 +521,18 @@ test("ModerationStoreDO replaces timed role expiry when upserting the same assig
           durationInput: "2h",
           expiresAtMs: 1_700_007_200_000,
         }),
-      })
+      }),
     );
   } finally {
     Date.now = originalNow;
   }
 
   const listResponse = await store.fetch(
-    new Request("https://moderation-store/timed-roles?guildId=guild-1")
+    new Request("https://moderation-store/timed-roles?guildId=guild-1"),
   );
   const storedRows = sql.exec(
     "SELECT guild_id, user_id, role_id, duration_input, expires_at_ms, created_at_ms, updated_at_ms FROM timed_roles WHERE guild_id = ? ORDER BY expires_at_ms ASC",
-    "guild-1"
+    "guild-1",
   ) as Array<{
     created_at_ms: number;
     duration_input: string;
@@ -577,10 +566,10 @@ test("ModerationStoreDO removes timed roles via route", async () => {
       },
     },
   } as unknown as DurableObjectState;
-  const store = new ModerationStoreDO(
-    ctx,
-    { BOT_USER_ID: "bot-1", DISCORD_BOT_TOKEN: "token" } as never
-  );
+  const store = new ModerationStoreDO(ctx, {
+    BOT_USER_ID: "bot-1",
+    DISCORD_BOT_TOKEN: "token",
+  } as never);
 
   await store.fetch(
     new Request("https://moderation-store/timed-role", {
@@ -593,7 +582,7 @@ test("ModerationStoreDO removes timed roles via route", async () => {
         durationInput: "1w",
         expiresAtMs: 1_700_604_800_000,
       }),
-    })
+    }),
   );
 
   const deleteResponse = await store.fetch(
@@ -605,13 +594,13 @@ test("ModerationStoreDO removes timed roles via route", async () => {
         userId: "user-1",
         roleId: "role-1",
       }),
-    })
+    }),
   );
 
   assert.equal(deleteResponse.status, 200);
 
   const listResponse = await store.fetch(
-    new Request("https://moderation-store/timed-roles?guildId=guild-1")
+    new Request("https://moderation-store/timed-roles?guildId=guild-1"),
   );
   assert.deepEqual(await listResponse.json(), []);
 });
@@ -632,10 +621,10 @@ test("ModerationStoreDO clears the timed role alarm when the last assignment is 
       },
     },
   } as unknown as DurableObjectState;
-  const store = new ModerationStoreDO(
-    ctx,
-    { BOT_USER_ID: "bot-1", DISCORD_BOT_TOKEN: "token" } as never
-  );
+  const store = new ModerationStoreDO(ctx, {
+    BOT_USER_ID: "bot-1",
+    DISCORD_BOT_TOKEN: "token",
+  } as never);
 
   await store.fetch(
     new Request("https://moderation-store/timed-role", {
@@ -648,7 +637,7 @@ test("ModerationStoreDO clears the timed role alarm when the last assignment is 
         durationInput: "1w",
         expiresAtMs: 1_700_604_800_000,
       }),
-    })
+    }),
   );
 
   const deleteResponse = await store.fetch(
@@ -660,7 +649,7 @@ test("ModerationStoreDO clears the timed role alarm when the last assignment is 
         userId: "user-1",
         roleId: "role-1",
       }),
-    })
+    }),
   );
 
   assert.equal(deleteResponse.status, 200);
@@ -671,10 +660,10 @@ test("ModerationStoreDO clears the timed role alarm when the last assignment is 
 test("ModerationStoreDO stores ticket panels and ticket instances through HTTP endpoints", async () => {
   const sql = createFakeSql();
   const ctx = { storage: { sql } } as unknown as DurableObjectState;
-  const store = new ModerationStoreDO(
-    ctx,
-    { BOT_USER_ID: "bot-1", DISCORD_BOT_TOKEN: "token" } as never
-  );
+  const store = new ModerationStoreDO(ctx, {
+    BOT_USER_ID: "bot-1",
+    DISCORD_BOT_TOKEN: "token",
+  } as never);
 
   const panel = {
     guildId: "guild-1",
@@ -704,12 +693,12 @@ test("ModerationStoreDO stores ticket panels and ticket instances through HTTP e
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(panel),
-    })
+    }),
   );
   assert.equal(savePanel.status, 200);
 
   const readPanel = await store.fetch(
-    new Request("https://moderation-store/ticket-panel?guildId=guild-1")
+    new Request("https://moderation-store/ticket-panel?guildId=guild-1"),
   );
   assert.deepEqual(await readPanel.json(), panel);
 
@@ -731,14 +720,14 @@ test("ModerationStoreDO stores ticket panels and ticket instances through HTTP e
         closedByUserId: null,
         transcriptMessageId: null,
       }),
-    })
+    }),
   );
   assert.equal(createTicket.status, 200);
 
   const readOpen = await store.fetch(
     new Request(
-      "https://moderation-store/ticket-instance/open?guildId=guild-1&channelId=ticket-channel-1"
-    )
+      "https://moderation-store/ticket-instance/open?guildId=guild-1&channelId=ticket-channel-1",
+    ),
   );
   assert.deepEqual(await readOpen.json(), {
     guildId: "guild-1",
@@ -766,14 +755,14 @@ test("ModerationStoreDO stores ticket panels and ticket instances through HTTP e
         closedAtMs: 2000,
         transcriptMessageId: "transcript-message-1",
       }),
-    })
+    }),
   );
   assert.equal(closeTicket.status, 200);
 
   const readClosed = await store.fetch(
     new Request(
-      "https://moderation-store/ticket-instance/open?guildId=guild-1&channelId=ticket-channel-1"
-    )
+      "https://moderation-store/ticket-instance/open?guildId=guild-1&channelId=ticket-channel-1",
+    ),
   );
   assert.equal(await readClosed.json(), null);
 
@@ -782,7 +771,7 @@ test("ModerationStoreDO stores ticket panels and ticket instances through HTTP e
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ guildId: "guild-1" }),
-    })
+    }),
   );
   assert.deepEqual(await reserveTicketOne.json(), { ticketNumber: 1 });
 
@@ -791,7 +780,7 @@ test("ModerationStoreDO stores ticket panels and ticket instances through HTTP e
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ guildId: "guild-1" }),
-    })
+    }),
   );
   assert.deepEqual(await reserveTicketTwo.json(), { ticketNumber: 2 });
 });
@@ -799,10 +788,10 @@ test("ModerationStoreDO stores ticket panels and ticket instances through HTTP e
 test("ModerationStoreDO rejects invalid ticket payloads with 400", async () => {
   const sql = createFakeSql();
   const ctx = { storage: { sql } } as unknown as DurableObjectState;
-  const store = new ModerationStoreDO(
-    ctx,
-    { BOT_USER_ID: "bot-1", DISCORD_BOT_TOKEN: "token" } as never
-  );
+  const store = new ModerationStoreDO(ctx, {
+    BOT_USER_ID: "bot-1",
+    DISCORD_BOT_TOKEN: "token",
+  } as never);
 
   const missingPanelField = await store.fetch(
     new Request("https://moderation-store/ticket-panel", {
@@ -812,7 +801,7 @@ test("ModerationStoreDO rejects invalid ticket payloads with 400", async () => {
         guildId: "guild-1",
         panelChannelId: "panel-channel-1",
       }),
-    })
+    }),
   );
 
   const missingTicketField = await store.fetch(
@@ -823,7 +812,7 @@ test("ModerationStoreDO rejects invalid ticket payloads with 400", async () => {
         guildId: "guild-1",
         channelId: "ticket-channel-1",
       }),
-    })
+    }),
   );
 
   const missingCloseField = await store.fetch(
@@ -835,7 +824,7 @@ test("ModerationStoreDO rejects invalid ticket payloads with 400", async () => {
         channelId: "ticket-channel-1",
         closedAtMs: 2000,
       }),
-    })
+    }),
   );
 
   assert.equal(missingPanelField.status, 400);
@@ -846,10 +835,10 @@ test("ModerationStoreDO rejects invalid ticket payloads with 400", async () => {
 test("ModerationStoreDO surfaces a failed ticket close update", async () => {
   const sql = createFakeSql({ closeTicketUpdateChanges: 0 });
   const ctx = { storage: { sql } } as unknown as DurableObjectState;
-  const store = new ModerationStoreDO(
-    ctx,
-    { BOT_USER_ID: "bot-1", DISCORD_BOT_TOKEN: "token" } as never
-  );
+  const store = new ModerationStoreDO(ctx, {
+    BOT_USER_ID: "bot-1",
+    DISCORD_BOT_TOKEN: "token",
+  } as never);
 
   await store.fetch(
     new Request("https://moderation-store/ticket-instance", {
@@ -869,7 +858,7 @@ test("ModerationStoreDO surfaces a failed ticket close update", async () => {
         closedByUserId: null,
         transcriptMessageId: null,
       }),
-    })
+    }),
   );
 
   const response = await store.fetch(
@@ -883,7 +872,7 @@ test("ModerationStoreDO surfaces a failed ticket close update", async () => {
         closedAtMs: 2000,
         transcriptMessageId: "transcript-message-1",
       }),
-    })
+    }),
   );
 
   assert.equal(response.status, 500);
@@ -923,10 +912,10 @@ test("ModerationStoreDO alarm only removes timed roles after Discord role remova
         },
       },
     } as unknown as DurableObjectState;
-    const store = new ModerationStoreDO(
-      ctx,
-      { BOT_USER_ID: "bot-1", DISCORD_BOT_TOKEN: "token" } as never
-    );
+    const store = new ModerationStoreDO(ctx, {
+      BOT_USER_ID: "bot-1",
+      DISCORD_BOT_TOKEN: "token",
+    } as never);
 
     await store.fetch(
       new Request("https://moderation-store/timed-role", {
@@ -939,7 +928,7 @@ test("ModerationStoreDO alarm only removes timed roles after Discord role remova
           durationInput: "5m",
           expiresAtMs: now - 1,
         }),
-      })
+      }),
     );
     await store.fetch(
       new Request("https://moderation-store/timed-role", {
@@ -952,13 +941,13 @@ test("ModerationStoreDO alarm only removes timed roles after Discord role remova
           durationInput: "10m",
           expiresAtMs: now + 60_000,
         }),
-      })
+      }),
     );
 
     await (store as ModerationStoreDO & { alarm(): Promise<void> }).alarm();
 
     const afterFailedAlarm = await store.fetch(
-      new Request("https://moderation-store/timed-roles?guildId=guild-1")
+      new Request("https://moderation-store/timed-roles?guildId=guild-1"),
     );
     assert.deepEqual(await afterFailedAlarm.json(), [
       {
@@ -981,7 +970,7 @@ test("ModerationStoreDO alarm only removes timed roles after Discord role remova
     await (store as ModerationStoreDO & { alarm(): Promise<void> }).alarm();
 
     const afterSuccessfulAlarm = await store.fetch(
-      new Request("https://moderation-store/timed-roles?guildId=guild-1")
+      new Request("https://moderation-store/timed-roles?guildId=guild-1"),
     );
     assert.deepEqual(await afterSuccessfulAlarm.json(), [
       {
@@ -1007,7 +996,7 @@ test("ModerationStoreDO alarm only removes timed roles after Discord role remova
           method: "DELETE",
           input: "https://discord.com/api/v10/guilds/guild-1/members/user-1/roles/role-1",
         },
-      ]
+      ],
     );
     assert.deepEqual(alarms, [now - 1, now - 1, now - 1, now + 60_000]);
   } finally {
@@ -1095,7 +1084,8 @@ function createFakeSql(options?: {
       }
 
       if (
-        query === "INSERT OR IGNORE INTO guild_blocked_emojis(guild_id, normalized_emoji) VALUES(?, ?)"
+        query ===
+        "INSERT OR IGNORE INTO guild_blocked_emojis(guild_id, normalized_emoji) VALUES(?, ?)"
       ) {
         const [guildId, normalizedEmoji] = params as [string, string];
         const set = guildBlockedEmojis.get(guildId) ?? new Set<string>();
@@ -1112,7 +1102,10 @@ function createFakeSql(options?: {
         return [];
       }
 
-      if (query === "SELECT notification_channel_id FROM guild_notification_channels WHERE guild_id = ?") {
+      if (
+        query ===
+        "SELECT notification_channel_id FROM guild_notification_channels WHERE guild_id = ?"
+      ) {
         const notification_channel_id = guildNotificationChannels.get(params[0] as string);
         return notification_channel_id === undefined ? [] : [{ notification_channel_id }];
       }
@@ -1123,8 +1116,7 @@ function createFakeSql(options?: {
       }
 
       if (
-        query ===
-        "DELETE FROM guild_blocked_emojis WHERE guild_id = ? AND normalized_emoji = ?"
+        query === "DELETE FROM guild_blocked_emojis WHERE guild_id = ? AND normalized_emoji = ?"
       ) {
         if (options?.failOnDelete) {
           throw new Error("storage fault");
@@ -1135,9 +1127,7 @@ function createFakeSql(options?: {
         return [];
       }
 
-      if (
-        query === "INSERT OR IGNORE INTO app_config(key, value) VALUES(?, ?)"
-      ) {
+      if (query === "INSERT OR IGNORE INTO app_config(key, value) VALUES(?, ?)") {
         const [key, value] = params as [string, string];
         if (!appConfig.has(key)) {
           appConfig.set(key, value);
@@ -1163,7 +1153,10 @@ function createFakeSql(options?: {
           throw new Error("storage fault");
         }
 
-        return [...guildSettings.entries()].map(([guild_id, moderation_enabled]) => ({ guild_id, moderation_enabled }));
+        return [...guildSettings.entries()].map(([guild_id, moderation_enabled]) => ({
+          guild_id,
+          moderation_enabled,
+        }));
       }
 
       if (query === "SELECT guild_id, normalized_emoji FROM guild_blocked_emojis") {
@@ -1254,9 +1247,7 @@ function createFakeSql(options?: {
         "SELECT role_id, duration_input FROM new_member_timed_role_configs WHERE guild_id = ?"
       ) {
         const row = newMemberTimedRoleConfigs.get(params[0] as string);
-        return row
-          ? [{ role_id: row.role_id, duration_input: row.duration_input }]
-          : [];
+        return row ? [{ role_id: row.role_id, duration_input: row.duration_input }] : [];
       }
 
       if (query === "DELETE FROM new_member_timed_role_configs WHERE guild_id = ?") {
@@ -1295,14 +1286,14 @@ function createFakeSql(options?: {
         query ===
         "INSERT INTO ticket_panels(guild_id, panel_channel_id, category_channel_id, transcript_channel_id, panel_message_id, ticket_types_json) VALUES(?, ?, ?, ?, ?, ?) ON CONFLICT(guild_id) DO UPDATE SET panel_channel_id = excluded.panel_channel_id, category_channel_id = excluded.category_channel_id, transcript_channel_id = excluded.transcript_channel_id, panel_message_id = excluded.panel_message_id, ticket_types_json = excluded.ticket_types_json"
       ) {
-        const [guild_id, panel_channel_id, category_channel_id, transcript_channel_id, panel_message_id, ticket_types_json] = params as [
-          string,
-          string,
-          string,
-          string,
-          string | null,
-          string,
-        ];
+        const [
+          guild_id,
+          panel_channel_id,
+          category_channel_id,
+          transcript_channel_id,
+          panel_message_id,
+          ticket_types_json,
+        ] = params as [string, string, string, string, string | null, string];
         ticketPanels.set(guild_id, {
           guild_id,
           panel_channel_id,
@@ -1363,7 +1354,7 @@ function createFakeSql(options?: {
         const key = `${guild_id}:${channel_id}`;
         if (ticketInstances.has(key)) {
           throw new Error(
-            "UNIQUE constraint failed: ticket_instances.guild_id, ticket_instances.channel_id"
+            "UNIQUE constraint failed: ticket_instances.guild_id, ticket_instances.channel_id",
           );
         }
         ticketInstances.set(key, {
@@ -1395,13 +1386,8 @@ function createFakeSql(options?: {
         query ===
         "UPDATE ticket_instances SET status = 'closed', closed_by_user_id = ?, closed_at_ms = ?, transcript_message_id = ? WHERE guild_id = ? AND channel_id = ? AND status = 'open'"
       ) {
-        const [closed_by_user_id, closed_at_ms, transcript_message_id, guild_id, channel_id] = params as [
-          string,
-          number,
-          string | null,
-          string,
-          string,
-        ];
+        const [closed_by_user_id, closed_at_ms, transcript_message_id, guild_id, channel_id] =
+          params as [string, number, string | null, string, string];
         const key = `${guild_id}:${channel_id}`;
         const row = ticketInstances.get(key);
         if (!row || row.status !== "open") {
@@ -1430,23 +1416,25 @@ function createFakeSql(options?: {
         return [...timedRoles.values()]
           .filter((row) => row.guild_id === params[0])
           .sort((a, b) => a.expires_at_ms - b.expires_at_ms)
-          .map(({
-            guild_id,
-            user_id,
-            role_id,
-            duration_input,
-            expires_at_ms,
-            created_at_ms,
-            updated_at_ms,
-          }) => ({
-            guild_id,
-            user_id,
-            role_id,
-            duration_input,
-            expires_at_ms,
-            created_at_ms,
-            updated_at_ms,
-          }));
+          .map(
+            ({
+              guild_id,
+              user_id,
+              role_id,
+              duration_input,
+              expires_at_ms,
+              created_at_ms,
+              updated_at_ms,
+            }) => ({
+              guild_id,
+              user_id,
+              role_id,
+              duration_input,
+              expires_at_ms,
+              created_at_ms,
+              updated_at_ms,
+            }),
+          );
       }
 
       if (
@@ -1456,36 +1444,34 @@ function createFakeSql(options?: {
         return [...timedRoles.values()]
           .filter((row) => row.expires_at_ms <= (params[0] as number))
           .sort((a, b) => a.expires_at_ms - b.expires_at_ms)
-          .map(({
-            guild_id,
-            user_id,
-            role_id,
-            duration_input,
-            expires_at_ms,
-            created_at_ms,
-            updated_at_ms,
-          }) => ({
-            guild_id,
-            user_id,
-            role_id,
-            duration_input,
-            expires_at_ms,
-            created_at_ms,
-            updated_at_ms,
-          }));
+          .map(
+            ({
+              guild_id,
+              user_id,
+              role_id,
+              duration_input,
+              expires_at_ms,
+              created_at_ms,
+              updated_at_ms,
+            }) => ({
+              guild_id,
+              user_id,
+              role_id,
+              duration_input,
+              expires_at_ms,
+              created_at_ms,
+              updated_at_ms,
+            }),
+          );
       }
 
-      if (
-        query === "DELETE FROM timed_roles WHERE guild_id = ? AND user_id = ? AND role_id = ?"
-      ) {
+      if (query === "DELETE FROM timed_roles WHERE guild_id = ? AND user_id = ? AND role_id = ?") {
         timedRoles.delete(`${params[0]}:${params[1]}:${params[2]}`);
         return [];
       }
 
       if (query === "SELECT expires_at_ms FROM timed_roles ORDER BY expires_at_ms ASC LIMIT 1") {
-        const first = [...timedRoles.values()].sort(
-          (a, b) => a.expires_at_ms - b.expires_at_ms
-        )[0];
+        const first = [...timedRoles.values()].sort((a, b) => a.expires_at_ms - b.expires_at_ms)[0];
         return first ? [{ expires_at_ms: first.expires_at_ms }] : [];
       }
 
@@ -1499,7 +1485,7 @@ test("getGuildBlocklist falls back to an enabled empty state for unknown guilds"
     {
       readConfig: async () => ({ botUserId: "bot", guilds: {} }),
     },
-    "missing-guild"
+    "missing-guild",
   );
 
   assert.deepEqual(result, { enabled: true, emojis: [] });

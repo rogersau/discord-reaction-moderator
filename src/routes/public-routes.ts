@@ -20,7 +20,9 @@ export function createPublicRoutes(options: PublicRouteOptions = {}): RouteHandl
       return new Response("OK", { status: 200 });
     }
 
-    const transcriptMediaMatch = /^\/transcripts\/([^/]+)\/([^/]+)\/media\/([^/]+)\/(.+)$/.exec(url.pathname);
+    const transcriptMediaMatch = /^\/transcripts\/([^/]+)\/([^/]+)\/media\/([^/]+)\/(.+)$/.exec(
+      url.pathname,
+    );
     if (request.method === "GET" && transcriptMediaMatch) {
       const guildId = decodeURIComponent(transcriptMediaMatch[1] ?? "");
       const channelId = decodeURIComponent(transcriptMediaMatch[2] ?? "");
@@ -28,7 +30,7 @@ export function createPublicRoutes(options: PublicRouteOptions = {}): RouteHandl
       const filename = decodeURIComponent(transcriptMediaMatch[4] ?? "");
       const attachment = options.ticketTranscriptBlobs
         ? await options.ticketTranscriptBlobs.getAttachment(
-            buildTicketTranscriptAttachmentStorageKey(guildId, channelId, attachmentId, filename)
+            buildTicketTranscriptAttachmentStorageKey(guildId, channelId, attachmentId, filename),
           )
         : null;
 
@@ -52,7 +54,7 @@ export function createPublicRoutes(options: PublicRouteOptions = {}): RouteHandl
       const channelId = decodeURIComponent(transcriptMatch[2] ?? "");
       const html = options.ticketTranscriptBlobs
         ? await options.ticketTranscriptBlobs.getHtml(
-            buildTicketTranscriptStorageKey(guildId, channelId)
+            buildTicketTranscriptStorageKey(guildId, channelId),
           )
         : null;
 
@@ -65,7 +67,8 @@ export function createPublicRoutes(options: PublicRouteOptions = {}): RouteHandl
         headers: {
           "content-type": "text/html; charset=utf-8",
           "cache-control": "public, max-age=300",
-          "content-security-policy": "default-src 'none'; img-src 'self' https: data:; media-src 'self' https:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+          "content-security-policy":
+            "default-src 'none'; img-src 'self' https: data:; media-src 'self' https:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
           "referrer-policy": "no-referrer",
           "x-content-type-options": "nosniff",
         },

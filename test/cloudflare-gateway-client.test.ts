@@ -21,7 +21,7 @@ test("createCloudflareGatewayClient wraps gateway status and bootstrap calls", a
           backoffAttempt: 0,
           lastError: null,
           heartbeatIntervalMs: null,
-        }) as any
+        }) as any,
       );
     },
   });
@@ -49,6 +49,6 @@ test("createCloudflareGatewayClient throws descriptive error on non-ok response"
     {
       name: "Error",
       message: /Cloudflare gateway request failed: 503 Service Unavailable/,
-    }
+    },
   );
 });

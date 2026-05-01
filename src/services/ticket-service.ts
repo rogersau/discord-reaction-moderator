@@ -24,7 +24,7 @@ export class TicketService {
     private readonly ticketStore: TicketStore,
     _botToken: string,
     private readonly createChannel?: (config: CreateTicketChannelConfig) => Promise<{ id: string }>,
-    private readonly deleteChannel?: (channelId: string) => Promise<void>
+    private readonly deleteChannel?: (channelId: string) => Promise<void>,
   ) {}
 
   async openTicket(options: TicketServiceOptions): Promise<TicketInstance> {
@@ -36,8 +36,10 @@ export class TicketService {
     return openTicket(
       {
         readConfig: () => this.blocklistStore.readConfig(),
-        reserveNextTicketNumber: (guildId: string) => this.ticketStore.reserveNextTicketNumber(guildId),
-        createTicketInstance: (instance: TicketInstance) => this.ticketStore.createTicketInstance(instance),
+        reserveNextTicketNumber: (guildId: string) =>
+          this.ticketStore.reserveNextTicketNumber(guildId),
+        createTicketInstance: (instance: TicketInstance) =>
+          this.ticketStore.createTicketInstance(instance),
         deleteTicketInstance: (body: { guildId: string; channelId: string }) =>
           this.ticketStore.deleteTicketInstance(body),
       },
@@ -46,7 +48,7 @@ export class TicketService {
         deleteChannel: this.deleteChannel ?? (async () => {}),
         createOpeningMessage: async () => {},
       },
-      options
+      options,
     );
   }
 

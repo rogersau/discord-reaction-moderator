@@ -4,7 +4,10 @@ import type { TicketInstance } from "../../types";
 import type { CreateTicketChannelConfig, TicketServiceOptions } from "../ticket-service";
 
 export async function openTicket(
-  store: Pick<TicketStore, "reserveNextTicketNumber" | "createTicketInstance" | "deleteTicketInstance"> &
+  store: Pick<
+    TicketStore,
+    "reserveNextTicketNumber" | "createTicketInstance" | "deleteTicketInstance"
+  > &
     Pick<BlocklistStore, "readConfig">,
   adapters: {
     createChannel: (config: CreateTicketChannelConfig) => Promise<{ id: string }>;
@@ -16,10 +19,10 @@ export async function openTicket(
         content: string;
         allowed_mentions: { parse: []; users: string[] };
         components: unknown[];
-      }
+      },
     ) => Promise<void>;
   },
-  options: TicketServiceOptions
+  options: TicketServiceOptions,
 ): Promise<TicketInstance> {
   const config = await store.readConfig();
   const ticketNumber = await store.reserveNextTicketNumber(options.guildId);

@@ -12,7 +12,11 @@ export function escapeHtmlAttribute(value: string): string {
     .replaceAll(">", "&gt;");
 }
 
-export function renderAdminShell(authenticated = false, initialPath = "/admin", initialSearch = ""): Response {
+export function renderAdminShell(
+  authenticated = false,
+  initialPath = "/admin",
+  initialSearch = "",
+): Response {
   const attributes = [
     authenticated ? 'data-authenticated="true"' : "",
     `data-initial-path="${escapeHtmlAttribute(initialPath)}"`,
@@ -22,7 +26,7 @@ export function renderAdminShell(authenticated = false, initialPath = "/admin", 
     .join(" ");
   const html = ADMIN_LOGIN_HTML.replace(
     '<div id="admin-root"></div>',
-    `<div id="admin-root" ${attributes}></div>`
+    `<div id="admin-root" ${attributes}></div>`,
   );
   return new Response(html, {
     status: 200,
@@ -41,7 +45,7 @@ export function getAdminLoginLocation(pathname: string): string {
 
 export async function isAdminUiAuthorized(
   request: Request,
-  options: Pick<RuntimeAppOptions, "adminSessionSecret" | "adminUiPassword">
+  options: Pick<RuntimeAppOptions, "adminSessionSecret" | "adminUiPassword">,
 ): Promise<boolean> {
   if (!options.adminUiPassword) {
     return true;
@@ -56,7 +60,7 @@ export async function isAdminUiAuthorized(
 
 export async function requireAdminSession(
   request: Request,
-  options: Pick<RuntimeAppOptions, "adminSessionSecret" | "adminUiPassword">
+  options: Pick<RuntimeAppOptions, "adminSessionSecret" | "adminUiPassword">,
 ): Promise<Response | null> {
   if (!options.adminUiPassword || !options.adminSessionSecret) {
     return Response.json({ error: "Admin API is not configured." }, { status: 404 });

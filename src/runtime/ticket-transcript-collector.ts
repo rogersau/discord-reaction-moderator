@@ -1,8 +1,4 @@
-import {
-  listBotGuilds,
-  listChannelMessages,
-  listGuildTicketResources,
-} from "../discord";
+import { listBotGuilds, listChannelMessages, listGuildTicketResources } from "../discord";
 import {
   buildTicketTranscriptAttachmentPath,
   buildTicketTranscriptAttachmentStorageKey,
@@ -55,7 +51,8 @@ export async function buildTicketTranscriptArtifacts(options: {
       listGuildTicketResources(options.guildId, options.discordBotToken),
     ]);
     guildName = guilds.find((guild) => guild.guildId === options.guildId)?.name ?? null;
-    channelName = guildResources.channels.find((channel) => channel.id === options.channelId)?.name ?? null;
+    channelName =
+      guildResources.channels.find((channel) => channel.id === options.channelId)?.name ?? null;
   } catch (error) {
     console.error("Failed to resolve transcript display metadata", error);
   }
@@ -67,7 +64,7 @@ export async function buildTicketTranscriptArtifacts(options: {
     closerDisplayName:
       options.closerDisplayName ??
       (options.closingTicket.closedByUserId
-        ? participantDisplayNames.get(options.closingTicket.closedByUserId) ?? null
+        ? (participantDisplayNames.get(options.closingTicket.closedByUserId) ?? null)
         : null),
   };
   let htmlUrl: string | undefined;
@@ -78,11 +75,11 @@ export async function buildTicketTranscriptArtifacts(options: {
       options.guildId,
       options.channelId,
       options.requestOrigin,
-      options.ticketTranscriptBlobs
+      options.ticketTranscriptBlobs,
     );
     await options.ticketTranscriptBlobs.putHtml(
       buildTicketTranscriptStorageKey(options.guildId, options.channelId),
-      renderTicketTranscriptHtml(options.closingTicket, transcriptMessages, presentation)
+      renderTicketTranscriptHtml(options.closingTicket, transcriptMessages, presentation),
     );
     htmlUrl = `${options.requestOrigin}${buildTicketTranscriptPath(options.guildId, options.channelId)}`;
   }
@@ -111,9 +108,7 @@ async function listAllChannelMessages(channelId: string, discordBotToken: string
     }
   }
 
-  return messages.sort(
-    (left, right) => Date.parse(left.timestamp) - Date.parse(right.timestamp)
-  );
+  return messages.sort((left, right) => Date.parse(left.timestamp) - Date.parse(right.timestamp));
 }
 
 function resolveDiscordMessageDisplayName(message: {
@@ -123,7 +118,9 @@ function resolveDiscordMessageDisplayName(message: {
   return message.member?.nick ?? message.author.global_name ?? message.author.username;
 }
 
-function mapDiscordMessageAttachments(message: { attachments?: unknown }): TicketTranscriptAttachment[] {
+function mapDiscordMessageAttachments(message: {
+  attachments?: unknown;
+}): TicketTranscriptAttachment[] {
   if (!Array.isArray(message.attachments)) {
     return [];
   }
@@ -161,7 +158,7 @@ async function archiveTicketTranscriptAttachments(
   guildId: string,
   channelId: string,
   requestOrigin: string,
-  ticketTranscriptBlobs: TicketTranscriptBlobStore
+  ticketTranscriptBlobs: TicketTranscriptBlobStore,
 ): Promise<TicketTranscriptMessage[]> {
   return Promise.all(
     messages.map(async (message) => {
@@ -179,12 +176,12 @@ async function archiveTicketTranscriptAttachments(
               guildId,
               channelId,
               requestOrigin,
-              ticketTranscriptBlobs
-            )
-          )
+              ticketTranscriptBlobs,
+            ),
+          ),
         ),
       };
-    })
+    }),
   );
 }
 
@@ -193,7 +190,7 @@ async function archiveTicketTranscriptAttachment(
   guildId: string,
   channelId: string,
   requestOrigin: string,
-  ticketTranscriptBlobs: TicketTranscriptBlobStore
+  ticketTranscriptBlobs: TicketTranscriptBlobStore,
 ): Promise<TicketTranscriptAttachment> {
   const sourceUrl = getHttpUrl(attachment.url);
   if (!sourceUrl) {
@@ -205,12 +202,18 @@ async function archiveTicketTranscriptAttachment(
     throw new Error(`Failed to archive ticket attachment ${attachment.id}: ${response.status}`);
   }
 
-  const contentType = normalizeContentType(response.headers.get("content-type")) ?? attachment.contentType;
+  const contentType =
+    normalizeContentType(response.headers.get("content-type")) ?? attachment.contentType;
   const body = response.body ?? (await response.arrayBuffer());
   await ticketTranscriptBlobs.putAttachment(
-    buildTicketTranscriptAttachmentStorageKey(guildId, channelId, attachment.id, attachment.filename),
+    buildTicketTranscriptAttachmentStorageKey(
+      guildId,
+      channelId,
+      attachment.id,
+      attachment.filename,
+    ),
     body,
-    { contentType }
+    { contentType },
   );
 
   return {

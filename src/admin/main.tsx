@@ -17,5 +17,5 @@ createRoot(root).render(
       initialPath={initialPath}
       initialSearch={initialSearch}
     />
-  </StrictMode>
+  </StrictMode>,
 );

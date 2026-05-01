@@ -16,7 +16,19 @@ export interface InteractionRouteOptions {
   gateway: GatewayController;
   ticketTranscriptBlobs?: TicketTranscriptBlobStore;
   services: InteractionRouteServices;
-  handleInteractionRequest: (request: Request, options: Pick<InteractionRouteOptions, "discordPublicKey" | "discordBotToken" | "verifyDiscordRequest" | "stores" | "gateway" | "ticketTranscriptBlobs" | "services">) => Promise<Response>;
+  handleInteractionRequest: (
+    request: Request,
+    options: Pick<
+      InteractionRouteOptions,
+      | "discordPublicKey"
+      | "discordBotToken"
+      | "verifyDiscordRequest"
+      | "stores"
+      | "gateway"
+      | "ticketTranscriptBlobs"
+      | "services"
+    >,
+  ) => Promise<Response>;
 }
 
 export interface RouteHandler {

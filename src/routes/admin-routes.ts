@@ -4,11 +4,12 @@ import {
   isValidAdminPassword,
   createAdminSessionCookie,
 } from "../runtime/admin-auth";
+import { isAdminDashboardPath, normalizeAdminDashboardPath } from "../admin/dashboard-routes";
 import {
-  isAdminDashboardPath,
-  normalizeAdminDashboardPath,
-} from "../admin/dashboard-routes";
-import { parseTimedRoleDuration, describeTimedRoleAssignmentFailure, describeTimedRoleRemovalFailure } from "../timed-roles";
+  parseTimedRoleDuration,
+  describeTimedRoleAssignmentFailure,
+  describeTimedRoleRemovalFailure,
+} from "../timed-roles";
 import { normalizeEmoji } from "../blocklist";
 import type { GatewayService } from "../services/gateway-service";
 import type { AdminOverviewService } from "../services/admin-overview-service";
@@ -38,18 +39,21 @@ export interface AdminRouteOptions {
   redirect: (location: string, headers?: Record<string, string>) => Response;
   getAdminLoginLocation: (pathname: string) => string;
   renderAdminShell: (withAuth?: boolean, pathname?: string, search?: string) => Response;
-  isAdminUiAuthorized: (request: Request, options: Pick<AdminRouteOptions, "adminSessionSecret" | "adminUiPassword">) => Promise<boolean>;
-  requireAdminSession: (request: Request, options: Pick<AdminRouteOptions, "adminSessionSecret" | "getAdminLoginLocation">) => Promise<Response | null>;
+  isAdminUiAuthorized: (
+    request: Request,
+    options: Pick<AdminRouteOptions, "adminSessionSecret" | "adminUiPassword">,
+  ) => Promise<boolean>;
+  requireAdminSession: (
+    request: Request,
+    options: Pick<AdminRouteOptions, "adminSessionSecret" | "getAdminLoginLocation">,
+  ) => Promise<Response | null>;
 }
 
 export interface RouteHandler {
   (request: Request): Promise<Response | null>;
 }
 
-async function handleAdminLogin(
-  request: Request,
-  options: AdminRouteOptions
-): Promise<Response> {
+async function handleAdminLogin(request: Request, options: AdminRouteOptions): Promise<Response> {
   if (!options.adminUiPassword || !options.adminSessionSecret) {
     return new Response("Admin login is not configured.", { status: 404 });
   }
@@ -64,10 +68,9 @@ async function handleAdminLogin(
   const nextPath = !next ? "/admin" : normalizeAdminDashboardPath(next);
 
   return options.redirect(nextPath, {
-    "set-cookie": await createAdminSessionCookie(
-      options.adminSessionSecret,
-      { secure: url.protocol === "https:" }
-    ),
+    "set-cookie": await createAdminSessionCookie(options.adminSessionSecret, {
+      secure: url.protocol === "https:",
+    }),
   });
 }
 
@@ -137,8 +140,8 @@ export function createAdminRoutes(options: AdminRouteOptions): RouteHandler {
       if (request.method === "GET" && url.pathname === "/admin/api/overview") {
         return Response.json(
           await options.services.adminOverviewService.getOverview(
-            shouldRefreshAdminDiscordCache(url)
-          )
+            shouldRefreshAdminDiscordCache(url),
+          ),
         );
       }
 
@@ -172,23 +175,20 @@ export function createAdminRoutes(options: AdminRouteOptions): RouteHandler {
           await options.services.blocklistService.addEmoji(
             parsedBody.value.guildId,
             normalizedEmoji,
-            { label: "Admin dashboard" }
+            { label: "Admin dashboard" },
           );
         } else {
           await options.services.blocklistService.removeEmoji(
             parsedBody.value.guildId,
             normalizedEmoji,
-            { label: "Admin dashboard" }
+            { label: "Admin dashboard" },
           );
         }
 
         return Response.json({ ok: true });
       }
 
-      if (
-        request.method === "POST" &&
-        url.pathname === "/admin/api/moderation-log-channel"
-      ) {
+      if (request.method === "POST" && url.pathname === "/admin/api/moderation-log-channel") {
         const parsedBody = await parseJsonBody(request, parseGuildNotificationChannelBody);
         if (!parsedBody.ok) {
           return parsedBody.response;
@@ -196,7 +196,7 @@ export function createAdminRoutes(options: AdminRouteOptions): RouteHandler {
 
         await options.services.blocklistService.updateGuildNotificationChannel(
           parsedBody.value.guildId,
-          parsedBody.value.notificationChannelId
+          parsedBody.value.notificationChannelId,
         );
 
         return Response.json(parsedBody.value);
@@ -231,7 +231,7 @@ export function createAdminRoutes(options: AdminRouteOptions): RouteHandler {
           if (!parsedBody.value.roleId || !parsedBody.value.duration) {
             return Response.json(
               { error: "Role ID and duration are required to enable new member timed roles." },
-              { status: 400 }
+              { status: 400 },
             );
           }
 
@@ -239,7 +239,7 @@ export function createAdminRoutes(options: AdminRouteOptions): RouteHandler {
           if (!parsedDuration) {
             return Response.json(
               { error: "Invalid duration. Use values like 1h, 1w, or 1m." },
-              { status: 400 }
+              { status: 400 },
             );
           }
         }
@@ -251,10 +251,9 @@ export function createAdminRoutes(options: AdminRouteOptions): RouteHandler {
         });
 
         return Response.json({
-          newMemberRoleConfig:
-            await options.services.timedRoleService.getNewMemberTimedRoleConfig(
-              parsedBody.value.guildId
-            ),
+          newMemberRoleConfig: await options.services.timedRoleService.getNewMemberTimedRoleConfig(
+            parsedBody.value.guildId,
+          ),
         });
       }
 
@@ -269,45 +268,53 @@ export function createAdminRoutes(options: AdminRouteOptions): RouteHandler {
           if (!parsedDuration) {
             return Response.json(
               { error: "Invalid duration. Use values like 1h, 1w, or 1m." },
-              { status: 400 }
+              { status: 400 },
             );
           }
 
           try {
-            await options.services.timedRoleService.assignTimedRole({
-              guildId: parsedBody.value.guildId,
-              userId: parsedBody.value.userId,
-              roleId: parsedBody.value.roleId,
-              durationInput: parsedDuration.durationInput,
-              expiresAtMs: parsedDuration.expiresAtMs,
-            }, { label: "Admin dashboard" });
+            await options.services.timedRoleService.assignTimedRole(
+              {
+                guildId: parsedBody.value.guildId,
+                userId: parsedBody.value.userId,
+                roleId: parsedBody.value.roleId,
+                durationInput: parsedDuration.durationInput,
+                expiresAtMs: parsedDuration.expiresAtMs,
+              },
+              { label: "Admin dashboard" },
+            );
           } catch (error) {
             return Response.json(
               { error: describeTimedRoleAssignmentFailure(error) },
-              { status: 502 }
+              { status: 502 },
             );
           }
         } else {
           try {
-            await options.services.timedRoleService.removeTimedRole({
-              guildId: parsedBody.value.guildId,
-              userId: parsedBody.value.userId,
-              roleId: parsedBody.value.roleId,
-            }, { label: "Admin dashboard" });
+            await options.services.timedRoleService.removeTimedRole(
+              {
+                guildId: parsedBody.value.guildId,
+                userId: parsedBody.value.userId,
+                roleId: parsedBody.value.roleId,
+              },
+              { label: "Admin dashboard" },
+            );
           } catch (error) {
             return Response.json(
               { error: describeTimedRoleRemovalFailure(error) },
-              { status: 502 }
+              { status: 502 },
             );
           }
         }
 
         return Response.json({
           guildId: parsedBody.value.guildId,
-          assignments: await options.services.timedRoleService.listTimedRoles(parsedBody.value.guildId),
+          assignments: await options.services.timedRoleService.listTimedRoles(
+            parsedBody.value.guildId,
+          ),
           notificationChannelId:
             await options.services.blocklistService.getGuildNotificationChannel(
-              parsedBody.value.guildId
+              parsedBody.value.guildId,
             ),
         });
       }

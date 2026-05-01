@@ -8,7 +8,7 @@ export interface BlocklistMutation {
 
 export async function applyGuildEmojiMutation(
   store: Pick<BlocklistStore, "applyGuildEmojiMutation">,
-  mutation: BlocklistMutation
+  mutation: BlocklistMutation,
 ): Promise<void> {
   await store.applyGuildEmojiMutation(mutation);
 }

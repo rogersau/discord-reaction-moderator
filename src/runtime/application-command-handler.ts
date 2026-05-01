@@ -1,9 +1,5 @@
 import { normalizeEmoji } from "../blocklist";
-import {
-  addGuildMemberRole,
-  createChannelMessage,
-  removeGuildMemberRole,
-} from "../discord";
+import { addGuildMemberRole, createChannelMessage, removeGuildMemberRole } from "../discord";
 import {
   buildEphemeralMessage,
   extractCommandInvocation,
@@ -25,14 +21,16 @@ const DISCORD_MESSAGE_CONTENT_LIMIT = 2_000;
 export async function handleApplicationCommand(
   interaction: DiscordInteraction,
   stores: RuntimeStores,
-  discordBotToken: string
+  discordBotToken: string,
 ): Promise<Response> {
   if (typeof interaction?.guild_id !== "string" || interaction.guild_id.length === 0) {
     return Response.json(buildEphemeralMessage("This command can only be used inside a server."));
   }
   if (!hasGuildAdminPermission(interaction?.member?.permissions ?? "")) {
     return Response.json(
-      buildEphemeralMessage("You need Administrator or Manage Guild permissions to use this command.")
+      buildEphemeralMessage(
+        "You need Administrator or Manage Guild permissions to use this command.",
+      ),
     );
   }
 
@@ -46,9 +44,8 @@ export async function handleApplicationCommand(
     userId: interaction.member?.user?.id ?? interaction.user?.id,
   };
 
-  const blocklistService = new BlocklistService(
-    stores.blocklist,
-    (channelId, body) => createChannelMessage(channelId, body, discordBotToken).then(() => undefined)
+  const blocklistService = new BlocklistService(stores.blocklist, (channelId, body) =>
+    createChannelMessage(channelId, body, discordBotToken).then(() => undefined),
   );
   const timedRoleService = new TimedRoleService(
     stores.timedRoles,
@@ -56,7 +53,8 @@ export async function handleApplicationCommand(
     (guildId, userId, roleId) => addGuildMemberRole(guildId, userId, roleId, discordBotToken),
     (guildId, userId, roleId) => removeGuildMemberRole(guildId, userId, roleId, discordBotToken),
     stores.blocklist as Partial<GuildNotificationChannelStore>,
-    (channelId, body) => createChannelMessage(channelId, body, discordBotToken).then(() => undefined)
+    (channelId, body) =>
+      createChannelMessage(channelId, body, discordBotToken).then(() => undefined),
   );
 
   if (invocation.commandName === "blocklist" && invocation.subcommandName === "list") {
@@ -66,7 +64,7 @@ export async function handleApplicationCommand(
       const content = formatBoundedBulletList(
         "Blocked emojis in this server:",
         "No emojis are blocked in this server.",
-        effectiveEmojis
+        effectiveEmojis,
       );
       return Response.json(buildEphemeralMessage(content));
     } catch (error) {
@@ -83,7 +81,7 @@ export async function handleApplicationCommand(
         : `Active timed roles:\n${assignments
             .map(
               (assignment) =>
-                `- <@${assignment.userId}> -> <@&${assignment.roleId}> (${assignment.durationInput}, expires ${formatTimedRoleExpiry(assignment.expiresAtMs)})`
+                `- <@${assignment.userId}> -> <@&${assignment.roleId}> (${assignment.durationInput}, expires ${formatTimedRoleExpiry(assignment.expiresAtMs)})`,
             )
             .join("\n")}`;
     return Response.json(buildEphemeralMessage(content));
@@ -92,57 +90,63 @@ export async function handleApplicationCommand(
   if (invocation.commandName === "timedrole" && invocation.subcommandName === "add") {
     const parsedDuration = parseTimedRoleDuration(invocation.duration, Date.now());
     if (!parsedDuration) {
-      return Response.json(buildEphemeralMessage("Invalid duration. Use values like 1h, 1w, or 1m."));
+      return Response.json(
+        buildEphemeralMessage("Invalid duration. Use values like 1h, 1w, or 1m."),
+      );
     }
 
     try {
-      await timedRoleService.assignTimedRole({
-        guildId: interaction.guild_id,
-        userId: invocation.userId,
-        roleId: invocation.roleId,
-        durationInput: parsedDuration.durationInput,
-        expiresAtMs: parsedDuration.expiresAtMs,
-      }, actor);
+      await timedRoleService.assignTimedRole(
+        {
+          guildId: interaction.guild_id,
+          userId: invocation.userId,
+          roleId: invocation.roleId,
+          durationInput: parsedDuration.durationInput,
+          expiresAtMs: parsedDuration.expiresAtMs,
+        },
+        actor,
+      );
     } catch (error) {
       console.error("Timed role assignment failed", error);
-      return Response.json(
-        buildEphemeralMessage(describeTimedRoleAssignmentFailure(error))
-      );
+      return Response.json(buildEphemeralMessage(describeTimedRoleAssignmentFailure(error)));
     }
 
     return Response.json(
       buildEphemeralMessage(
-        `Assigned <@&${invocation.roleId}> to <@${invocation.userId}> for ${invocation.duration} (${formatTimedRoleExpiry(parsedDuration.expiresAtMs)}).`
-      )
+        `Assigned <@&${invocation.roleId}> to <@${invocation.userId}> for ${invocation.duration} (${formatTimedRoleExpiry(parsedDuration.expiresAtMs)}).`,
+      ),
     );
   }
 
   if (invocation.commandName === "timedrole" && invocation.subcommandName === "remove") {
     const assignments = await timedRoleService.listTimedRoles(interaction.guild_id);
     const activeAssignment = assignments.find(
-      (entry) => entry.userId === invocation.userId && entry.roleId === invocation.roleId
+      (entry) => entry.userId === invocation.userId && entry.roleId === invocation.roleId,
     );
     if (!activeAssignment) {
       return Response.json(
         buildEphemeralMessage(
-          `<@&${invocation.roleId}> is not currently active for <@${invocation.userId}>.`
-        )
+          `<@&${invocation.roleId}> is not currently active for <@${invocation.userId}>.`,
+        ),
       );
     }
 
     try {
-      await timedRoleService.removeTimedRole({
-        guildId: interaction.guild_id,
-        userId: invocation.userId,
-        roleId: invocation.roleId,
-      }, actor);
+      await timedRoleService.removeTimedRole(
+        {
+          guildId: interaction.guild_id,
+          userId: invocation.userId,
+          roleId: invocation.roleId,
+        },
+        actor,
+      );
     } catch (error) {
       console.error("Timed role removal failed", error);
       return Response.json(buildEphemeralMessage("Failed to remove the timed role."));
     }
 
     return Response.json(
-      buildEphemeralMessage(`Removed <@&${invocation.roleId}> from <@${invocation.userId}>.`)
+      buildEphemeralMessage(`Removed <@&${invocation.roleId}> from <@${invocation.userId}>.`),
     );
   }
 
@@ -153,19 +157,13 @@ export async function handleApplicationCommand(
     }
 
     try {
-      const result = await blocklistService.addEmoji(
-        interaction.guild_id,
-        normalizedEmoji,
-        actor
-      );
+      const result = await blocklistService.addEmoji(interaction.guild_id, normalizedEmoji, actor);
       if (result.alreadyBlocked) {
         return Response.json(
-          buildEphemeralMessage(`${invocation.emoji} is already blocked in this server.`)
+          buildEphemeralMessage(`${invocation.emoji} is already blocked in this server.`),
         );
       }
-      return Response.json(
-        buildEphemeralMessage(`Blocked ${invocation.emoji} in this server.`)
-      );
+      return Response.json(buildEphemeralMessage(`Blocked ${invocation.emoji} in this server.`));
     } catch (error) {
       console.error("Failed to update blocklist", error);
       return Response.json(buildEphemeralMessage("Failed to update the server blocklist."));
@@ -182,18 +180,14 @@ export async function handleApplicationCommand(
       const result = await blocklistService.removeEmoji(
         interaction.guild_id,
         normalizedEmoji,
-        actor
+        actor,
       );
       if (!result.wasBlocked) {
         return Response.json(
-          buildEphemeralMessage(
-            `${invocation.emoji} is not currently blocked in this server.`
-          )
+          buildEphemeralMessage(`${invocation.emoji} is not currently blocked in this server.`),
         );
       }
-      return Response.json(
-        buildEphemeralMessage(`Unblocked ${invocation.emoji} in this server.`)
-      );
+      return Response.json(buildEphemeralMessage(`Unblocked ${invocation.emoji} in this server.`));
     } catch (error) {
       console.error("Failed to update blocklist", error);
       return Response.json(buildEphemeralMessage("Failed to update the server blocklist."));
@@ -203,11 +197,7 @@ export async function handleApplicationCommand(
   return Response.json(buildEphemeralMessage("Unsupported command."));
 }
 
-function formatBoundedBulletList(
-  title: string,
-  emptyMessage: string,
-  items: string[]
-): string {
+function formatBoundedBulletList(title: string, emptyMessage: string, items: string[]): string {
   if (items.length === 0) {
     return emptyMessage;
   }

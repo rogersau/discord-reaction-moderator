@@ -47,6 +47,7 @@
 ### Task 1: Add the admin frontend build pipeline and React/shadcn scaffold
 
 **Files:**
+
 - Modify: `package.json`
 - Modify: `tsconfig.json`
 - Modify: `tsconfig.node.json`
@@ -86,7 +87,7 @@ test("createRuntimeApp serves the admin login shell and static assets", async ()
   assert.match(await loginResponse.text(), /admin-root/);
 
   const assetResponse = await app.fetch(
-    new Request("https://runtime.example/admin/assets/admin.js")
+    new Request("https://runtime.example/admin/assets/admin.js"),
   );
   assert.equal(assetResponse.status, 200);
   assert.match(assetResponse.headers.get("content-type") ?? "", /javascript/);
@@ -177,7 +178,7 @@ writeFileSync(
 } as const;
 
 export const ADMIN_LOGIN_HTML = ${JSON.stringify(`<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="/admin/assets/admin.css"></head><body><div id="admin-root"></div><script type="module" src="/admin/assets/admin.js"></script></body></html>`)};
-`
+`,
 );
 ```
 
@@ -268,6 +269,7 @@ git commit -m "build: scaffold admin UI assets"
 ### Task 2: Add signed-cookie admin auth and app-config mutation support to the shared runtime contracts
 
 **Files:**
+
 - Create: `src/runtime/admin-auth.ts`
 - Create: `src/runtime/admin-types.ts`
 - Modify: `src/runtime/contracts.ts`
@@ -310,7 +312,7 @@ test("createRuntimeApp redirects unauthenticated admin requests and sets a sessi
       method: "POST",
       headers: { "content-type": "application/x-www-form-urlencoded" },
       body: "password=let-me-in",
-    })
+    }),
   );
 
   assert.equal(loginResponse.status, 302);
@@ -331,7 +333,11 @@ Expected: FAIL because `adminSessionSecret`, `upsertAppConfig`, and the `/admin`
 export interface RuntimeStore {
   readConfig(): Promise<BlocklistConfig>;
   upsertAppConfig(body: { key: string; value: string }): Promise<void>;
-  applyGuildEmojiMutation(body: { guildId: string; emoji: string; action: "add" | "remove" }): Promise<BlocklistConfig>;
+  applyGuildEmojiMutation(body: {
+    guildId: string;
+    emoji: string;
+    action: "add" | "remove";
+  }): Promise<BlocklistConfig>;
   listTimedRolesByGuild(guildId: string): Promise<TimedRoleAssignment[]>;
   upsertTimedRole(body: TimedRoleAssignment): Promise<void>;
   deleteTimedRole(body: { guildId: string; userId: string; roleId: string }): Promise<void>;
@@ -356,7 +362,10 @@ export async function createAdminSessionCookie(sessionSecret: string): Promise<s
   return `admin_session=${payload}; Path=/; HttpOnly; SameSite=Strict; Secure`;
 }
 
-export async function isValidAdminSession(cookieHeader: string | null, sessionSecret: string): Promise<boolean> {
+export async function isValidAdminSession(
+  cookieHeader: string | null,
+  sessionSecret: string,
+): Promise<boolean> {
   const raw = cookieHeader?.match(/admin_session=([^;]+)/)?.[1];
   if (!raw) {
     return false;
@@ -375,7 +384,7 @@ async function signValue(value: string, sessionSecret: string): Promise<string> 
     encoder.encode(sessionSecret),
     { name: "HMAC", hash: "SHA-256" },
     false,
-    ["sign"]
+    ["sign"],
   );
   const signature = await crypto.subtle.sign("HMAC", key, encoder.encode(value));
   return Buffer.from(signature).toString("base64url");
@@ -459,7 +468,9 @@ return createRuntimeApp({
       }
     },
   } as RuntimeStore,
-  gateway: { /* existing gateway wiring */ },
+  gateway: {
+    /* existing gateway wiring */
+  },
 });
 ```
 
@@ -478,6 +489,7 @@ git commit -m "feat: add admin session auth plumbing"
 ### Task 3: Serve the React admin pages and session-protected `/admin/api/*` endpoints from `createRuntimeApp`
 
 **Files:**
+
 - Modify: `src/runtime/app.ts`
 - Modify: `src/admin/App.tsx`
 - Modify: `src/admin/main.tsx`
@@ -499,23 +511,50 @@ test("createRuntimeApp returns dashboard data and blocklist mutations through se
     verifyDiscordRequest: async () => true,
     store: {
       async readConfig() {
-        return { guilds: { "guild-1": { enabled: true, emojis: ["✅"] } }, botUserId: "bot-user-id" };
+        return {
+          guilds: { "guild-1": { enabled: true, emojis: ["✅"] } },
+          botUserId: "bot-user-id",
+        };
       },
       async upsertAppConfig(body) {
         calls.push(`config:${body.key}:${body.value}`);
       },
       async applyGuildEmojiMutation(body) {
         calls.push(`blocklist:${body.guildId}:${body.emoji}:${body.action}`);
-        return { guilds: { [body.guildId]: { enabled: true, emojis: body.action === "add" ? ["✅", body.emoji] : ["✅"] } }, botUserId: "bot-user-id" };
+        return {
+          guilds: {
+            [body.guildId]: {
+              enabled: true,
+              emojis: body.action === "add" ? ["✅", body.emoji] : ["✅"],
+            },
+          },
+          botUserId: "bot-user-id",
+        };
       },
     } as unknown as RuntimeStore,
     gateway: {
       async status() {
-        return { status: "idle", sessionId: null, resumeGatewayUrl: null, lastSequence: null, backoffAttempt: 0, lastError: null, heartbeatIntervalMs: null };
+        return {
+          status: "idle",
+          sessionId: null,
+          resumeGatewayUrl: null,
+          lastSequence: null,
+          backoffAttempt: 0,
+          lastError: null,
+          heartbeatIntervalMs: null,
+        };
       },
       async start() {
         calls.push("gateway:start");
-        return { status: "connecting", sessionId: null, resumeGatewayUrl: null, lastSequence: null, backoffAttempt: 0, lastError: null, heartbeatIntervalMs: null };
+        return {
+          status: "connecting",
+          sessionId: null,
+          resumeGatewayUrl: null,
+          lastSequence: null,
+          backoffAttempt: 0,
+          lastError: null,
+          heartbeatIntervalMs: null,
+        };
       },
     },
   });
@@ -525,7 +564,7 @@ test("createRuntimeApp returns dashboard data and blocklist mutations through se
   const statusResponse = await app.fetch(
     new Request("https://runtime.example/admin/api/gateway/status", {
       headers: { cookie },
-    })
+    }),
   );
   assert.equal(statusResponse.status, 200);
 
@@ -534,7 +573,7 @@ test("createRuntimeApp returns dashboard data and blocklist mutations through se
       method: "POST",
       headers: { cookie, "content-type": "application/json" },
       body: JSON.stringify({ key: "bot_user_id", value: "new-bot-id" }),
-    })
+    }),
   );
   assert.equal(configResponse.status, 200);
 
@@ -543,7 +582,7 @@ test("createRuntimeApp returns dashboard data and blocklist mutations through se
       method: "POST",
       headers: { cookie, "content-type": "application/json" },
       body: JSON.stringify({ guildId: "guild-1", emoji: "🚫", action: "add" }),
-    })
+    }),
   );
   assert.equal(blocklistResponse.status, 200);
   assert.deepEqual(calls, ["config:bot_user_id:new-bot-id", "blocklist:guild-1:🚫:add"]);
@@ -595,7 +634,9 @@ export function createRuntimeApp(options: RuntimeAppOptions) {
           status: 302,
           headers: {
             location: "/admin",
-            "set-cookie": await createAdminSessionCookie(options.adminSessionSecret ?? options.adminUiPassword ?? "admin-session"),
+            "set-cookie": await createAdminSessionCookie(
+              options.adminSessionSecret ?? options.adminUiPassword ?? "admin-session",
+            ),
           },
         });
       }
@@ -603,22 +644,31 @@ export function createRuntimeApp(options: RuntimeAppOptions) {
       if (url.pathname.startsWith("/admin/assets/")) {
         const asset = ADMIN_ASSETS[url.pathname as keyof typeof ADMIN_ASSETS];
         return asset
-          ? new Response(asset.body, { status: 200, headers: { "content-type": asset.contentType } })
+          ? new Response(asset.body, {
+              status: 200,
+              headers: { "content-type": asset.contentType },
+            })
           : new Response("Not found", { status: 404 });
       }
 
       if (url.pathname === "/admin" && request.method === "GET") {
         const authorized = await isValidAdminSession(
           request.headers.get("cookie"),
-          options.adminSessionSecret ?? options.adminUiPassword ?? "admin-session"
+          options.adminSessionSecret ?? options.adminUiPassword ?? "admin-session",
         );
         if (!authorized) {
           return Response.redirect(new URL("/admin/login", url), 302);
         }
-        return new Response(ADMIN_LOGIN_HTML.replace('data-admin-authenticated="false"', 'data-admin-authenticated="true"'), {
-          status: 200,
-          headers: { "content-type": "text/html; charset=utf-8" },
-        });
+        return new Response(
+          ADMIN_LOGIN_HTML.replace(
+            'data-admin-authenticated="false"',
+            'data-admin-authenticated="true"',
+          ),
+          {
+            status: 200,
+            headers: { "content-type": "text/html; charset=utf-8" },
+          },
+        );
       }
 
       if (url.pathname === "/admin/api/gateway/status" && request.method === "GET") {
@@ -651,7 +701,11 @@ export function createRuntimeApp(options: RuntimeAppOptions) {
 
       if (url.pathname === "/admin/api/blocklist" && request.method === "POST") {
         await requireAdminSession(request, options);
-        const body = (await request.json()) as { guildId: string; emoji: string; action: "add" | "remove" };
+        const body = (await request.json()) as {
+          guildId: string;
+          emoji: string;
+          action: "add" | "remove";
+        };
         const config = await options.store.applyGuildEmojiMutation(body);
         return Response.json(config.guilds[body.guildId] ?? { enabled: true, emojis: [] });
       }
@@ -665,7 +719,7 @@ export function createRuntimeApp(options: RuntimeAppOptions) {
 async function requireAdminSession(request: Request, options: RuntimeAppOptions): Promise<void> {
   const valid = await isValidAdminSession(
     request.headers.get("cookie"),
-    options.adminSessionSecret ?? options.adminUiPassword ?? "admin-session"
+    options.adminSessionSecret ?? options.adminUiPassword ?? "admin-session",
   );
   if (!valid) {
     throw new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -712,6 +766,7 @@ git commit -m "feat: serve admin dashboard routes"
 ### Task 4: Wire Cloudflare/Node runtime config, portable server behavior, and operator documentation
 
 **Files:**
+
 - Modify: `test/node-server.test.ts`
 - Modify: `README.md`
 - Modify: `wrangler.toml`
@@ -729,10 +784,10 @@ test("startNodeRuntimeServer serves the admin login page and protects /admin", a
         const pathname = new URL(request.url).pathname;
         if (pathname === "/admin/login") {
           return Promise.resolve(
-            new Response("<!doctype html><div id=\"admin-root\"></div>", {
+            new Response('<!doctype html><div id="admin-root"></div>', {
               status: 200,
               headers: { "content-type": "text/html; charset=utf-8" },
-            })
+            }),
           );
         }
         if (pathname === "/admin") {
@@ -740,7 +795,7 @@ test("startNodeRuntimeServer serves the admin login page and protects /admin", a
             new Response(null, {
               status: 302,
               headers: { location: "/admin/login" },
-            })
+            }),
           );
         }
         return Promise.resolve(new Response("Not found", { status: 404 }));
@@ -760,8 +815,9 @@ Expected: FAIL until the test helper and README-facing route expectations are up
 
 - [ ] **Step 3: Write minimal implementation**
 
-```md
+````md
 <!-- README.md -->
+
 ## Admin UI
 
 Open the Worker URL in a browser:
@@ -769,6 +825,7 @@ Open the Worker URL in a browser:
 ```text
 https://your-worker-url.workers.dev/admin/login
 ```
+````
 
 Set the shared admin password first:
 
@@ -781,14 +838,15 @@ After signing in, the dashboard becomes the supported operator surface for:
 - gateway status and bootstrap
 - app config edits
 - guild blocklist management by guild ID
-```
+
+````
 
 ```toml
 # wrangler.toml
 # Discord Credentials (set as secrets, not here)
 # wrangler secret put DISCORD_BOT_TOKEN
 # wrangler secret put ADMIN_UI_PASSWORD
-```
+````
 
 ```json
 // package.json

@@ -11,7 +11,7 @@ export interface DiscordGuildMemberAdd {
 export async function handleGatewayDispatch(
   payload: { op: number; t?: string | null; d?: unknown },
   moderateReactionAdd: (reaction: DiscordReaction | null) => Promise<void>,
-  handleGuildMemberAdd?: (member: DiscordGuildMemberAdd | null) => Promise<void>
+  handleGuildMemberAdd?: (member: DiscordGuildMemberAdd | null) => Promise<void>,
 ): Promise<void> {
   if (!shouldHandleDispatch({ op: payload.op, t: payload.t ?? null })) {
     return;

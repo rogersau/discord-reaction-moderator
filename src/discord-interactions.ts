@@ -47,7 +47,7 @@ export function extractCommandInvocation(invocation: any): CommandInvocation | n
   if (!sub || sub.type !== 1) return null;
 
   const subDef = (cmdDef.options || []).find(
-    (o: any) => o.name === sub.name && o.type === sub.type
+    (o: any) => o.name === sub.name && o.type === sub.type,
   );
   if (!subDef) return null;
 
@@ -86,16 +86,29 @@ export function extractCommandInvocation(invocation: any): CommandInvocation | n
   if (!userId || !roleId) return null;
 
   if (sub.name === "remove") {
-    return { commandName: "timedrole", subcommandName: "remove", userId, roleId } as CommandInvocation;
+    return {
+      commandName: "timedrole",
+      subcommandName: "remove",
+      userId,
+      roleId,
+    } as CommandInvocation;
   }
 
-  const durationDef = (subDef.options || []).find((o: any) => o.name === "duration" && o.type === 3);
+  const durationDef = (subDef.options || []).find(
+    (o: any) => o.name === "duration" && o.type === 3,
+  );
   if (!durationDef) return null;
 
   const duration = getStringOptionValue(subOptions, "duration");
   if (!duration) return null;
 
-  return { commandName: "timedrole", subcommandName: "add", userId, roleId, duration } as CommandInvocation;
+  return {
+    commandName: "timedrole",
+    subcommandName: "add",
+    userId,
+    roleId,
+    duration,
+  } as CommandInvocation;
 }
 
 export function buildEphemeralMessage(content: string) {

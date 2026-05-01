@@ -115,13 +115,25 @@ function getStatusTone(status: string | null): StatusTone {
   if (!status) return "default";
 
   const normalized = status.toLowerCase();
-  if (normalized.includes("ready") || normalized.includes("connected") || normalized.includes("active")) {
+  if (
+    normalized.includes("ready") ||
+    normalized.includes("connected") ||
+    normalized.includes("active")
+  ) {
     return "success";
   }
-  if (normalized.includes("error") || normalized.includes("fail") || normalized.includes("closed")) {
+  if (
+    normalized.includes("error") ||
+    normalized.includes("fail") ||
+    normalized.includes("closed")
+  ) {
     return "danger";
   }
-  if (normalized.includes("backoff") || normalized.includes("start") || normalized.includes("connect")) {
+  if (
+    normalized.includes("backoff") ||
+    normalized.includes("start") ||
+    normalized.includes("connect")
+  ) {
     return "warning";
   }
   return "default";

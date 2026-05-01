@@ -14,9 +14,7 @@ function addUtcMonthsClamped(nowMs: number, amount: number): number {
   const year = current.getUTCFullYear();
   const month = current.getUTCMonth();
   const day = current.getUTCDate();
-  const lastDayOfTargetMonth = new Date(
-    Date.UTC(year, month + amount + 1, 0)
-  ).getUTCDate();
+  const lastDayOfTargetMonth = new Date(Date.UTC(year, month + amount + 1, 0)).getUTCDate();
 
   return Date.UTC(
     year,
@@ -25,13 +23,13 @@ function addUtcMonthsClamped(nowMs: number, amount: number): number {
     current.getUTCHours(),
     current.getUTCMinutes(),
     current.getUTCSeconds(),
-    current.getUTCMilliseconds()
+    current.getUTCMilliseconds(),
   );
 }
 
 export function parseTimedRoleDuration(
   input: string,
-  nowMs = Date.now()
+  nowMs = Date.now(),
 ): ParsedTimedRoleDuration | null {
   const match = input.trim().match(DURATION_PATTERN);
   if (!match) return null;
@@ -56,7 +54,10 @@ export function formatTimedRoleExpiry(expiresAtMs: number): string {
 }
 
 export function describeTimedRoleAssignmentFailure(error: unknown): string {
-  if (error instanceof Error && error.message === "Failed to assign the timed role, and rollback failed.") {
+  if (
+    error instanceof Error &&
+    error.message === "Failed to assign the timed role, and rollback failed."
+  ) {
     return error.message;
   }
 

@@ -31,7 +31,9 @@ export interface RuntimeAppContext {
 }
 
 export function createCloudflareContext(env: Env): RuntimeAppContext {
-  const gatewayStub = env.GATEWAY_SESSION_DO.get(env.GATEWAY_SESSION_DO.idFromName("gateway-session"));
+  const gatewayStub = env.GATEWAY_SESSION_DO.get(
+    env.GATEWAY_SESSION_DO.idFromName("gateway-session"),
+  );
   const storeStub = getModerationStoreStub(env);
 
   const storeClient = createCloudflareStoreClient(storeStub);
@@ -62,7 +64,7 @@ export function createCloudflareContext(env: Env): RuntimeAppContext {
         async putAttachment(
           key: string,
           body: ReadableStream<Uint8Array> | ArrayBuffer | string,
-          options: { contentType: string | null }
+          options: { contentType: string | null },
         ): Promise<void> {
           await env.TICKET_TRANSCRIPTS_BUCKET?.put(key, body, {
             httpMetadata: options.contentType

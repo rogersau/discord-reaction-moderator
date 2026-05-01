@@ -41,7 +41,7 @@ export function EmojiPicker({ emojis, loading, selectedName, onSelect }: EmojiPi
       <div
         className={cn(
           "max-h-48 overflow-y-auto rounded-md border bg-muted/20 p-2",
-          (loading || filtered.length === 0) && "flex min-h-[5rem] items-center justify-center"
+          (loading || filtered.length === 0) && "flex min-h-[5rem] items-center justify-center",
         )}
       >
         {loading ? (
@@ -66,7 +66,7 @@ export function EmojiPicker({ emojis, loading, selectedName, onSelect }: EmojiPi
                   onClick={() => onSelect(emoji)}
                   className={cn(
                     "flex h-9 w-9 items-center justify-center rounded-md border border-transparent transition-colors hover:border-border hover:bg-background",
-                    isSelected && "border-primary bg-primary/15"
+                    isSelected && "border-primary bg-primary/15",
                   )}
                 >
                   <img

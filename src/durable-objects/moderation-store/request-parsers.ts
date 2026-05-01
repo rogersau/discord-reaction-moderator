@@ -8,7 +8,11 @@ import { normalizeEmoji } from "../../blocklist";
 
 export class ModerationStoreInputError extends Error {}
 
-export function parseGuildEmojiMutation(body: unknown): { guildId: string; emoji: string; action: "add" | "remove" } {
+export function parseGuildEmojiMutation(body: unknown): {
+  guildId: string;
+  emoji: string;
+  action: "add" | "remove";
+} {
   if (!isRecord(body)) {
     throw new ModerationStoreInputError("Invalid JSON body");
   }
@@ -17,7 +21,12 @@ export function parseGuildEmojiMutation(body: unknown): { guildId: string; emoji
   const normalizedEmoji = normalizeEmoji(asOptionalString(body.emoji));
   const action = body.action;
 
-  if (typeof guildId !== "string" || guildId.length === 0 || !normalizedEmoji || typeof action !== "string") {
+  if (
+    typeof guildId !== "string" ||
+    guildId.length === 0 ||
+    !normalizedEmoji ||
+    typeof action !== "string"
+  ) {
     throw new ModerationStoreInputError("Missing guildId, emoji or action");
   }
 
@@ -115,7 +124,7 @@ export function parseGuildNotificationChannelMutation(body: unknown): {
     guildId: asRequiredString(body.guildId, "guildId"),
     notificationChannelId: asOptionalNullableString(
       body.notificationChannelId,
-      "notificationChannelId"
+      "notificationChannelId",
     ),
   };
 }
@@ -233,32 +242,57 @@ function parseTicketTypes(value: unknown): TicketPanelConfig["ticketTypes"] {
       label: asRequiredString(ticketType.label, `ticketTypes[${index}].label`),
       emoji: asNullableString(ticketType.emoji, `ticketTypes[${index}].emoji`),
       buttonStyle: asTicketButtonStyle(ticketType.buttonStyle),
-      supportRoleId: asRequiredString(ticketType.supportRoleId, `ticketTypes[${index}].supportRoleId`),
-      channelNamePrefix: asRequiredString(ticketType.channelNamePrefix, `ticketTypes[${index}].channelNamePrefix`),
+      supportRoleId: asRequiredString(
+        ticketType.supportRoleId,
+        `ticketTypes[${index}].supportRoleId`,
+      ),
+      channelNamePrefix: asRequiredString(
+        ticketType.channelNamePrefix,
+        `ticketTypes[${index}].channelNamePrefix`,
+      ),
       questions: parseTicketQuestions(ticketType.questions, index),
     };
   });
 }
 
-function parseTicketQuestions(value: unknown, ticketTypeIndex: number): TicketPanelConfig["ticketTypes"][number]["questions"] {
+function parseTicketQuestions(
+  value: unknown,
+  ticketTypeIndex: number,
+): TicketPanelConfig["ticketTypes"][number]["questions"] {
   if (!Array.isArray(value)) {
     throw new ModerationStoreInputError(`Missing ticketTypes[${ticketTypeIndex}].questions`);
   }
   if (value.length > 5) {
-    throw new ModerationStoreInputError(`ticketTypes[${ticketTypeIndex}].questions cannot exceed 5 entries`);
+    throw new ModerationStoreInputError(
+      `ticketTypes[${ticketTypeIndex}].questions cannot exceed 5 entries`,
+    );
   }
 
   return value.map((question, questionIndex) => {
     if (!isRecord(question)) {
-      throw new ModerationStoreInputError(`Invalid ticketTypes[${ticketTypeIndex}].questions[${questionIndex}]`);
+      throw new ModerationStoreInputError(
+        `Invalid ticketTypes[${ticketTypeIndex}].questions[${questionIndex}]`,
+      );
     }
 
     return {
-      id: asRequiredString(question.id, `ticketTypes[${ticketTypeIndex}].questions[${questionIndex}].id`),
-      label: asRequiredString(question.label, `ticketTypes[${ticketTypeIndex}].questions[${questionIndex}].label`),
+      id: asRequiredString(
+        question.id,
+        `ticketTypes[${ticketTypeIndex}].questions[${questionIndex}].id`,
+      ),
+      label: asRequiredString(
+        question.label,
+        `ticketTypes[${ticketTypeIndex}].questions[${questionIndex}].label`,
+      ),
       style: asTicketQuestionStyle(question.style),
-      placeholder: asNullableString(question.placeholder, `ticketTypes[${ticketTypeIndex}].questions[${questionIndex}].placeholder`),
-      required: asBoolean(question.required, `ticketTypes[${ticketTypeIndex}].questions[${questionIndex}].required`),
+      placeholder: asNullableString(
+        question.placeholder,
+        `ticketTypes[${ticketTypeIndex}].questions[${questionIndex}].placeholder`,
+      ),
+      required: asBoolean(
+        question.required,
+        `ticketTypes[${ticketTypeIndex}].questions[${questionIndex}].required`,
+      ),
     };
   });
 }
@@ -354,7 +388,9 @@ function asTicketStatus(value: unknown): TicketInstance["status"] {
   return value;
 }
 
-function asTicketButtonStyle(value: unknown): TicketPanelConfig["ticketTypes"][number]["buttonStyle"] {
+function asTicketButtonStyle(
+  value: unknown,
+): TicketPanelConfig["ticketTypes"][number]["buttonStyle"] {
   if (value !== "primary" && value !== "secondary" && value !== "success" && value !== "danger") {
     throw new ModerationStoreInputError("Missing buttonStyle");
   }
@@ -362,7 +398,9 @@ function asTicketButtonStyle(value: unknown): TicketPanelConfig["ticketTypes"][n
   return value;
 }
 
-function asTicketQuestionStyle(value: unknown): TicketPanelConfig["ticketTypes"][number]["questions"][number]["style"] {
+function asTicketQuestionStyle(
+  value: unknown,
+): TicketPanelConfig["ticketTypes"][number]["questions"][number]["style"] {
   if (value !== "short" && value !== "paragraph") {
     throw new ModerationStoreInputError("Missing style");
   }

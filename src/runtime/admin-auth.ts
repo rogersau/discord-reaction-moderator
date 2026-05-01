@@ -10,12 +10,12 @@ export async function createAdminSessionCookie(
   options?: {
     secure?: boolean;
   },
-  nowMs = Date.now()
+  nowMs = Date.now(),
 ): Promise<string> {
   if (!secret) {
     throw new Error("ADMIN_SESSION_SECRET is required to create admin session cookies.");
   }
-  
+
   const payload: AdminSessionPayload = {
     exp: nowMs + ADMIN_SESSION_TTL_SECONDS * 1000,
   };
@@ -36,10 +36,7 @@ export async function createAdminSessionCookie(
   return attributes.join("; ");
 }
 
-export async function isValidAdminPassword(
-  actual: unknown,
-  expected: string
-): Promise<boolean> {
+export async function isValidAdminPassword(actual: unknown, expected: string): Promise<boolean> {
   if (typeof actual !== "string") {
     return false;
   }
@@ -55,7 +52,7 @@ export async function isValidAdminPassword(
 export async function hasValidAdminSession(
   request: Request,
   secret: string,
-  nowMs = Date.now()
+  nowMs = Date.now(),
 ): Promise<boolean> {
   const cookieHeader = request.headers.get("cookie");
   if (!cookieHeader) {
@@ -81,9 +78,7 @@ export async function hasValidAdminSession(
   }
 
   try {
-    const payload = JSON.parse(
-      decodeURIComponent(encodedPayload)
-    ) as Partial<AdminSessionPayload>;
+    const payload = JSON.parse(decodeURIComponent(encodedPayload)) as Partial<AdminSessionPayload>;
 
     return typeof payload.exp === "number" && Number.isFinite(payload.exp) && payload.exp > nowMs;
   } catch {
@@ -102,13 +97,11 @@ async function signValue(secret: string, value: string): Promise<string> {
     encoder.encode(secret),
     { name: "HMAC", hash: "SHA-256" },
     false,
-    ["sign"]
+    ["sign"],
   );
   const signature = await subtle.sign("HMAC", key, encoder.encode(value));
 
-  return [...new Uint8Array(signature)]
-    .map((byte) => byte.toString(16).padStart(2, "0"))
-    .join("");
+  return [...new Uint8Array(signature)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
 function readCookieValue(cookieHeader: string, name: string): string | undefined {
@@ -152,7 +145,5 @@ async function digestValue(value: string): Promise<string> {
 
   const digest = await subtle.digest("SHA-256", encoder.encode(value));
 
-  return [...new Uint8Array(digest)]
-    .map((byte) => byte.toString(16).padStart(2, "0"))
-    .join("");
+  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }

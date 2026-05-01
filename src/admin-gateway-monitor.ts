@@ -13,7 +13,7 @@ export interface GatewayStatusMonitor {
 }
 
 export function startGatewayStatusMonitor<TStatus>(
-  options: GatewayStatusMonitorOptions<TStatus>
+  options: GatewayStatusMonitorOptions<TStatus>,
 ): GatewayStatusMonitor {
   let stopped = false;
   let inFlight = false;

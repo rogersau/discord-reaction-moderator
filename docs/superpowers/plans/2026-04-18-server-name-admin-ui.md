@@ -24,6 +24,7 @@
 ### Task 1: Add the authenticated guild-directory route
 
 **Files:**
+
 - Modify: `src/discord.ts`
 - Modify: `src/runtime/admin-types.ts`
 - Modify: `src/runtime/app.ts`
@@ -36,11 +37,7 @@ test("createRuntimeApp exposes the bot guild directory for the admin UI", async 
   const originalFetch = globalThis.fetch;
   globalThis.fetch = (async (input: RequestInfo | URL) => {
     const url =
-      typeof input === "string"
-        ? input
-        : input instanceof URL
-          ? input.toString()
-          : input.url;
+      typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
 
     if (url.endsWith("/users/@me/guilds")) {
       return Response.json([
@@ -68,7 +65,7 @@ test("createRuntimeApp exposes the bot guild directory for the admin UI", async 
     const response = await app.fetch(
       new Request("https://runtime.example/admin/api/guilds", {
         headers: { cookie },
-      })
+      }),
     );
 
     assert.equal(response.status, 200);
@@ -113,11 +110,11 @@ export interface DiscordCurrentUserGuild {
 }
 
 export async function listBotGuilds(
-  botToken: string
+  botToken: string,
 ): Promise<Array<{ guildId: string; name: string }>> {
   const guilds = await discordGetJson<DiscordCurrentUserGuild[]>(
     `${DISCORD_API}/users/@me/guilds`,
-    botToken
+    botToken,
   );
 
   return guilds.map(({ id, name }) => ({
@@ -155,7 +152,7 @@ if (request.method === "GET" && url.pathname === "/admin/api/guilds") {
 }
 
 function buildAdminGuildDirectory(
-  guilds: Array<{ guildId: string; name: string }>
+  guilds: Array<{ guildId: string; name: string }>,
 ): AdminGuildDirectoryEntry[] {
   const nameCounts = new Map<string, number>();
 
@@ -166,16 +163,13 @@ function buildAdminGuildDirectory(
   return [...guilds]
     .sort(
       (left, right) =>
-        left.name.localeCompare(right.name) ||
-        left.guildId.localeCompare(right.guildId)
+        left.name.localeCompare(right.name) || left.guildId.localeCompare(right.guildId),
     )
     .map((guild) => ({
       guildId: guild.guildId,
       name: guild.name,
       label:
-        (nameCounts.get(guild.name) ?? 0) > 1
-          ? `${guild.name} (${guild.guildId})`
-          : guild.name,
+        (nameCounts.get(guild.name) ?? 0) > 1 ? `${guild.name} (${guild.guildId})` : guild.name,
     }));
 }
 ```
@@ -195,6 +189,7 @@ git commit -m "feat: add admin guild directory route"
 ### Task 2: Build the shared guild picker and wire the editors to it
 
 **Files:**
+
 - Create: `src/admin/components/guild-picker.tsx`
 - Modify: `src/admin/App.tsx`
 - Test: `test/admin-app.test.tsx`
@@ -275,13 +270,7 @@ interface GuildPickerProps {
   onChange: (nextGuildId: string) => void;
 }
 
-export function GuildPicker({
-  id,
-  value,
-  guildDirectory,
-  loadError,
-  onChange,
-}: GuildPickerProps) {
+export function GuildPicker({ id, value, guildDirectory, loadError, onChange }: GuildPickerProps) {
   const [query, setQuery] = useState("");
 
   const filteredGuilds = useMemo(() => {
@@ -294,9 +283,7 @@ export function GuildPicker({
       return guildDirectory;
     }
 
-    return guildDirectory.filter((guild) =>
-      guild.label.toLowerCase().includes(normalizedQuery)
-    );
+    return guildDirectory.filter((guild) => guild.label.toLowerCase().includes(normalizedQuery));
   }, [guildDirectory, query]);
 
   if (loadError) {
@@ -330,9 +317,7 @@ export function GuildPicker({
           onChange={(event) => onChange(event.target.value)}
           disabled={!guildDirectory}
         >
-          <option value="">
-            {guildDirectory ? "— select a server —" : "Loading servers…"}
-          </option>
+          <option value="">{guildDirectory ? "— select a server —" : "Loading servers…"}</option>
           {filteredGuilds.map((guild) => (
             <option key={guild.guildId} value={guild.guildId}>
               {guild.label}
@@ -467,7 +452,11 @@ function TimedRolesEditor({
             <Input id="tr-role" value={roleId} onChange={(e) => setRoleId(e.target.value)} />
           </FormField>
           <FormField label="Duration" htmlFor="tr-duration">
-            <Input id="tr-duration" value={duration} onChange={(e) => setDuration(e.target.value)} />
+            <Input
+              id="tr-duration"
+              value={duration}
+              onChange={(e) => setDuration(e.target.value)}
+            />
           </FormField>
         </div>
       </EditorPanel>
@@ -475,10 +464,7 @@ function TimedRolesEditor({
   );
 }
 
-function TicketPanelsEditor({
-  guildDirectory,
-  guildLookupError,
-}: GuildSelectionProps) {
+function TicketPanelsEditor({ guildDirectory, guildLookupError }: GuildSelectionProps) {
   return (
     <div className="space-y-4">
       <div className="space-y-4 rounded-lg border bg-muted/30 p-4 md:p-6">
@@ -525,6 +511,7 @@ git commit -m "feat: add admin guild picker"
 ### Task 3: Show server names in the stored overview cards
 
 **Files:**
+
 - Create: `src/admin/components/guild-overview-card.tsx`
 - Modify: `src/admin/App.tsx`
 - Test: `test/admin-app.test.tsx`
@@ -595,9 +582,7 @@ export function GuildOverviewCard({
         <div>
           <p className="text-xs font-medium text-muted-foreground">Guild</p>
           <h3 className="mt-2 text-lg font-semibold tracking-tight">{heading}</h3>
-          {guildName ? (
-            <p className="mt-1 text-xs text-muted-foreground">{guild.guildId}</p>
-          ) : null}
+          {guildName ? <p className="mt-1 text-xs text-muted-foreground">{guild.guildId}</p> : null}
           <p className="mt-1 text-sm text-muted-foreground">
             Stored moderation data for this server.
           </p>
@@ -650,22 +635,21 @@ export function GuildOverviewCard({
 
 ```tsx
 // src/admin/App.tsx
-import {
-  GuildOverviewCard,
-  type AdminOverviewGuild,
-} from "./components/guild-overview-card";
+import { GuildOverviewCard, type AdminOverviewGuild } from "./components/guild-overview-card";
 
 const guildNamesById = new Map(
-  (guildDirectory ?? []).map((guild) => [guild.guildId, guild.name] as const)
+  (guildDirectory ?? []).map((guild) => [guild.guildId, guild.name] as const),
 );
 
-{overview.guilds.map((guild) => (
-  <GuildOverviewCard
-    key={guild.guildId}
-    guild={guild}
-    guildName={guildNamesById.get(guild.guildId) ?? null}
-  />
-))}
+{
+  overview.guilds.map((guild) => (
+    <GuildOverviewCard
+      key={guild.guildId}
+      guild={guild}
+      guildName={guildNamesById.get(guild.guildId) ?? null}
+    />
+  ));
+}
 ```
 
 - [ ] **Step 4: Run test to verify it passes**

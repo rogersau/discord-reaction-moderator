@@ -1,9 +1,6 @@
 import { useState, type ReactNode } from "react";
 
-import {
-  ADMIN_DASHBOARD_ROUTES,
-  type AdminDashboardPath,
-} from "../dashboard-routes";
+import { ADMIN_DASHBOARD_ROUTES, type AdminDashboardPath } from "../dashboard-routes";
 import { cn } from "../lib/utils";
 import { Button } from "./ui/button";
 import { GuildPicker } from "./guild-picker";
@@ -84,7 +81,7 @@ export function AdminShell({
         <aside
           className={cn(
             "fixed inset-y-0 left-0 z-50 flex w-[18rem] max-w-[calc(100vw-2rem)] flex-col overflow-y-auto border bg-card p-5 text-card-foreground shadow-xl transition-transform lg:static lg:z-auto lg:flex lg:w-full lg:max-w-xs lg:translate-x-0 lg:rounded-lg lg:shadow-sm",
-            mobileNavOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+            mobileNavOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
           )}
         >
           <div className="flex items-center gap-3">
@@ -143,7 +140,7 @@ export function AdminShell({
                     "group relative flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
                     active
                       ? "bg-primary text-primary-foreground shadow-sm"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground",
                   )}
                 >
                   {route.label}
@@ -152,7 +149,7 @@ export function AdminShell({
                       "order-first h-4 w-4 transition-colors",
                       active
                         ? "text-primary-foreground"
-                        : "text-muted-foreground group-hover:text-foreground"
+                        : "text-muted-foreground group-hover:text-foreground",
                     )}
                   />
                 </a>

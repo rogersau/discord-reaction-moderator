@@ -35,6 +35,7 @@
 ### Task 1: Add shared ticket types and SQLite runtime persistence
 
 **Files:**
+
 - Modify: `src/types.ts`
 - Modify: `src/runtime/admin-types.ts`
 - Modify: `src/runtime/contracts.ts`
@@ -89,7 +90,9 @@ test("sqlite runtime store persists ticket panel config and ticket instances", a
       openerUserId: "user-1",
       supportRoleId: "role-1",
       status: "open",
-      answers: [{ questionId: "reason", label: "Why are you opening this ticket?", value: "Need help" }],
+      answers: [
+        { questionId: "reason", label: "Why are you opening this ticket?", value: "Need help" },
+      ],
       openedAtMs: 1000,
       closedAtMs: null,
       closedByUserId: null,
@@ -372,6 +375,7 @@ git commit -m "feat: persist ticket panel state" -m "Co-authored-by: Copilot <22
 ### Task 2: Add Durable Object ticket persistence and Cloudflare runtime proxies
 
 **Files:**
+
 - Modify: `src/durable-objects/moderation-store.ts`
 - Modify: `src/runtime/cloudflare-runtime.ts`
 - Test: `test/blocklist.test.ts`
@@ -400,12 +404,12 @@ test("ModerationStoreDO stores ticket panels and ticket instances through HTTP e
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(panel),
-    })
+    }),
   );
   assert.equal(savePanel.status, 200);
 
   const readPanel = await store.fetch(
-    new Request("https://moderation-store/ticket-panel?guildId=guild-1")
+    new Request("https://moderation-store/ticket-panel?guildId=guild-1"),
   );
   assert.deepEqual(await readPanel.json(), panel);
 
@@ -427,12 +431,14 @@ test("ModerationStoreDO stores ticket panels and ticket instances through HTTP e
         closedByUserId: null,
         transcriptMessageId: null,
       }),
-    })
+    }),
   );
   assert.equal(createTicket.status, 200);
 
   const readOpen = await store.fetch(
-    new Request("https://moderation-store/ticket-instance/open?guildId=guild-1&channelId=ticket-channel-1")
+    new Request(
+      "https://moderation-store/ticket-instance/open?guildId=guild-1&channelId=ticket-channel-1",
+    ),
   );
   assert.equal((await readOpen.json()).status, "open");
 
@@ -447,7 +453,7 @@ test("ModerationStoreDO stores ticket panels and ticket instances through HTTP e
         closedAtMs: 2000,
         transcriptMessageId: "transcript-message-1",
       }),
-    })
+    }),
   );
   assert.equal(closeTicket.status, 200);
 });
@@ -508,7 +514,7 @@ if (request.method === "GET" && url.pathname === "/ticket-instance/open") {
   const guildId = url.searchParams.get("guildId");
   const channelId = url.searchParams.get("channelId");
   return Response.json(
-    guildId && channelId ? this.readOpenTicketByChannel(guildId, channelId) : null
+    guildId && channelId ? this.readOpenTicketByChannel(guildId, channelId) : null,
   );
 }
 
@@ -581,6 +587,7 @@ git commit -m "feat: add cloudflare ticket persistence" -m "Co-authored-by: Copi
 ### Task 3: Build ticket helpers and Discord REST clients
 
 **Files:**
+
 - Create: `src/tickets.ts`
 - Modify: `src/discord.ts`
 - Test: `test/tickets.test.ts`
@@ -643,16 +650,28 @@ test("renderTicketTranscript includes answers and chat history", () => {
       openerUserId: "user-1",
       supportRoleId: "role-1",
       status: "open",
-      answers: [{ questionId: "reason", label: "Why are you opening this ticket?", value: "Need help" }],
+      answers: [
+        { questionId: "reason", label: "Why are you opening this ticket?", value: "Need help" },
+      ],
       openedAtMs: 1_000,
       closedAtMs: 2_000,
       closedByUserId: "user-2",
       transcriptMessageId: null,
     },
     [
-      { id: "m1", authorName: "User One", content: "Need help", createdAt: "2026-04-17T22:00:00.000Z" },
-      { id: "m2", authorName: "Support", content: "We are reviewing this", createdAt: "2026-04-17T22:01:00.000Z" },
-    ]
+      {
+        id: "m1",
+        authorName: "User One",
+        content: "Need help",
+        createdAt: "2026-04-17T22:00:00.000Z",
+      },
+      {
+        id: "m2",
+        authorName: "Support",
+        content: "We are reviewing this",
+        createdAt: "2026-04-17T22:01:00.000Z",
+      },
+    ],
   );
 
   assert.match(output, /Ticket Type: Appeal/);
@@ -684,7 +703,7 @@ test("createTicketChannel posts a private guild channel with opener and support 
         openerUserId: "user-1",
         supportRoleId: "role-1",
       },
-      "bot-token"
+      "bot-token",
     );
   } finally {
     globalThis.fetch = originalFetch;
@@ -735,10 +754,9 @@ export function buildTicketCloseCustomId(channelId: string): string {
   return `ticket:close:${channelId}`;
 }
 
-export function parseTicketCustomId(customId: string):
-  | { action: "open"; ticketTypeId: string }
-  | { action: "close"; channelId: string }
-  | null {
+export function parseTicketCustomId(
+  customId: string,
+): { action: "open"; ticketTypeId: string } | { action: "close"; channelId: string } | null {
   if (customId.startsWith("ticket:open:")) {
     return { action: "open", ticketTypeId: customId.slice("ticket:open:".length) };
   }
@@ -772,12 +790,17 @@ export function buildTicketModalResponse(ticketType: TicketTypeConfig) {
 }
 
 export function buildTicketChannelName(prefix: string, openerUserId: string): string {
-  return `${prefix}-${openerUserId}`.toLowerCase().replace(/[^a-z0-9-]/g, "-").slice(0, 90);
+  return `${prefix}-${openerUserId}`
+    .toLowerCase()
+    .replace(/[^a-z0-9-]/g, "-")
+    .slice(0, 90);
 }
 
 export function extractTicketAnswersFromModal(
-  interaction: { data?: { components?: Array<{ components?: Array<{ custom_id?: string; value?: string }> }> } },
-  questions: TicketTypeConfig["questions"]
+  interaction: {
+    data?: { components?: Array<{ components?: Array<{ custom_id?: string; value?: string }> }> };
+  },
+  questions: TicketTypeConfig["questions"],
 ) {
   const values = new Map<string, string>();
   for (const row of interaction.data?.components ?? []) {
@@ -797,11 +820,11 @@ export function extractTicketAnswersFromModal(
 
 export function renderTicketTranscript(
   instance: TicketInstance,
-  messages: TranscriptMessage[]
+  messages: TranscriptMessage[],
 ): string {
   const answerLines = instance.answers.map((answer) => `${answer.label}: ${answer.value}`);
   const messageLines = messages.map(
-    (message) => `[${message.createdAt}] ${message.authorName}: ${message.content}`
+    (message) => `[${message.createdAt}] ${message.authorName}: ${message.content}`,
   );
 
   return [
@@ -832,7 +855,7 @@ export interface TicketChannelCreateInput {
 
 export async function createTicketChannel(
   input: TicketChannelCreateInput,
-  botToken: string
+  botToken: string,
 ): Promise<{ id: string }> {
   const response = await fetch(`${DISCORD_API}/guilds/${input.guildId}/channels`, {
     method: "POST",
@@ -853,7 +876,11 @@ export async function createTicketChannel(
   });
   if (!response.ok) {
     const error = await response.text().catch(() => "Unknown error");
-    throw new DiscordApiError(`Failed to create ticket channel: ${response.status} ${error}`, response.status, error);
+    throw new DiscordApiError(
+      `Failed to create ticket channel: ${response.status} ${error}`,
+      response.status,
+      error,
+    );
   }
   return response.json();
 }
@@ -873,7 +900,7 @@ export async function listGuildTicketResources(guildId: string, botToken: string
 export async function createChannelMessage(
   channelId: string,
   body: Record<string, unknown>,
-  botToken: string
+  botToken: string,
 ): Promise<{ id: string }> {
   const response = await fetch(`${DISCORD_API}/channels/${channelId}/messages`, {
     method: "POST",
@@ -885,7 +912,11 @@ export async function createChannelMessage(
   });
   if (!response.ok) {
     const error = await response.text().catch(() => "Unknown error");
-    throw new DiscordApiError(`Failed to create channel message: ${response.status} ${error}`, response.status, error);
+    throw new DiscordApiError(
+      `Failed to create channel message: ${response.status} ${error}`,
+      response.status,
+      error,
+    );
   }
   return response.json();
 }
@@ -899,7 +930,11 @@ export async function listChannelMessages(channelId: string, botToken: string) {
   });
   if (!response.ok) {
     const error = await response.text().catch(() => "Unknown error");
-    throw new DiscordApiError(`Failed to list channel messages: ${response.status} ${error}`, response.status, error);
+    throw new DiscordApiError(
+      `Failed to list channel messages: ${response.status} ${error}`,
+      response.status,
+      error,
+    );
   }
   return response.json();
 }
@@ -914,7 +949,11 @@ export async function deleteChannel(channelId: string, botToken: string): Promis
   });
   if (!response.ok) {
     const error = await response.text().catch(() => "Unknown error");
-    throw new DiscordApiError(`Failed to delete ticket channel: ${response.status} ${error}`, response.status, error);
+    throw new DiscordApiError(
+      `Failed to delete ticket channel: ${response.status} ${error}`,
+      response.status,
+      error,
+    );
   }
 }
 
@@ -922,7 +961,7 @@ export async function uploadTranscriptToChannel(
   channelId: string,
   filename: string,
   transcriptBody: string,
-  botToken: string
+  botToken: string,
 ): Promise<{ id: string }> {
   const formData = new FormData();
   formData.set("payload_json", JSON.stringify({ content: `Transcript saved: ${filename}` }));
@@ -937,7 +976,11 @@ export async function uploadTranscriptToChannel(
   });
   if (!response.ok) {
     const error = await response.text().catch(() => "Unknown error");
-    throw new DiscordApiError(`Failed to upload transcript: ${response.status} ${error}`, response.status, error);
+    throw new DiscordApiError(
+      `Failed to upload transcript: ${response.status} ${error}`,
+      response.status,
+      error,
+    );
   }
   return response.json();
 }
@@ -958,6 +1001,7 @@ git commit -m "feat: add ticket helper module" -m "Co-authored-by: Copilot <2235
 ### Task 4: Wire ticket admin APIs and Discord lifecycle into the runtime app
 
 **Files:**
+
 - Modify: `src/runtime/app.ts`
 - Test: `test/runtime-app.test.ts`
 
@@ -997,14 +1041,14 @@ test("createRuntimeApp exposes ticket admin APIs through session auth", async ()
         panelMessageId: null,
         ticketTypes: [],
       }),
-    })
+    }),
   );
   assert.equal(saveResponse.status, 200);
 
   const readResponse = await app.fetch(
     new Request("https://runtime.example/admin/api/tickets/panel?guildId=guild-1", {
       headers: { cookie },
-    })
+    }),
   );
   assert.equal(readResponse.status, 200);
   assert.equal((await readResponse.json()).guildId, "guild-1");
@@ -1018,8 +1062,18 @@ test("createRuntimeApp opens and closes a ticket from component and modal intera
     if (String(input).includes("/guilds/guild-1/channels")) {
       return Response.json({ id: "ticket-channel-1" });
     }
-    if (String(input).includes("/channels/ticket-channel-1/messages") && (init?.method ?? "GET") === "GET") {
-      return Response.json([{ id: "m1", content: "Need help", timestamp: "2026-04-17T22:00:00.000Z", author: { username: "User One" } }]);
+    if (
+      String(input).includes("/channels/ticket-channel-1/messages") &&
+      (init?.method ?? "GET") === "GET"
+    ) {
+      return Response.json([
+        {
+          id: "m1",
+          content: "Need help",
+          timestamp: "2026-04-17T22:00:00.000Z",
+          author: { username: "User One" },
+        },
+      ]);
     }
     return Response.json({ id: "message-1" });
   }) as typeof fetch;
@@ -1039,7 +1093,15 @@ test("createRuntimeApp opens and closes a ticket from component and modal intera
           buttonStyle: "primary",
           supportRoleId: "role-1",
           channelNamePrefix: "appeal",
-          questions: [{ id: "reason", label: "Why are you opening this ticket?", style: "paragraph", placeholder: "Explain", required: true }],
+          questions: [
+            {
+              id: "reason",
+              label: "Why are you opening this ticket?",
+              style: "paragraph",
+              placeholder: "Explain",
+              required: true,
+            },
+          ],
         },
       ],
     };
@@ -1081,7 +1143,7 @@ test("createRuntimeApp opens and closes a ticket from component and modal intera
           data: { custom_id: "ticket:open:appeals" },
           member: { user: { id: "user-1" } },
         }),
-      })
+      }),
     );
     assert.equal((await openResponse.json()).type, 9);
   } finally {
@@ -1143,7 +1205,14 @@ async function publishTicketPanel(guildId: string, options: RuntimeAppOptions) {
           type: 1,
           components: panel.ticketTypes.map((ticketType) => ({
             type: 2,
-            style: ticketType.buttonStyle === "primary" ? 1 : ticketType.buttonStyle === "secondary" ? 2 : ticketType.buttonStyle === "success" ? 3 : 4,
+            style:
+              ticketType.buttonStyle === "primary"
+                ? 1
+                : ticketType.buttonStyle === "secondary"
+                  ? 2
+                  : ticketType.buttonStyle === "success"
+                    ? 3
+                    : 4,
             custom_id: buildTicketOpenCustomId(ticketType.id),
             label: ticketType.label,
             emoji: ticketType.emoji ? { name: ticketType.emoji } : undefined,
@@ -1151,7 +1220,7 @@ async function publishTicketPanel(guildId: string, options: RuntimeAppOptions) {
         },
       ],
     },
-    options.discordBotToken
+    options.discordBotToken,
   );
 
   await options.store.upsertTicketPanelConfig({ ...panel, panelMessageId: message.id });
@@ -1204,12 +1273,17 @@ if (request.method === "POST" && url.pathname === "/interactions") {
 
 ```ts
 // src/runtime/app.ts
-async function handleInteractionRequest(request: Request, options: RuntimeAppOptions): Promise<Response> {
+async function handleInteractionRequest(
+  request: Request,
+  options: RuntimeAppOptions,
+): Promise<Response> {
   // existing signature verification and PING handling...
-  const interaction = await request.json() as DiscordInteraction;
+  const interaction = (await request.json()) as DiscordInteraction;
 
   if (interaction.type === 3) {
-    const parsed = parseTicketCustomId(String((interaction.data as { custom_id?: string })?.custom_id ?? ""));
+    const parsed = parseTicketCustomId(
+      String((interaction.data as { custom_id?: string })?.custom_id ?? ""),
+    );
     if (!parsed) {
       return Response.json(buildEphemeralMessage("Unsupported button action."), { status: 200 });
     }
@@ -1217,7 +1291,9 @@ async function handleInteractionRequest(request: Request, options: RuntimeAppOpt
       const panel = await options.store.readTicketPanelConfig(interaction.guild_id!);
       const ticketType = panel?.ticketTypes.find((entry) => entry.id === parsed.ticketTypeId);
       if (!ticketType) {
-        return Response.json(buildEphemeralMessage("This ticket button is no longer configured."), { status: 200 });
+        return Response.json(buildEphemeralMessage("This ticket button is no longer configured."), {
+          status: 200,
+        });
       }
       return Response.json(buildTicketModalResponse(ticketType));
     }
@@ -1238,9 +1314,10 @@ async function createTicketFromModal(interaction: DiscordInteraction, options: R
   const panel = await options.store.readTicketPanelConfig(interaction.guild_id!);
   const modalCustomId = String((interaction.data as { custom_id?: string })?.custom_id ?? "");
   const modalTicketAction = parseTicketCustomId(modalCustomId);
-  const ticketType = modalTicketAction?.action === "open"
-    ? panel?.ticketTypes.find((entry) => entry.id === modalTicketAction.ticketTypeId)
-    : null;
+  const ticketType =
+    modalTicketAction?.action === "open"
+      ? panel?.ticketTypes.find((entry) => entry.id === modalTicketAction.ticketTypeId)
+      : null;
   if (!panel || !ticketType) {
     return buildEphemeralMessage("This ticket configuration is no longer available.");
   }
@@ -1253,7 +1330,7 @@ async function createTicketFromModal(interaction: DiscordInteraction, options: R
       openerUserId: interaction.member!.user!.id,
       supportRoleId: ticketType.supportRoleId,
     },
-    options.discordBotToken
+    options.discordBotToken,
   );
 
   const answers = extractTicketAnswersFromModal(interaction, ticketType.questions);
@@ -1293,7 +1370,7 @@ async function createTicketFromModal(interaction: DiscordInteraction, options: R
         },
       ],
     },
-    options.discordBotToken
+    options.discordBotToken,
   );
   return buildEphemeralMessage(`Ticket created: <#${channel.id}>`);
 }
@@ -1301,7 +1378,7 @@ async function createTicketFromModal(interaction: DiscordInteraction, options: R
 async function closeTicketFromInteraction(
   interaction: DiscordInteraction,
   channelId: string,
-  options: RuntimeAppOptions
+  options: RuntimeAppOptions,
 ) {
   const ticket = await options.store.readOpenTicketByChannel(interaction.guild_id!, channelId);
   if (!ticket) {
@@ -1320,12 +1397,19 @@ async function closeTicketFromInteraction(
     discordMessages
       .slice()
       .reverse()
-      .map((message: { id: string; content: string; timestamp: string; author: { username: string } }) => ({
-        id: message.id,
-        authorName: message.author.username,
-        content: message.content,
-        createdAt: message.timestamp,
-      }))
+      .map(
+        (message: {
+          id: string;
+          content: string;
+          timestamp: string;
+          author: { username: string };
+        }) => ({
+          id: message.id,
+          authorName: message.author.username,
+          content: message.content,
+          createdAt: message.timestamp,
+        }),
+      ),
   );
 
   const panel = await options.store.readTicketPanelConfig(interaction.guild_id!);
@@ -1333,7 +1417,7 @@ async function closeTicketFromInteraction(
     panel!.transcriptChannelId,
     `${ticket.channelId}.txt`,
     transcriptBody,
-    options.discordBotToken
+    options.discordBotToken,
   );
 
   await options.store.closeTicketInstance({
@@ -1364,6 +1448,7 @@ git commit -m "feat: wire ticket lifecycle into runtime app" -m "Co-authored-by:
 ### Task 5: Build the admin ticket panel editor with friendly Discord names
 
 **Files:**
+
 - Create: `src/admin/components/ticket-panel-editor.tsx`
 - Modify: `src/admin/App.tsx`
 - Test: `test/admin-app.test.tsx`
@@ -1403,7 +1488,7 @@ test("ticket panel editor shows friendly Discord names instead of raw IDs", () =
       onChange={() => {}}
       onSave={async () => {}}
       onPublish={async () => {}}
-    />
+    />,
   );
 
   assert.match(html, />Support</);
@@ -1450,7 +1535,11 @@ export function TicketPanelEditor(props: TicketPanelEditorProps) {
       <CardContent className="space-y-4">
         <div className="space-y-2">
           <Label htmlFor="ticket-category">Ticket category</Label>
-          <select id="ticket-category" value={props.value.categoryChannelId} onChange={() => undefined}>
+          <select
+            id="ticket-category"
+            value={props.value.categoryChannelId}
+            onChange={() => undefined}
+          >
             {props.guildResources?.categories.map((category) => (
               <option key={category.id} value={category.id}>
                 {category.name}
@@ -1460,7 +1549,11 @@ export function TicketPanelEditor(props: TicketPanelEditorProps) {
         </div>
         <div className="space-y-2">
           <Label htmlFor="ticket-transcripts">Transcript channel</Label>
-          <select id="ticket-transcripts" value={props.value.transcriptChannelId} onChange={() => undefined}>
+          <select
+            id="ticket-transcripts"
+            value={props.value.transcriptChannelId}
+            onChange={() => undefined}
+          >
             {props.guildResources?.textChannels.map((channel) => (
               <option key={channel.id} value={channel.id}>
                 {channel.name}
@@ -1470,7 +1563,11 @@ export function TicketPanelEditor(props: TicketPanelEditorProps) {
         </div>
         <div className="space-y-2">
           <Label htmlFor="ticket-role">Support role</Label>
-          <select id="ticket-role" value={props.value.ticketTypes[0]?.supportRoleId ?? ""} onChange={() => undefined}>
+          <select
+            id="ticket-role"
+            value={props.value.ticketTypes[0]?.supportRoleId ?? ""}
+            onChange={() => undefined}
+          >
             {props.guildResources?.roles.map((role) => (
               <option key={role.id} value={role.id}>
                 {role.name}
@@ -1525,6 +1622,7 @@ git commit -m "feat: add admin ticket panel editor" -m "Co-authored-by: Copilot 
 ### Task 6: Add Worker-level ticket route coverage and document operator setup
 
 **Files:**
+
 - Modify: `test/interaction-routes.test.ts`
 - Modify: `README.md`
 
@@ -1562,7 +1660,13 @@ test("worker returns a ticket modal for a signed open-ticket button click", asyn
                 supportRoleId: "role-1",
                 channelNamePrefix: "appeal",
                 questions: [
-                  { id: "reason", label: "Why are you opening this ticket?", style: "paragraph", placeholder: "Explain", required: true },
+                  {
+                    id: "reason",
+                    label: "Why are you opening this ticket?",
+                    style: "paragraph",
+                    placeholder: "Explain",
+                    required: true,
+                  },
                 ],
               },
             ],
@@ -1571,7 +1675,7 @@ test("worker returns a ticket modal for a signed open-ticket button click", asyn
         return Response.json({ ok: true });
       },
     }),
-    {} as ExecutionContext
+    {} as ExecutionContext,
   );
 
   assert.equal(response.status, 200);
@@ -1588,6 +1692,7 @@ Expected: FAIL because the signed Worker interaction route does not yet return t
 
 ```md
 <!-- README.md -->
+
 ## Ticket tool setup
 
 After signing into the admin dashboard, configure one ticket panel per guild:

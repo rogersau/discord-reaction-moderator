@@ -28,10 +28,12 @@ test("addGuildMemberRole uses the Discord member-role endpoint", async () => {
     globalThis.fetch = originalFetch;
   }
 
-  assert.deepEqual(calls, [{
-    input: "https://discord.com/api/v10/guilds/guild-1/members/user-1/roles/role-1",
-    method: "PUT",
-  }]);
+  assert.deepEqual(calls, [
+    {
+      input: "https://discord.com/api/v10/guilds/guild-1/members/user-1/roles/role-1",
+      method: "PUT",
+    },
+  ]);
 });
 
 test("removeGuildMemberRole uses the Discord member-role endpoint", async () => {
@@ -48,10 +50,12 @@ test("removeGuildMemberRole uses the Discord member-role endpoint", async () => 
     globalThis.fetch = originalFetch;
   }
 
-  assert.deepEqual(calls, [{
-    input: "https://discord.com/api/v10/guilds/guild-1/members/user-1/roles/role-1",
-    method: "DELETE",
-  }]);
+  assert.deepEqual(calls, [
+    {
+      input: "https://discord.com/api/v10/guilds/guild-1/members/user-1/roles/role-1",
+      method: "DELETE",
+    },
+  ]);
 });
 
 test("removeGuildMemberRole throws on Discord API failures", async () => {
@@ -61,7 +65,7 @@ test("removeGuildMemberRole throws on Discord API failures", async () => {
   try {
     await assert.rejects(
       removeGuildMemberRole("guild-1", "user-1", "role-1", "bot-token"),
-      /Discord API error: 500/
+      /Discord API error: 500/,
     );
   } finally {
     globalThis.fetch = originalFetch;
@@ -70,16 +74,17 @@ test("removeGuildMemberRole throws on Discord API failures", async () => {
 
 test("removeGuildMemberRole throws when Discord returns a non-ok response", async () => {
   const originalFetch = globalThis.fetch;
-  globalThis.fetch = async () => ({
-    ok: false,
-    status: 204,
-    text: async () => "unexpected",
-  }) as Response;
+  globalThis.fetch = async () =>
+    ({
+      ok: false,
+      status: 204,
+      text: async () => "unexpected",
+    }) as Response;
 
   try {
     await assert.rejects(
       removeGuildMemberRole("guild-1", "user-1", "role-1", "bot-token"),
-      /Discord API error: 204 unexpected/
+      /Discord API error: 204 unexpected/,
     );
   } finally {
     globalThis.fetch = originalFetch;
@@ -108,7 +113,7 @@ test("createTicketChannel posts a private guild channel with opener and support 
         openerUserId: "user-1",
         supportRoleId: "role-1",
       },
-      "bot-token"
+      "bot-token",
     );
   } finally {
     globalThis.fetch = originalFetch;
@@ -146,21 +151,15 @@ test("uploadTranscriptToChannel includes the HTML transcript link in the payload
   }) as typeof fetch;
 
   try {
-    await uploadTranscriptToChannel(
-      "channel-1",
-      "ticket-123.txt",
-      "ticket body",
-      "bot-token",
-      {
-        htmlTranscriptUrl: "https://runtime.example/transcripts/guild-1/channel-1",
-        embeds: [
-          {
-            title: "Ticket Transcript",
-            fields: [{ name: "Messages", value: "2", inline: true }],
-          },
-        ],
-      }
-    );
+    await uploadTranscriptToChannel("channel-1", "ticket-123.txt", "ticket body", "bot-token", {
+      htmlTranscriptUrl: "https://runtime.example/transcripts/guild-1/channel-1",
+      embeds: [
+        {
+          title: "Ticket Transcript",
+          fields: [{ name: "Messages", value: "2", inline: true }],
+        },
+      ],
+    });
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -217,7 +216,7 @@ test("createTicketChannel sends the expected Discord channel payload", async () 
         openerUserId: "user-1",
         supportRoleId: "role-1",
       },
-      "token"
+      "token",
     );
 
     assert.equal(created.id, "new-channel");

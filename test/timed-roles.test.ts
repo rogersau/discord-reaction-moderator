@@ -18,14 +18,14 @@ test("parseTimedRoleDuration accepts hour, week, and month units", () => {
   });
   assert.equal(
     parseTimedRoleDuration("1m", Date.UTC(2026, 0, 15, 0, 0, 0))?.expiresAtMs,
-    Date.UTC(2026, 1, 15, 0, 0, 0)
+    Date.UTC(2026, 1, 15, 0, 0, 0),
   );
 });
 
 test("parseTimedRoleDuration clamps month durations to the last day of the target month", () => {
   assert.equal(
     parseTimedRoleDuration("1m", Date.UTC(2026, 0, 31, 0, 0, 0))?.expiresAtMs,
-    Date.UTC(2026, 1, 28, 0, 0, 0)
+    Date.UTC(2026, 1, 28, 0, 0, 0),
   );
 });
 

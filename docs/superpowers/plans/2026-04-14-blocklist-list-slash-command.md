@@ -13,6 +13,7 @@
 ### Task 1: Extend command parsing for the new subcommand
 
 **Files:**
+
 - Modify: `src/discord-commands.ts`
 - Modify: `src/discord-interactions.ts`
 - Test: `test/discord-interactions.test.ts`
@@ -21,11 +22,10 @@
 
 ```ts
 test("SLASH_COMMAND_DEFINITIONS includes the blocklist list subcommand", () => {
-  assert.deepEqual(SLASH_COMMAND_DEFINITIONS[0].options?.map((option) => option.name), [
-    "add",
-    "remove",
-    "list",
-  ]);
+  assert.deepEqual(
+    SLASH_COMMAND_DEFINITIONS[0].options?.map((option) => option.name),
+    ["add", "remove", "list"],
+  );
 });
 
 test("extractCommandInvocation returns a list invocation without an emoji", () => {
@@ -66,17 +66,13 @@ export const SLASH_COMMAND_DEFINITIONS = [
         type: 1,
         name: "add",
         description: "Block an emoji in this server",
-        options: [
-          { type: 3, name: "emoji", description: "Emoji to block", required: true },
-        ],
+        options: [{ type: 3, name: "emoji", description: "Emoji to block", required: true }],
       },
       {
         type: 1,
         name: "remove",
         description: "Unblock an emoji in this server",
-        options: [
-          { type: 3, name: "emoji", description: "Emoji to unblock", required: true },
-        ],
+        options: [{ type: 3, name: "emoji", description: "Emoji to unblock", required: true }],
       },
       {
         type: 1,
@@ -90,7 +86,9 @@ export const SLASH_COMMAND_DEFINITIONS = [
 
 ```ts
 // src/discord-interactions.ts
-export function extractCommandInvocation(invocation: any):
+export function extractCommandInvocation(
+  invocation: any,
+):
   | { commandName: string; subcommandName: "list" }
   | { commandName: string; subcommandName: "add" | "remove"; emoji: string }
   | null {
@@ -105,7 +103,7 @@ export function extractCommandInvocation(invocation: any):
   if (!sub || sub.type !== 1) return null;
 
   const subDef = (cmdDef.options || []).find(
-    (o: any) => o.name === sub.name && o.type === sub.type
+    (o: any) => o.name === sub.name && o.type === sub.type,
   );
   if (!subDef) return null;
 
@@ -141,6 +139,7 @@ git commit -m "feat: add blocklist list command parsing"
 ### Task 2: Add list handling to the interaction route
 
 **Files:**
+
 - Modify: `src/index.ts`
 - Test: `test/interaction-routes.test.ts`
 
@@ -154,7 +153,7 @@ test("worker returns the current server blocklist for /blocklist list", async ()
       guildId: "guild-123",
       permissions: "8",
       subcommand: "list",
-    })
+    }),
   );
 
   const response = await worker.fetch(
@@ -179,11 +178,14 @@ test("worker returns the current server blocklist for /blocklist list", async ()
         });
       },
     }),
-    {} as ExecutionContext
+    {} as ExecutionContext,
   );
 
   assert.equal(response.status, 200);
-  assert.deepEqual(await response.json(), buildEphemeralMessage("Blocked emojis in this server:\n- ✅\n- 🍎"));
+  assert.deepEqual(
+    await response.json(),
+    buildEphemeralMessage("Blocked emojis in this server:\n- ✅\n- 🍎"),
+  );
   assert.deepEqual(storeCalls, [
     {
       input: "https://moderation-store/config",
@@ -206,7 +208,7 @@ Expected: FAIL because `/blocklist list` is not handled yet.
 if (invocation.subcommandName === "list") {
   try {
     const config = await getBlocklistFromStore(() =>
-      storeStub.fetch("https://moderation-store/config")
+      storeStub.fetch("https://moderation-store/config"),
     );
     const guildEmojis = config.guilds?.[interaction.guild_id]?.emojis ?? [];
     const content =
@@ -217,9 +219,7 @@ if (invocation.subcommandName === "list") {
     return Response.json(buildEphemeralMessage(content));
   } catch (error) {
     console.error("Failed to load moderation config", error);
-    return Response.json(
-      buildEphemeralMessage("Failed to load the server blocklist.")
-    );
+    return Response.json(buildEphemeralMessage("Failed to load the server blocklist."));
   }
 }
 ```
@@ -239,6 +239,7 @@ git commit -m "feat: add blocklist list interaction"
 ### Task 3: Document the new slash command
 
 **Files:**
+
 - Modify: `README.md`
 
 - [ ] **Step 1: Update the slash command docs**
@@ -265,6 +266,7 @@ git commit -m "docs: document blocklist list command"
 ### Task 4: Verify the full change
 
 **Files:**
+
 - None
 
 - [ ] **Step 1: Run the full checks**

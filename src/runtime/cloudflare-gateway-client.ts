@@ -5,7 +5,9 @@ type FetchLike = (input: RequestInfo | URL, init?: RequestInit) => Promise<Respo
 export function createCloudflareGatewayClient(gatewayStub: { fetch: FetchLike }) {
   return {
     async start(): Promise<GatewaySnapshot> {
-      return readJson<GatewaySnapshot>(gatewayStub.fetch("https://gateway-session/start", { method: "POST" }));
+      return readJson<GatewaySnapshot>(
+        gatewayStub.fetch("https://gateway-session/start", { method: "POST" }),
+      );
     },
     async status(): Promise<GatewaySnapshot> {
       return readJson<GatewaySnapshot>(gatewayStub.fetch("https://gateway-session/status"));
@@ -16,7 +18,9 @@ export function createCloudflareGatewayClient(gatewayStub: { fetch: FetchLike })
 async function validateResponse(responsePromise: Promise<Response>): Promise<Response> {
   const response = await responsePromise;
   if (!response.ok) {
-    throw new Error(`Cloudflare gateway request failed: ${response.status} ${await response.text()}`);
+    throw new Error(
+      `Cloudflare gateway request failed: ${response.status} ${await response.text()}`,
+    );
   }
   return response;
 }

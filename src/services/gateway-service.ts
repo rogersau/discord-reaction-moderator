@@ -8,13 +8,18 @@ export interface GatewayBootstrapOptions {
 export class GatewayService {
   constructor(
     private readonly gateway: GatewayController,
-    private readonly bootstrapOptions?: GatewayBootstrapOptions
+    private readonly bootstrapOptions?: GatewayBootstrapOptions,
   ) {}
 
   async bootstrap(): Promise<unknown> {
-    if (this.bootstrapOptions?.discordApplicationId && this.bootstrapOptions.syncApplicationCommands) {
+    if (
+      this.bootstrapOptions?.discordApplicationId &&
+      this.bootstrapOptions.syncApplicationCommands
+    ) {
       try {
-        await this.bootstrapOptions.syncApplicationCommands(this.bootstrapOptions.discordApplicationId);
+        await this.bootstrapOptions.syncApplicationCommands(
+          this.bootstrapOptions.discordApplicationId,
+        );
       } catch (error) {
         console.error("Failed to sync slash commands during bootstrap", error);
       }

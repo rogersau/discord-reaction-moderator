@@ -16,11 +16,11 @@ function createMockEnv(overrides: Partial<Env> = {}): Env {
     DISCORD_APPLICATION_ID: "app-id",
     GATEWAY_SESSION_DO: {
       get: () => ({ fetch: () => Promise.resolve(new Response()) }) as any,
-      idFromName: () => ({} as any),
+      idFromName: () => ({}) as any,
     } as any,
     MODERATION_STORE_DO: {
       get: () => ({ fetch: () => Promise.resolve(new Response()) }) as any,
-      idFromName: () => ({} as any),
+      idFromName: () => ({}) as any,
     } as any,
     ...overrides,
   };
@@ -47,7 +47,11 @@ test("createCloudflareContext requires dedicated ADMIN_SESSION_SECRET (no fallba
 
   const context = createCloudflareContext(env);
 
-  assert.strictEqual(context.adminSessionSecret, undefined, "Should not fall back to ADMIN_AUTH_SECRET");
+  assert.strictEqual(
+    context.adminSessionSecret,
+    undefined,
+    "Should not fall back to ADMIN_AUTH_SECRET",
+  );
 });
 
 test("createCloudflareContext requires dedicated ADMIN_SESSION_SECRET (no fallback to ADMIN_UI_PASSWORD)", () => {
@@ -59,7 +63,11 @@ test("createCloudflareContext requires dedicated ADMIN_SESSION_SECRET (no fallba
 
   const context = createCloudflareContext(env);
 
-  assert.strictEqual(context.adminSessionSecret, undefined, "Should not fall back to ADMIN_UI_PASSWORD");
+  assert.strictEqual(
+    context.adminSessionSecret,
+    undefined,
+    "Should not fall back to ADMIN_UI_PASSWORD",
+  );
 });
 
 test("createCloudflareContext adminSessionSecret is undefined when no admin secrets configured", () => {
@@ -103,11 +111,21 @@ test("createCloudflareContext exposes grouped stores by bounded context", () => 
 });
 
 test("createCloudflareContext wires ticket transcript R2 helpers when a bucket is configured", async () => {
-  const bucketCalls: Array<{ action: string; key: string; body?: unknown; contentType?: string }> = [];
+  const bucketCalls: Array<{ action: string; key: string; body?: unknown; contentType?: string }> =
+    [];
   const env = createMockEnv({
     TICKET_TRANSCRIPTS_BUCKET: {
-      async put(key: string, value: unknown, options?: { httpMetadata?: { contentType?: string } }) {
-        bucketCalls.push({ action: "put", key, body: value, contentType: options?.httpMetadata?.contentType });
+      async put(
+        key: string,
+        value: unknown,
+        options?: { httpMetadata?: { contentType?: string } },
+      ) {
+        bucketCalls.push({
+          action: "put",
+          key,
+          body: value,
+          contentType: options?.httpMetadata?.contentType,
+        });
       },
       async get(key: string) {
         bucketCalls.push({ action: "get", key });
@@ -132,12 +150,21 @@ test("createCloudflareContext wires ticket transcript R2 helpers when a bucket i
 
   const context = createCloudflareContext(env);
 
-  await context.ticketTranscriptBlobs?.putHtml("guild-1/channel-1.html", "<html>stored transcript</html>");
+  await context.ticketTranscriptBlobs?.putHtml(
+    "guild-1/channel-1.html",
+    "<html>stored transcript</html>",
+  );
   const html = await context.ticketTranscriptBlobs?.getHtml("guild-1/channel-1.html");
-  await context.ticketTranscriptBlobs?.putAttachment("guild-1/channel-1/attachments/attachment-1/proof.png", "image-bytes", {
-    contentType: "image/png",
-  });
-  const attachment = await context.ticketTranscriptBlobs?.getAttachment("guild-1/channel-1/attachments/attachment-1/proof.png");
+  await context.ticketTranscriptBlobs?.putAttachment(
+    "guild-1/channel-1/attachments/attachment-1/proof.png",
+    "image-bytes",
+    {
+      contentType: "image/png",
+    },
+  );
+  const attachment = await context.ticketTranscriptBlobs?.getAttachment(
+    "guild-1/channel-1/attachments/attachment-1/proof.png",
+  );
 
   assert.equal(html, "<html>stored transcript</html>");
   assert.equal(attachment?.contentType, "image/png");

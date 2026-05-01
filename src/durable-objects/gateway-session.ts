@@ -82,9 +82,7 @@ export class GatewaySessionDO implements DurableObject {
     }
 
     try {
-      this.socket.send(
-        JSON.stringify(buildHeartbeatPayload(this.snapshot.lastSequence))
-      );
+      this.socket.send(JSON.stringify(buildHeartbeatPayload(this.snapshot.lastSequence)));
       this.snapshot.lastError = null;
       this.deleteValue("last_error");
     } catch {
@@ -103,9 +101,7 @@ export class GatewaySessionDO implements DurableObject {
     this.snapshot.status = shouldResume ? "resuming" : "connecting";
     this.persistValue("status", this.snapshot.status);
 
-    const socket = new WebSocket(
-      this.snapshot.resumeGatewayUrl ?? DEFAULT_GATEWAY_URL
-    );
+    const socket = new WebSocket(this.snapshot.resumeGatewayUrl ?? DEFAULT_GATEWAY_URL);
     socket.addEventListener("message", async (event) => {
       if (this.socket !== socket) {
         return;
@@ -164,7 +160,7 @@ export class GatewaySessionDO implements DurableObject {
       await handleGatewayDispatch(
         payload,
         (reaction) => moderateReactionAdd(reaction, this.env),
-        (member) => handleNewMemberTimedRole(member, this.env)
+        (member) => handleNewMemberTimedRole(member, this.env),
       );
 
       if (payload.t === "READY" && isReadyPayload(payload.d)) {
@@ -197,11 +193,7 @@ export class GatewaySessionDO implements DurableObject {
 
   private async handleHello(data: unknown): Promise<void> {
     const heartbeatIntervalMs = getHeartbeatInterval(data);
-    if (
-      heartbeatIntervalMs === null ||
-      !this.socket ||
-      this.socket.readyState !== WebSocket.OPEN
-    ) {
+    if (heartbeatIntervalMs === null || !this.socket || this.socket.readyState !== WebSocket.OPEN) {
       return;
     }
 
@@ -215,9 +207,9 @@ export class GatewaySessionDO implements DurableObject {
           buildResumePayload(
             this.env.DISCORD_BOT_TOKEN,
             this.snapshot.sessionId as string,
-            this.snapshot.lastSequence as number
-          )
-        )
+            this.snapshot.lastSequence as number,
+          ),
+        ),
       );
       this.snapshot.status = "resuming";
       this.persistValue("status", "resuming");
@@ -304,7 +296,7 @@ export class GatewaySessionDO implements DurableObject {
     this.sql.exec(
       "INSERT INTO gateway_state(key, value) VALUES(?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
       key,
-      value
+      value,
     );
   }
 
@@ -314,12 +306,7 @@ export class GatewaySessionDO implements DurableObject {
 }
 
 function parseGatewayStatus(value: string | undefined): GatewayStatus {
-  if (
-    value === "connecting" ||
-    value === "ready" ||
-    value === "resuming" ||
-    value === "backoff"
-  ) {
+  if (value === "connecting" || value === "ready" || value === "resuming" || value === "backoff") {
     return value;
   }
 
@@ -343,9 +330,7 @@ function getHeartbeatInterval(data: unknown): number | null {
   return data.heartbeat_interval;
 }
 
-function isReadyPayload(
-  data: unknown
-): data is { session_id: string; resume_gateway_url: string } {
+function isReadyPayload(data: unknown): data is { session_id: string; resume_gateway_url: string } {
   return (
     isRecord(data) &&
     typeof data.session_id === "string" &&
@@ -355,7 +340,7 @@ function isReadyPayload(
 
 async function handleNewMemberTimedRole(
   member: DiscordGuildMemberAdd | null,
-  env: Env
+  env: Env,
 ): Promise<void> {
   const guildId = member?.guild_id;
   const userId = member?.user?.id;
@@ -383,7 +368,7 @@ async function handleNewMemberTimedRole(
     undefined,
     storeClient as Partial<GuildNotificationChannelStore>,
     (channelId, body) =>
-      createChannelMessage(channelId, body, env.DISCORD_BOT_TOKEN).then(() => undefined)
+      createChannelMessage(channelId, body, env.DISCORD_BOT_TOKEN).then(() => undefined),
   );
 
   try {

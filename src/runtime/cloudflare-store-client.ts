@@ -16,8 +16,8 @@ export function createCloudflareStoreClient(storeStub: { fetch: FetchLike }) {
     async readGuildNotificationChannel(guildId: string): Promise<string | null> {
       const response = await readJson<{ notificationChannelId: string | null }>(
         storeStub.fetch(
-          `https://moderation-store/guild-notification-channel?guildId=${encodeURIComponent(guildId)}`
-        )
+          `https://moderation-store/guild-notification-channel?guildId=${encodeURIComponent(guildId)}`,
+        ),
       );
 
       return response.notificationChannelId;
@@ -30,15 +30,19 @@ export function createCloudflareStoreClient(storeStub: { fetch: FetchLike }) {
         storeStub.fetch("https://moderation-store/guild-notification-channel", {
           method: "POST",
           body: JSON.stringify(body),
-        })
+        }),
       );
     },
-    async applyGuildEmojiMutation(body: { guildId: string; emoji: string; action: "add" | "remove" }): Promise<BlocklistConfig> {
+    async applyGuildEmojiMutation(body: {
+      guildId: string;
+      emoji: string;
+      action: "add" | "remove";
+    }): Promise<BlocklistConfig> {
       return readJson<BlocklistConfig>(
         storeStub.fetch("https://moderation-store/guild-emoji", {
           method: "POST",
           body: JSON.stringify(body),
-        })
+        }),
       );
     },
     async upsertAppConfig(body: { key: string; value: string }): Promise<void> {
@@ -46,7 +50,7 @@ export function createCloudflareStoreClient(storeStub: { fetch: FetchLike }) {
         storeStub.fetch("https://moderation-store/app-config", {
           method: "POST",
           body: JSON.stringify(body),
-        })
+        }),
       );
     },
     async reserveNextTicketNumber(guildId: string): Promise<number> {
@@ -54,13 +58,15 @@ export function createCloudflareStoreClient(storeStub: { fetch: FetchLike }) {
         storeStub.fetch("https://moderation-store/ticket-number/next", {
           method: "POST",
           body: JSON.stringify({ guildId }),
-        })
+        }),
       );
       return response.ticketNumber;
     },
     async readTicketPanelConfig(guildId: string): Promise<TicketPanelConfig | null> {
       return readJson<TicketPanelConfig | null>(
-        storeStub.fetch(`https://moderation-store/ticket-panel?guildId=${encodeURIComponent(guildId)}`)
+        storeStub.fetch(
+          `https://moderation-store/ticket-panel?guildId=${encodeURIComponent(guildId)}`,
+        ),
       );
     },
     async upsertTicketPanelConfig(panel: TicketPanelConfig): Promise<void> {
@@ -68,7 +74,7 @@ export function createCloudflareStoreClient(storeStub: { fetch: FetchLike }) {
         storeStub.fetch("https://moderation-store/ticket-panel", {
           method: "POST",
           body: JSON.stringify(panel),
-        })
+        }),
       );
     },
     async createTicketInstance(instance: TicketInstance): Promise<void> {
@@ -76,7 +82,7 @@ export function createCloudflareStoreClient(storeStub: { fetch: FetchLike }) {
         storeStub.fetch("https://moderation-store/ticket-instance", {
           method: "POST",
           body: JSON.stringify(instance),
-        })
+        }),
       );
     },
     async deleteTicketInstance(body: { guildId: string; channelId: string }): Promise<void> {
@@ -84,14 +90,17 @@ export function createCloudflareStoreClient(storeStub: { fetch: FetchLike }) {
         storeStub.fetch("https://moderation-store/ticket-instance/delete", {
           method: "POST",
           body: JSON.stringify(body),
-        })
+        }),
       );
     },
-    async readOpenTicketByChannel(guildId: string, channelId: string): Promise<TicketInstance | null> {
+    async readOpenTicketByChannel(
+      guildId: string,
+      channelId: string,
+    ): Promise<TicketInstance | null> {
       return readJson<TicketInstance | null>(
         storeStub.fetch(
-          `https://moderation-store/ticket-instance/open?guildId=${encodeURIComponent(guildId)}&channelId=${encodeURIComponent(channelId)}`
-        )
+          `https://moderation-store/ticket-instance/open?guildId=${encodeURIComponent(guildId)}&channelId=${encodeURIComponent(channelId)}`,
+        ),
       );
     },
     async closeTicketInstance(body: {
@@ -105,15 +114,19 @@ export function createCloudflareStoreClient(storeStub: { fetch: FetchLike }) {
         storeStub.fetch("https://moderation-store/ticket-instance/close", {
           method: "POST",
           body: JSON.stringify(body),
-        })
+        }),
       );
     },
     async listTimedRoles(): Promise<TimedRoleAssignment[]> {
-      return readJson<TimedRoleAssignment[]>(storeStub.fetch("https://moderation-store/timed-roles"));
+      return readJson<TimedRoleAssignment[]>(
+        storeStub.fetch("https://moderation-store/timed-roles"),
+      );
     },
     async listTimedRolesByGuild(guildId: string): Promise<TimedRoleAssignment[]> {
       return readJson<TimedRoleAssignment[]>(
-        storeStub.fetch(`https://moderation-store/timed-roles?guildId=${encodeURIComponent(guildId)}`)
+        storeStub.fetch(
+          `https://moderation-store/timed-roles?guildId=${encodeURIComponent(guildId)}`,
+        ),
       );
     },
     async upsertTimedRole(body: {
@@ -127,22 +140,26 @@ export function createCloudflareStoreClient(storeStub: { fetch: FetchLike }) {
         storeStub.fetch("https://moderation-store/timed-role", {
           method: "POST",
           body: JSON.stringify(body),
-        })
+        }),
       );
     },
-    async deleteTimedRole(body: { guildId: string; userId: string; roleId: string }): Promise<void> {
+    async deleteTimedRole(body: {
+      guildId: string;
+      userId: string;
+      roleId: string;
+    }): Promise<void> {
       await readJsonVoid(
         storeStub.fetch("https://moderation-store/timed-role/remove", {
           method: "POST",
           body: JSON.stringify(body),
-        })
+        }),
       );
     },
     async readNewMemberTimedRoleConfig(guildId: string): Promise<NewMemberTimedRoleConfig> {
       return readJson<NewMemberTimedRoleConfig>(
         storeStub.fetch(
-          `https://moderation-store/timed-role/new-member-config?guildId=${encodeURIComponent(guildId)}`
-        )
+          `https://moderation-store/timed-role/new-member-config?guildId=${encodeURIComponent(guildId)}`,
+        ),
       );
     },
     async upsertNewMemberTimedRoleConfig(body: NewMemberTimedRoleConfig): Promise<void> {
@@ -150,7 +167,7 @@ export function createCloudflareStoreClient(storeStub: { fetch: FetchLike }) {
         storeStub.fetch("https://moderation-store/timed-role/new-member-config", {
           method: "POST",
           body: JSON.stringify(body),
-        })
+        }),
       );
     },
   };

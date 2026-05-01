@@ -6,7 +6,8 @@ export const GATEWAY_OP_RESUME = 6;
 const GUILD_INTENT = 1 << 0;
 const GUILD_MEMBERS_INTENT = 1 << 1;
 const GUILD_MESSAGE_REACTIONS_INTENT = 1 << 10;
-const DEFAULT_GATEWAY_INTENTS = GUILD_INTENT | GUILD_MEMBERS_INTENT | GUILD_MESSAGE_REACTIONS_INTENT;
+const DEFAULT_GATEWAY_INTENTS =
+  GUILD_INTENT | GUILD_MEMBERS_INTENT | GUILD_MESSAGE_REACTIONS_INTENT;
 const DEFAULT_BACKOFF_MS = 1000;
 const MAX_BACKOFF_MS = 30000;
 const GATEWAY_CLIENT_IDENTITY = "discord-automation-workers";
@@ -59,7 +60,7 @@ export function buildIdentifyPayload(token: string, os = "cloudflare"): GatewayF
 export function buildResumePayload(
   token: string,
   sessionId: string,
-  seq: number
+  seq: number,
 ): GatewayFrame<ResumeData> {
   return {
     op: GATEWAY_OP_RESUME,
@@ -71,9 +72,7 @@ export function buildResumePayload(
   };
 }
 
-export function buildHeartbeatPayload(
-  seq: number | null
-): GatewayFrame<number | null> {
+export function buildHeartbeatPayload(seq: number | null): GatewayFrame<number | null> {
   return {
     op: GATEWAY_OP_HEARTBEAT,
     d: seq,
@@ -88,7 +87,6 @@ export function shouldHandleDispatch(event: GatewayDispatchEnvelope): boolean {
 }
 
 export function nextBackoffMillis(attempt: number): number {
-  const safeAttempt =
-    Number.isFinite(attempt) && attempt >= 0 ? Math.floor(attempt) : 0;
+  const safeAttempt = Number.isFinite(attempt) && attempt >= 0 ? Math.floor(attempt) : 0;
   return Math.min(DEFAULT_BACKOFF_MS * 2 ** safeAttempt, MAX_BACKOFF_MS);
 }

@@ -18,7 +18,7 @@ export interface BlocklistMutation {
 export class BlocklistService {
   constructor(
     private readonly store: BlocklistStore & Partial<GuildNotificationChannelStore>,
-    private readonly sendChannelMessage?: ChannelMessageSender
+    private readonly sendChannelMessage?: ChannelMessageSender,
   ) {}
 
   async applyMutation(mutation: BlocklistMutation): Promise<void> {
@@ -39,7 +39,7 @@ export class BlocklistService {
 
   async updateGuildNotificationChannel(
     guildId: string,
-    notificationChannelId: string | null
+    notificationChannelId: string | null,
   ): Promise<void> {
     if (typeof this.store.upsertGuildNotificationChannel !== "function") {
       return;
@@ -54,7 +54,7 @@ export class BlocklistService {
   async addEmoji(
     guildId: string,
     emoji: string,
-    actor?: ModerationActionActor
+    actor?: ModerationActionActor,
   ): Promise<{ alreadyBlocked: boolean }> {
     const guildConfig = await this.getGuildBlocklist(guildId);
     const isAlreadyBlocked = guildConfig.emojis.includes(emoji);
@@ -65,7 +65,7 @@ export class BlocklistService {
         this.store,
         this.sendChannelMessage,
         guildId,
-        buildBlocklistUpdateMessage({ action: "add", emoji, actor })
+        buildBlocklistUpdateMessage({ action: "add", emoji, actor }),
       );
     }
 
@@ -75,7 +75,7 @@ export class BlocklistService {
   async removeEmoji(
     guildId: string,
     emoji: string,
-    actor?: ModerationActionActor
+    actor?: ModerationActionActor,
   ): Promise<{ wasBlocked: boolean }> {
     const guildConfig = await this.getGuildBlocklist(guildId);
     const isBlocked = guildConfig.emojis.includes(emoji);
@@ -86,7 +86,7 @@ export class BlocklistService {
         this.store,
         this.sendChannelMessage,
         guildId,
-        buildBlocklistUpdateMessage({ action: "remove", emoji, actor })
+        buildBlocklistUpdateMessage({ action: "remove", emoji, actor }),
       );
     }
 

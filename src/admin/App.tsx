@@ -1,8 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  startGatewayStatusMonitor,
-  type GatewayStatusMonitor,
-} from "../admin-gateway-monitor";
+import { startGatewayStatusMonitor, type GatewayStatusMonitor } from "../admin-gateway-monitor";
 import { AdminBlocklistPage } from "./components/admin-blocklist-page";
 import { AdminGatewayPage } from "./components/admin-gateway-page";
 import { AdminOverviewPage } from "./components/admin-overview-page";
@@ -16,10 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "./components/ui/card";
 import { type AdminOverviewGuild } from "./components/guild-overview-card";
 import { Input } from "./components/ui/input";
 import { Label } from "./components/ui/label";
-import type {
-  AdminGuildDirectoryEntry,
-  AdminGuildDirectoryResponse,
-} from "../runtime/admin-types";
+import type { AdminGuildDirectoryEntry, AdminGuildDirectoryResponse } from "../runtime/admin-types";
 import { normalizeAdminDashboardPath } from "./dashboard-routes";
 
 interface GatewayStatus {
@@ -49,12 +43,10 @@ export default function App({
   initialSearch = "",
 }: Props) {
   const [authenticated, setAuthenticated] = useState(initialAuthenticated);
-  const [currentPath, setCurrentPath] = useState(() =>
-    normalizeAdminDashboardPath(initialPath)
-  );
+  const [currentPath, setCurrentPath] = useState(() => normalizeAdminDashboardPath(initialPath));
   const pageDataPolicy = getDashboardPageDataPolicy(currentPath);
   const [selectedGuildId, setSelectedGuildId] = useState(() =>
-    getSelectedGuildIdFromSearch(initialSearch)
+    getSelectedGuildIdFromSearch(initialSearch),
   );
   const [password, setPassword] = useState("");
   const [loginError, setLoginError] = useState(false);
@@ -62,8 +54,7 @@ export default function App({
   const [gatewayError, setGatewayError] = useState<string | null>(null);
   const [overview, setOverview] = useState<AdminOverview | null>(null);
   const [overviewError, setOverviewError] = useState<string | null>(null);
-  const [guildDirectory, setGuildDirectory] =
-    useState<AdminGuildDirectoryEntry[] | null>(null);
+  const [guildDirectory, setGuildDirectory] = useState<AdminGuildDirectoryEntry[] | null>(null);
   const [guildLookupError, setGuildLookupError] = useState<string | null>(null);
   const gatewayMonitorRef = useRef<GatewayStatusMonitor | null>(null);
 
@@ -84,7 +75,7 @@ export default function App({
   const loadOverview = useCallback(async (refreshDiscordCache = false) => {
     try {
       const nextOverview = await readJsonOrThrow<AdminOverview>(
-        buildAdminOverviewApiPath(refreshDiscordCache)
+        buildAdminOverviewApiPath(refreshDiscordCache),
       );
       setOverview(nextOverview);
       setOverviewError(null);
@@ -97,7 +88,7 @@ export default function App({
 
   const loadGuildDirectory = useCallback(async (refreshDiscordCache = false) => {
     return readJsonOrThrow<AdminGuildDirectoryResponse>(
-      buildAdminGuildDirectoryApiPath(refreshDiscordCache)
+      buildAdminGuildDirectoryApiPath(refreshDiscordCache),
     );
   }, []);
 
@@ -201,9 +192,10 @@ export default function App({
 
   async function handleLogin() {
     setLoginError(false);
-    const loginPath = typeof window === "undefined"
-      ? "/admin/login"
-      : getAdminLoginRequestPath(window.location.pathname, window.location.search);
+    const loginPath =
+      typeof window === "undefined"
+        ? "/admin/login"
+        : getAdminLoginRequestPath(window.location.pathname, window.location.search);
     const res = await fetch(loginPath, {
       method: "POST",
       headers: { "content-type": "application/x-www-form-urlencoded" },
@@ -256,7 +248,7 @@ export default function App({
       window.history.replaceState(
         null,
         "",
-        buildAdminDashboardHref(window.location.pathname, normalizedGuildId)
+        buildAdminDashboardHref(window.location.pathname, normalizedGuildId),
       );
     }
   }, []);
@@ -271,21 +263,24 @@ export default function App({
     handleSelectedGuildChange(guildDirectory[0]!.guildId);
   }, [guildDirectory, selectedGuildId, handleSelectedGuildChange]);
 
-  const handleDashboardNavigation = useCallback((nextPath: string) => {
-    const normalizedPath = normalizeAdminDashboardPath(nextPath);
-    setCurrentPath(normalizedPath);
+  const handleDashboardNavigation = useCallback(
+    (nextPath: string) => {
+      const normalizedPath = normalizeAdminDashboardPath(nextPath);
+      setCurrentPath(normalizedPath);
 
-    if (typeof window !== "undefined") {
-      const nextHref = buildAdminDashboardHref(normalizedPath, selectedGuildId);
-      if (`${window.location.pathname}${window.location.search}` !== nextHref) {
-        window.history.pushState(null, "", nextHref);
+      if (typeof window !== "undefined") {
+        const nextHref = buildAdminDashboardHref(normalizedPath, selectedGuildId);
+        if (`${window.location.pathname}${window.location.search}` !== nextHref) {
+          window.history.pushState(null, "", nextHref);
+        }
       }
-    }
-  }, [selectedGuildId]);
+    },
+    [selectedGuildId],
+  );
 
   if (authenticated) {
     const guildNamesById = new Map(
-      (guildDirectory ?? []).map((guild) => [guild.guildId, guild.name] as const)
+      (guildDirectory ?? []).map((guild) => [guild.guildId, guild.name] as const),
     );
 
     return (
@@ -330,10 +325,7 @@ export default function App({
           />
         ) : null}
         {currentPath === "/admin/tickets" ? (
-          <AdminTicketsPage
-            key={selectedGuildId || "no-guild"}
-            selectedGuildId={selectedGuildId}
-          />
+          <AdminTicketsPage key={selectedGuildId || "no-guild"} selectedGuildId={selectedGuildId} />
         ) : null}
       </AdminShell>
     );
@@ -389,7 +381,10 @@ export function getAdminLoginRequestPath(pathname: string, search: string): stri
   return search ? `${pathname}${search}` : pathname;
 }
 
-export function getAdminLoginNavigationTarget(responseUrl: string, redirected: boolean): string | null {
+export function getAdminLoginNavigationTarget(
+  responseUrl: string,
+  redirected: boolean,
+): string | null {
   if (!redirected) {
     return null;
   }
@@ -474,7 +469,7 @@ export function SummaryChip({
         "min-w-[8rem] rounded-md border bg-muted/40 px-3 py-2",
         tone === "success" && "border-emerald-500/30 bg-emerald-500/10",
         tone === "warning" && "border-amber-500/30 bg-amber-500/10",
-        tone === "danger" && "border-destructive/40 bg-destructive/10"
+        tone === "danger" && "border-destructive/40 bg-destructive/10",
       )}
     >
       <p className="text-xs font-medium text-muted-foreground">{label}</p>
@@ -493,7 +488,7 @@ function StatusBadge({ status }: { status: string }) {
         tone === "success" && "border-emerald-500/30 bg-emerald-500/10 text-emerald-100",
         tone === "warning" && "border-amber-500/30 bg-amber-500/10 text-amber-100",
         tone === "danger" && "border-destructive/40 bg-destructive/10 text-destructive-foreground",
-        tone === "neutral" && "border-border bg-muted/40 text-foreground"
+        tone === "neutral" && "border-border bg-muted/40 text-foreground",
       )}
     >
       {status}
@@ -509,15 +504,27 @@ function getStatusTone(status: string | null): StatusTone {
   }
 
   const normalized = status.toLowerCase();
-  if (normalized.includes("ready") || normalized.includes("connected") || normalized.includes("active")) {
+  if (
+    normalized.includes("ready") ||
+    normalized.includes("connected") ||
+    normalized.includes("active")
+  ) {
     return "success";
   }
 
-  if (normalized.includes("error") || normalized.includes("fail") || normalized.includes("closed")) {
+  if (
+    normalized.includes("error") ||
+    normalized.includes("fail") ||
+    normalized.includes("closed")
+  ) {
     return "danger";
   }
 
-  if (normalized.includes("backoff") || normalized.includes("start") || normalized.includes("connect")) {
+  if (
+    normalized.includes("backoff") ||
+    normalized.includes("start") ||
+    normalized.includes("connect")
+  ) {
     return "warning";
   }
 
@@ -539,9 +546,7 @@ export function describeError(error: unknown): string {
     return "Unexpected dashboard error";
   }
 
-  return looksLikeHtmlError(error.message)
-    ? "Discord lookup failed right now."
-    : error.message;
+  return looksLikeHtmlError(error.message) ? "Discord lookup failed right now." : error.message;
 }
 
 function looksLikeHtmlError(value: string): boolean {

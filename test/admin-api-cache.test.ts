@@ -21,13 +21,19 @@ test("admin guild directory reuses cached Discord guilds until refresh is reques
       discordBotToken: "token",
     });
 
-    await handler(new Request("https://example.com/admin/api/guilds"), new URL("https://example.com/admin/api/guilds"));
-    await handler(new Request("https://example.com/admin/api/guilds"), new URL("https://example.com/admin/api/guilds"));
+    await handler(
+      new Request("https://example.com/admin/api/guilds"),
+      new URL("https://example.com/admin/api/guilds"),
+    );
+    await handler(
+      new Request("https://example.com/admin/api/guilds"),
+      new URL("https://example.com/admin/api/guilds"),
+    );
     assert.deepEqual(discordRequests, ["https://discord.com/api/v10/users/@me/guilds"]);
 
     await handler(
       new Request("https://example.com/admin/api/guilds?refresh=1"),
-      new URL("https://example.com/admin/api/guilds?refresh=1")
+      new URL("https://example.com/admin/api/guilds?refresh=1"),
     );
     assert.deepEqual(discordRequests, [
       "https://discord.com/api/v10/users/@me/guilds",

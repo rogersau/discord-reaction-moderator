@@ -16,7 +16,7 @@ export interface ModerationActionActor {
 
 export type ChannelMessageSender = (
   channelId: string,
-  body: CreateChannelMessageInput
+  body: CreateChannelMessageInput,
 ) => Promise<void>;
 
 export function buildBlocklistUpdateMessage(input: {
@@ -30,26 +30,27 @@ export function buildBlocklistUpdateMessage(input: {
   };
 }
 
-export function buildTimedRoleUpdateMessage(input:
-  | {
-      action: "add";
-      actor?: ModerationActionActor;
-      userId: string;
-      roleId: string;
-      durationInput: string;
-      expiresAtMs: number;
-    }
-  | {
-      action: "remove";
-      actor?: ModerationActionActor;
-      userId: string;
-      roleId: string;
-    }
-  | {
-      action: "expire";
-      userId: string;
-      roleId: string;
-    }
+export function buildTimedRoleUpdateMessage(
+  input:
+    | {
+        action: "add";
+        actor?: ModerationActionActor;
+        userId: string;
+        roleId: string;
+        durationInput: string;
+        expiresAtMs: number;
+      }
+    | {
+        action: "remove";
+        actor?: ModerationActionActor;
+        userId: string;
+        roleId: string;
+      }
+    | {
+        action: "expire";
+        userId: string;
+        roleId: string;
+      },
 ): CreateChannelMessageInput {
   if (input.action === "add") {
     return {
@@ -77,12 +78,9 @@ export async function postGuildModerationUpdate(
   store: Partial<GuildNotificationChannelStore>,
   sendChannelMessage: ChannelMessageSender | undefined,
   guildId: string,
-  body: CreateChannelMessageInput
+  body: CreateChannelMessageInput,
 ): Promise<void> {
-  if (
-    typeof store.readGuildNotificationChannel !== "function" ||
-    !sendChannelMessage
-  ) {
+  if (typeof store.readGuildNotificationChannel !== "function" || !sendChannelMessage) {
     return;
   }
 

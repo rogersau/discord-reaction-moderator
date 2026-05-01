@@ -16,7 +16,9 @@ test("createCloudflareStoreClient uses typed methods instead of exposing raw fet
         method: init?.method ?? "GET",
         body: typeof init?.body === "string" ? init.body : null,
       });
-      return Promise.resolve(Response.json({ ok: true, guilds: {}, botUserId: "bot-user-id" }) as any);
+      return Promise.resolve(
+        Response.json({ ok: true, guilds: {}, botUserId: "bot-user-id" }) as any,
+      );
     },
   });
 
@@ -271,7 +273,7 @@ test("createCloudflareStoreClient reads and writes new member timed-role config"
           guildId: "guild-123",
           roleId: "role-newbie",
           durationInput: "2h",
-        }) as any
+        }) as any,
       );
     },
   });
@@ -307,7 +309,7 @@ test("createCloudflareStoreClient throws descriptive error on non-ok response", 
     {
       name: "Error",
       message: /Cloudflare store request failed: 500 Internal Server Error/,
-    }
+    },
   );
 });
 
@@ -325,6 +327,6 @@ test("createCloudflareStoreClient error handling works for void methods", async 
     {
       name: "Error",
       message: /Cloudflare store request failed: 400 Bad Request/,
-    }
+    },
   );
 });

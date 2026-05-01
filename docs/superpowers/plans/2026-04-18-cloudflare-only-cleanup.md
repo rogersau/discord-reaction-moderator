@@ -64,6 +64,7 @@
 ### Task 1: Remove the unsupported Node/Docker build surface
 
 **Files:**
+
 - Modify: `package.json`
 - Modify: `README.md`
 - Modify: `test/worker-tsconfig.test.ts`
@@ -202,6 +203,7 @@ git commit -m "refactor: remove portable runtime surface"
 ### Task 2: Introduce Cloudflare-native context and typed Durable Object clients
 
 **Files:**
+
 - Create: `src/runtime/cloudflare-context.ts`
 - Create: `src/runtime/cloudflare-store-client.ts`
 - Create: `src/runtime/cloudflare-gateway-client.ts`
@@ -276,7 +278,7 @@ test("createCloudflareGatewayClient wraps gateway status and bootstrap calls", a
           backoffAttempt: 0,
           lastError: null,
           heartbeatIntervalMs: null,
-        })
+        }),
       );
     },
   });
@@ -308,12 +310,16 @@ export function createCloudflareStoreClient(storeStub: Pick<DurableObjectStub, "
     async readConfig() {
       return readJson(storeStub.fetch("https://moderation-store/config"));
     },
-    async applyGuildEmojiMutation(body: { guildId: string; emoji: string; action: "add" | "remove" }) {
+    async applyGuildEmojiMutation(body: {
+      guildId: string;
+      emoji: string;
+      action: "add" | "remove";
+    }) {
       return readJson(
         storeStub.fetch("https://moderation-store/guild-emoji", {
           method: "POST",
           body: JSON.stringify(body),
-        })
+        }),
       );
     },
     async upsertAppConfig(body: { key: string; value: string }) {
@@ -321,12 +327,14 @@ export function createCloudflareStoreClient(storeStub: Pick<DurableObjectStub, "
         storeStub.fetch("https://moderation-store/app-config", {
           method: "POST",
           body: JSON.stringify(body),
-        })
+        }),
       );
     },
     async listTimedRolesByGuild(guildId: string) {
       return readJson(
-        storeStub.fetch(`https://moderation-store/timed-roles?guildId=${encodeURIComponent(guildId)}`)
+        storeStub.fetch(
+          `https://moderation-store/timed-roles?guildId=${encodeURIComponent(guildId)}`,
+        ),
       );
     },
     async upsertTimedRole(body: {
@@ -340,7 +348,7 @@ export function createCloudflareStoreClient(storeStub: Pick<DurableObjectStub, "
         storeStub.fetch("https://moderation-store/timed-role", {
           method: "POST",
           body: JSON.stringify(body),
-        })
+        }),
       );
     },
   };
@@ -373,7 +381,9 @@ export function createCloudflareGatewayClient(gatewayStub: Pick<DurableObjectStu
 async function readJson(responsePromise: Promise<Response>) {
   const response = await responsePromise;
   if (!response.ok) {
-    throw new Error(`Cloudflare gateway request failed: ${response.status} ${await response.text()}`);
+    throw new Error(
+      `Cloudflare gateway request failed: ${response.status} ${await response.text()}`,
+    );
   }
   return response.json();
 }
@@ -399,7 +409,9 @@ export interface RuntimeAppContext {
 }
 
 export function createCloudflareContext(env: Env) {
-  const gatewayStub = env.GATEWAY_SESSION_DO.get(env.GATEWAY_SESSION_DO.idFromName("gateway-session"));
+  const gatewayStub = env.GATEWAY_SESSION_DO.get(
+    env.GATEWAY_SESSION_DO.idFromName("gateway-session"),
+  );
   const storeStub = getModerationStoreStub(env);
 
   const context: RuntimeAppContext = {
@@ -464,6 +476,7 @@ git commit -m "refactor: add cloudflare-native runtime clients"
 ### Task 3: Split `app.ts` into route modules and remove legacy gateway routes
 
 **Files:**
+
 - Create: `src/routes/public-routes.ts`
 - Create: `src/routes/admin-routes.ts`
 - Create: `src/routes/interaction-routes.ts`
@@ -483,7 +496,10 @@ test("createRuntimeApp returns 404 for removed legacy /admin/gateway/status", as
     adminUiPassword: "let-me-in",
     adminSessionSecret: "session-secret",
     storeClient: {} as never,
-    gatewayClient: { status: async () => ({ status: "idle" }), start: async () => ({ status: "idle" }) } as never,
+    gatewayClient: {
+      status: async () => ({ status: "idle" }),
+      start: async () => ({ status: "idle" }),
+    } as never,
     verifyDiscordRequest: async () => true,
   });
 
@@ -522,7 +538,9 @@ test("createRuntimeApp still serves /health and /admin/api/gateway/status throug
   });
 
   const cookie = await createAdminSessionCookie("session-secret");
-  const response = await app.fetch(new Request("https://runtime.example/admin/api/gateway/status", { headers: { cookie } }));
+  const response = await app.fetch(
+    new Request("https://runtime.example/admin/api/gateway/status", { headers: { cookie } }),
+  );
   assert.equal(response.status, 200);
 });
 ```
@@ -533,7 +551,7 @@ test("admin API requires a valid session cookie and does not accept legacy beare
   const response = await app.fetch(
     new Request("https://runtime.example/admin/api/gateway/status", {
       headers: { authorization: "Bearer old-secret" },
-    })
+    }),
   );
 
   assert.equal(response.status, 401);
@@ -640,6 +658,7 @@ git commit -m "refactor: split runtime routes for cloudflare only"
 ### Task 4: Extract service workflows and require a dedicated admin session secret
 
 **Files:**
+
 - Create: `src/services/blocklist-service.ts`
 - Create: `src/services/timed-role-service.ts`
 - Create: `src/services/ticket-service.ts`
@@ -688,7 +707,7 @@ test("assignTimedRole rolls back persisted state when Discord role assignment fa
           },
         } as never,
       }),
-    /discord failed/
+    /discord failed/,
   );
 
   assert.deepEqual(writes, ["upsert", "rollback"]);
@@ -712,7 +731,7 @@ test("createRuntimeApp refuses admin login when ADMIN_SESSION_SECRET is missing"
       method: "POST",
       headers: { "content-type": "application/x-www-form-urlencoded" },
       body: "password=let-me-in",
-    })
+    }),
   );
 
   assert.equal(response.status, 404);
@@ -748,7 +767,12 @@ export async function assignTimedRole(input: {
     deleteTimedRole(body: { guildId: string; userId: string; roleId: string }): Promise<unknown>;
   };
   discordApi: {
-    addGuildMemberRole(guildId: string, userId: string, roleId: string, botToken: string): Promise<unknown>;
+    addGuildMemberRole(
+      guildId: string,
+      userId: string,
+      roleId: string,
+      botToken: string,
+    ): Promise<unknown>;
   };
   discordBotToken: string;
 }) {
@@ -770,7 +794,7 @@ export async function assignTimedRole(input: {
       input.guildId,
       input.userId,
       input.roleId,
-      input.discordBotToken
+      input.discordBotToken,
     );
   } catch (error) {
     await input.storeClient.deleteTimedRole({
@@ -788,7 +812,7 @@ export async function assignTimedRole(input: {
 export async function createAdminSessionCookie(
   secret: string,
   options?: { secure?: boolean },
-  nowMs = Date.now()
+  nowMs = Date.now(),
 ) {
   if (!secret) {
     throw new Error("ADMIN_SESSION_SECRET is required to sign admin sessions.");
@@ -846,6 +870,7 @@ git commit -m "refactor: extract admin and interaction services"
 ### Task 5: Narrow `GatewaySessionDO` to gateway lifecycle plus delegated event handling
 
 **Files:**
+
 - Create: `src/services/reaction-moderation-service.ts`
 - Modify: `src/durable-objects/gateway-session.ts`
 - Modify: `src/reaction-moderation.ts`
@@ -921,7 +946,7 @@ test("GatewaySessionDO delegates reaction events through the extracted moderatio
             emoji: { id: null, name: "✅", animated: false },
           },
         }),
-      })
+      }),
     );
 
     assert.deepEqual(delegatedMessageIds, ["message-1"]);
@@ -947,8 +972,20 @@ import type { DiscordReaction } from "../types";
 
 export async function handleReactionModerationEvent(input: {
   reaction: DiscordReaction | null;
-  storeClient: { readConfig(): Promise<{ botUserId: string; guilds: Record<string, { enabled: boolean; emojis: string[] }> }> };
-  discordApi: { deleteReaction(channelId: string, messageId: string, emoji: DiscordReaction["emoji"], userId: string): Promise<void> };
+  storeClient: {
+    readConfig(): Promise<{
+      botUserId: string;
+      guilds: Record<string, { enabled: boolean; emojis: string[] }>;
+    }>;
+  };
+  discordApi: {
+    deleteReaction(
+      channelId: string,
+      messageId: string,
+      emoji: DiscordReaction["emoji"],
+      userId: string,
+    ): Promise<void>;
+  };
 }) {
   if (!input.reaction) return;
 
@@ -967,7 +1004,7 @@ export async function handleReactionModerationEvent(input: {
     input.reaction.channel_id,
     input.reaction.message_id,
     input.reaction.emoji,
-    input.reaction.user_id
+    input.reaction.user_id,
   );
 }
 ```
@@ -1005,6 +1042,7 @@ git commit -m "refactor: delegate gateway moderation behavior"
 ### Task 6: Finish docs, clean remaining dead code, and run full verification
 
 **Files:**
+
 - Modify: `README.md`
 - Modify: `package.json`
 - Modify: `src/runtime/app.ts`
@@ -1057,7 +1095,7 @@ test("createRuntimeApp still serves admin shell, interactions, and gateway admin
   const gatewayStatus = await app.fetch(
     new Request("https://runtime.example/admin/api/gateway/status", {
       headers: { cookie },
-    })
+    }),
   );
   assert.equal(gatewayStatus.status, 200);
 
@@ -1070,7 +1108,7 @@ test("createRuntimeApp still serves admin shell, interactions, and gateway admin
         "x-signature-timestamp": String(Math.floor(Date.now() / 1000)),
       },
       body: JSON.stringify({ type: 1 }),
-    })
+    }),
   );
   assert.deepEqual(await ping.json(), { type: 1 });
 });

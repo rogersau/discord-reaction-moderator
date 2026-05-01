@@ -26,5 +26,7 @@ export function FormField({
 }
 
 export function EditorActions({ children }: { children: ReactNode }) {
-  return <div className="flex flex-col gap-3 border-t pt-4 sm:flex-row sm:justify-end">{children}</div>;
+  return (
+    <div className="flex flex-col gap-3 border-t pt-4 sm:flex-row sm:justify-end">{children}</div>
+  );
 }

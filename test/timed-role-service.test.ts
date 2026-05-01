@@ -43,16 +43,19 @@ test("TimedRoleService.assignTimedRole persists role and assigns via Discord", a
     },
     async (channelId, body) => {
       notificationCalls.push({ channelId, content: body.content });
-    }
+    },
   );
 
-  await service.assignTimedRole({
-    guildId: "guild-1",
-    userId: "user-1",
-    roleId: "role-1",
-    durationInput: "1h",
-    expiresAtMs: Date.now() + 3600000,
-  }, { label: "Admin dashboard" });
+  await service.assignTimedRole(
+    {
+      guildId: "guild-1",
+      userId: "user-1",
+      roleId: "role-1",
+      durationInput: "1h",
+      expiresAtMs: Date.now() + 3600000,
+    },
+    { label: "Admin dashboard" },
+  );
 
   assert.equal(upsertedRoles.length, 1);
   assert.equal(assignedRoles.length, 1);
@@ -97,7 +100,7 @@ test("TimedRoleService.assignTimedRole rolls back database when Discord role ass
     },
     async (channelId, body) => {
       notificationCalls.push({ channelId, content: body.content });
-    }
+    },
   );
 
   await assert.rejects(
@@ -109,7 +112,7 @@ test("TimedRoleService.assignTimedRole rolls back database when Discord role ass
         durationInput: "1h",
         expiresAtMs: Date.now() + 3600000,
       }),
-    /Discord API failed/
+    /Discord API failed/,
   );
 
   assert.equal(upsertedRoles.length, 1, "Role should be persisted before Discord call");
@@ -151,14 +154,17 @@ test("TimedRoleService.removeTimedRole removes from Discord then deletes from da
     },
     async (channelId, body) => {
       notificationCalls.push({ channelId, content: body.content });
-    }
+    },
   );
 
-  await service.removeTimedRole({
-    guildId: "guild-1",
-    userId: "user-1",
-    roleId: "role-1",
-  }, { label: "Admin dashboard" });
+  await service.removeTimedRole(
+    {
+      guildId: "guild-1",
+      userId: "user-1",
+      roleId: "role-1",
+    },
+    { label: "Admin dashboard" },
+  );
 
   assert.equal(removedRoles.length, 1, "Should remove from Discord first");
   assert.equal(deletedRoles.length, 1, "Should delete from database after Discord removal");
@@ -180,9 +186,7 @@ test("TimedRoleService.assignConfiguredNewMemberRole assigns the configured role
 
   const store: TimedRoleStore = {
     async readNewMemberTimedRoleConfig(guildId: string) {
-      return guildId === config.guildId
-        ? config
-        : { guildId, roleId: null, durationInput: null };
+      return guildId === config.guildId ? config : { guildId, roleId: null, durationInput: null };
     },
     async upsertTimedRole(role: TimedRoleAssignment) {
       upsertedRoles.push(role);
@@ -211,7 +215,7 @@ test("TimedRoleService.assignConfiguredNewMemberRole assigns the configured role
     },
     async (channelId, body) => {
       notificationCalls.push({ channelId, content: body.content });
-    }
+    },
   );
 
   const assignment = await service.assignConfiguredNewMemberRole({
@@ -265,7 +269,7 @@ test("TimedRoleService.assignConfiguredNewMemberRole skips when no join role is 
       userId: "user-1",
       nowMs: 1_700_000_000_000,
     }),
-    null
+    null,
   );
 });
 
@@ -291,9 +295,9 @@ test("assignTimedRole rolls back persisted state when the Discord add fails", as
         roleId: "role",
         durationInput: "1h",
         expiresAtMs: 123,
-      }
+      },
     ),
-    /discord failed/
+    /discord failed/,
   );
 
   assert.deepEqual(calls, ["upsert", "rollback"]);

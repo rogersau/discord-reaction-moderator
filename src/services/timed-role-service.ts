@@ -22,15 +22,23 @@ export class TimedRoleService {
   constructor(
     private readonly store: TimedRoleStore,
     _botToken: string,
-    private readonly addRoleToMember?: (guildId: string, userId: string, roleId: string) => Promise<void>,
-    private readonly removeRoleFromMember?: (guildId: string, userId: string, roleId: string) => Promise<void>,
+    private readonly addRoleToMember?: (
+      guildId: string,
+      userId: string,
+      roleId: string,
+    ) => Promise<void>,
+    private readonly removeRoleFromMember?: (
+      guildId: string,
+      userId: string,
+      roleId: string,
+    ) => Promise<void>,
     private readonly notificationStore?: Partial<GuildNotificationChannelStore>,
-    private readonly sendChannelMessage?: ChannelMessageSender
+    private readonly sendChannelMessage?: ChannelMessageSender,
   ) {}
 
   async assignTimedRole(
     assignment: TimedRoleAssignment,
-    actor?: ModerationActionActor
+    actor?: ModerationActionActor,
   ): Promise<void> {
     if (!this.addRoleToMember) {
       await this.store.upsertTimedRole(assignment);
@@ -43,7 +51,7 @@ export class TimedRoleService {
           roleId: assignment.roleId,
           durationInput: assignment.durationInput,
           expiresAtMs: assignment.expiresAtMs,
-        })
+        }),
       );
       return;
     }
@@ -58,14 +66,11 @@ export class TimedRoleService {
         roleId: assignment.roleId,
         durationInput: assignment.durationInput,
         expiresAtMs: assignment.expiresAtMs,
-      })
+      }),
     );
   }
 
-  async removeTimedRole(
-    key: TimedRoleKey,
-    actor?: ModerationActionActor
-  ): Promise<void> {
+  async removeTimedRole(key: TimedRoleKey, actor?: ModerationActionActor): Promise<void> {
     await removeTimedRoleWorkflow(this.store, this.removeRoleFromMember, key);
     await this.postUpdate(
       key.guildId,
@@ -74,7 +79,7 @@ export class TimedRoleService {
         actor,
         userId: key.userId,
         roleId: key.roleId,
-      })
+      }),
     );
   }
 
@@ -83,11 +88,13 @@ export class TimedRoleService {
   }
 
   async getNewMemberTimedRoleConfig(guildId: string) {
-    return this.store.readNewMemberTimedRoleConfig?.(guildId) ?? {
-      guildId,
-      roleId: null,
-      durationInput: null,
-    };
+    return (
+      this.store.readNewMemberTimedRoleConfig?.(guildId) ?? {
+        guildId,
+        roleId: null,
+        durationInput: null,
+      }
+    );
   }
 
   async updateNewMemberTimedRoleConfig(input: {
@@ -108,10 +115,7 @@ export class TimedRoleService {
       return null;
     }
 
-    const parsedDuration = parseTimedRoleDuration(
-      config.durationInput,
-      input.nowMs ?? Date.now()
-    );
+    const parsedDuration = parseTimedRoleDuration(config.durationInput, input.nowMs ?? Date.now());
     if (!parsedDuration) {
       return null;
     }
@@ -130,13 +134,13 @@ export class TimedRoleService {
 
   private async postUpdate(
     guildId: string,
-    body: ReturnType<typeof buildTimedRoleUpdateMessage>
+    body: ReturnType<typeof buildTimedRoleUpdateMessage>,
   ): Promise<void> {
     await postGuildModerationUpdate(
       this.notificationStore ?? {},
       this.sendChannelMessage,
       guildId,
-      body
+      body,
     );
   }
 }

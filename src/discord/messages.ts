@@ -69,7 +69,7 @@ export interface DiscordMessageListItem extends DiscordMessageResource {
 export async function createChannelMessage(
   channelId: string,
   body: CreateChannelMessageInput,
-  botToken: string
+  botToken: string,
 ): Promise<DiscordMessageResource> {
   const response = await fetch(`${DISCORD_API}/channels/${channelId}/messages`, {
     method: "POST",
@@ -80,13 +80,16 @@ export async function createChannelMessage(
     body: JSON.stringify(body),
   });
 
-  return await parseDiscordJson<DiscordMessageResource>(response, "Failed to create channel message");
+  return await parseDiscordJson<DiscordMessageResource>(
+    response,
+    "Failed to create channel message",
+  );
 }
 
 export async function listChannelMessages(
   channelId: string,
   botToken: string,
-  options?: { before?: string; limit?: number }
+  options?: { before?: string; limit?: number },
 ): Promise<DiscordMessageListItem[]> {
   const url = new URL(`${DISCORD_API}/channels/${channelId}/messages`);
   url.searchParams.set("limit", String(options?.limit ?? 50));
@@ -94,14 +97,10 @@ export async function listChannelMessages(
     url.searchParams.set("before", options.before);
   }
 
-  const response = await discordRequest(
-    url.toString(),
-    "GET",
-    botToken
-  );
+  const response = await discordRequest(url.toString(), "GET", botToken);
   return await parseDiscordJson<DiscordMessageListItem[]>(
     response,
-    "Failed to list channel messages"
+    "Failed to list channel messages",
   );
 }
 
@@ -117,16 +116,18 @@ export async function uploadTranscriptToChannel(
   options?: {
     htmlTranscriptUrl?: string;
     embeds?: DiscordEmbed[];
-  }
+  },
 ): Promise<DiscordMessageResource> {
   const form = new FormData();
   form.set(
     "payload_json",
     JSON.stringify({
-      content: options?.htmlTranscriptUrl ? `HTML transcript: ${options.htmlTranscriptUrl}` : undefined,
+      content: options?.htmlTranscriptUrl
+        ? `HTML transcript: ${options.htmlTranscriptUrl}`
+        : undefined,
       embeds: options?.embeds,
       attachments: [{ id: 0, filename }],
-    })
+    }),
   );
   form.set("files[0]", new File([transcriptBody], filename, { type: "text/plain" }));
 
@@ -146,7 +147,7 @@ export async function deleteReaction(
   messageId: string,
   emoji: DiscordReaction["emoji"],
   userId: string,
-  botToken: string
+  botToken: string,
 ): Promise<void> {
   const encodedEmoji = encodeEmoji(emoji);
 

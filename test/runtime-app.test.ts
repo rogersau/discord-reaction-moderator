@@ -21,7 +21,6 @@ import {
 } from "../src/tickets";
 import type { TicketInstance, TicketPanelConfig, TimedRoleAssignment } from "../src/types";
 
-
 import type { RuntimeStores } from "../src/runtime/app-types";
 
 // Helper to convert old RuntimeStore mocks to new grouped RuntimeStores structure
@@ -29,7 +28,9 @@ function createMockRuntimeStores(oldStore: any): RuntimeStores {
   return {
     blocklist: {
       readConfig: oldStore.readConfig || (async () => ({ guilds: {}, botUserId: "bot-user-id" })),
-      applyGuildEmojiMutation: oldStore.applyGuildEmojiMutation || (async () => ({ guilds: {}, botUserId: "bot-user-id" })),
+      applyGuildEmojiMutation:
+        oldStore.applyGuildEmojiMutation ||
+        (async () => ({ guilds: {}, botUserId: "bot-user-id" })),
     },
     appConfig: {
       upsertAppConfig: oldStore.upsertAppConfig || (async () => {}),
@@ -40,11 +41,13 @@ function createMockRuntimeStores(oldStore: any): RuntimeStores {
       upsertTimedRole: oldStore.upsertTimedRole || (async () => {}),
       deleteTimedRole: oldStore.deleteTimedRole || (async () => {}),
       listExpiredTimedRoles: oldStore.listExpiredTimedRoles || (async () => []),
-      readNewMemberTimedRoleConfig: oldStore.readNewMemberTimedRoleConfig || (async (guildId: string) => ({
-        guildId,
-        roleId: null,
-        durationInput: null,
-      })),
+      readNewMemberTimedRoleConfig:
+        oldStore.readNewMemberTimedRoleConfig ||
+        (async (guildId: string) => ({
+          guildId,
+          roleId: null,
+          durationInput: null,
+        })),
       upsertNewMemberTimedRoleConfig: oldStore.upsertNewMemberTimedRoleConfig || (async () => {}),
     },
     tickets: {
@@ -74,7 +77,7 @@ test("createRuntimeApp serves the admin login shell and static assets", async ()
   assert.match(await loginResponse.text(), /admin-root/);
 
   const assetResponse = await app.fetch(
-    new Request("https://runtime.example/admin/assets/admin.js")
+    new Request("https://runtime.example/admin/assets/admin.js"),
   );
   assert.equal(assetResponse.status, 200);
   assert.match(assetResponse.headers.get("content-type") ?? "", /javascript/);
@@ -108,7 +111,7 @@ test("createRuntimeApp redirects unauthenticated admin requests and sets a sessi
       method: "POST",
       headers: { "content-type": "application/x-www-form-urlencoded" },
       body: "password=let-me-in",
-    })
+    }),
   );
 
   assert.equal(loginResponse.status, 302);
@@ -138,7 +141,7 @@ test("createRuntimeApp rejects invalid admin login passwords", async () => {
       method: "POST",
       headers: { "content-type": "application/x-www-form-urlencoded" },
       body: "password=wrong-password",
-    })
+    }),
   );
 
   assert.equal(loginResponse.status, 401);
@@ -165,7 +168,7 @@ test("createRuntimeApp rejects admin login when ADMIN_SESSION_SECRET is not conf
       method: "POST",
       headers: { "content-type": "application/x-www-form-urlencoded" },
       body: "password=let-me-in",
-    })
+    }),
   );
 
   assert.equal(loginResponse.status, 404, "Should reject login when session secret not configured");
@@ -186,7 +189,7 @@ test("createRuntimeApp serves authenticated dashboard shells for nested admin pa
   const response = await app.fetch(
     new Request("https://runtime.example/admin/tickets", {
       headers: { cookie },
-    })
+    }),
   );
 
   assert.equal(response.status, 200);
@@ -229,7 +232,7 @@ test("createRuntimeApp redirects successful admin login back to the requested da
       headers: { "content-type": "application/x-www-form-urlencoded" },
       body: "password=let-me-in",
       redirect: "manual",
-    })
+    }),
   );
 
   assert.equal(response.status, 302);
@@ -237,10 +240,7 @@ test("createRuntimeApp redirects successful admin login back to the requested da
 });
 
 test("escapeHtmlAttribute escapes characters unsafe in HTML attributes", () => {
-  assert.equal(
-    escapeHtmlAttribute(`"/admin?<tag>&'`),
-    "&quot;/admin?&lt;tag&gt;&amp;&#39;"
-  );
+  assert.equal(escapeHtmlAttribute(`"/admin?<tag>&'`), "&quot;/admin?&lt;tag&gt;&amp;&#39;");
 });
 
 test("createRuntimeApp handles health checks", async () => {
@@ -275,7 +275,7 @@ test("createRuntimeApp handles Discord PING interactions", async () => {
         "x-signature-timestamp": String(Math.floor(Date.now() / 1000)),
       },
       body: JSON.stringify({ type: 1 }),
-    })
+    }),
   );
 
   assert.deepEqual(await response.json(), { type: 1 });
@@ -311,7 +311,7 @@ test("createRuntimeApp handles /blocklist list command with empty guild", async 
           options: [{ type: 1, name: "list" }],
         },
       }),
-    })
+    }),
   );
 
   assert.deepEqual(await response.json(), {
@@ -358,7 +358,7 @@ test("createRuntimeApp respects enabled: false for /blocklist list", async () =>
           options: [{ type: 1, name: "list" }],
         },
       }),
-    })
+    }),
   );
 
   assert.deepEqual(await response.json(), {
@@ -395,7 +395,7 @@ test("createRuntimeApp returns 404 for legacy /admin/gateway/status endpoint", a
     new Request("https://runtime.example/admin/gateway/status", {
       method: "GET",
       headers: { Authorization: "Bearer admin-secret" },
-    })
+    }),
   );
 
   assert.equal(response.status, 404);
@@ -412,23 +412,54 @@ test("createRuntimeApp returns dashboard data and blocklist mutations through se
     verifyDiscordRequest: async () => true,
     stores: createMockRuntimeStores({
       async readConfig() {
-        return { guilds: { "guild-1": { enabled: true, emojis: ["✅"] } }, botUserId: "bot-user-id" };
+        return {
+          guilds: { "guild-1": { enabled: true, emojis: ["✅"] } },
+          botUserId: "bot-user-id",
+        };
       },
       async upsertAppConfig(body: AppConfigMutation) {
         calls.push(`config:${body.key}:${body.value}`);
       },
-      async applyGuildEmojiMutation(body: { guildId: string; emoji: string; action: "add" | "remove" }) {
+      async applyGuildEmojiMutation(body: {
+        guildId: string;
+        emoji: string;
+        action: "add" | "remove";
+      }) {
         calls.push(`blocklist:${body.guildId}:${body.emoji}:${body.action}`);
-        return { guilds: { [body.guildId]: { enabled: true, emojis: body.action === "add" ? ["✅", body.emoji] : ["✅"] } }, botUserId: "bot-user-id" };
+        return {
+          guilds: {
+            [body.guildId]: {
+              enabled: true,
+              emojis: body.action === "add" ? ["✅", body.emoji] : ["✅"],
+            },
+          },
+          botUserId: "bot-user-id",
+        };
       },
     }),
     gateway: {
       async status() {
-        return { status: "idle", sessionId: null, resumeGatewayUrl: null, lastSequence: null, backoffAttempt: 0, lastError: null, heartbeatIntervalMs: null };
+        return {
+          status: "idle",
+          sessionId: null,
+          resumeGatewayUrl: null,
+          lastSequence: null,
+          backoffAttempt: 0,
+          lastError: null,
+          heartbeatIntervalMs: null,
+        };
       },
       async start() {
         calls.push("gateway:start");
-        return { status: "connecting", sessionId: null, resumeGatewayUrl: null, lastSequence: null, backoffAttempt: 0, lastError: null, heartbeatIntervalMs: null };
+        return {
+          status: "connecting",
+          sessionId: null,
+          resumeGatewayUrl: null,
+          lastSequence: null,
+          backoffAttempt: 0,
+          lastError: null,
+          heartbeatIntervalMs: null,
+        };
       },
     },
   });
@@ -438,7 +469,7 @@ test("createRuntimeApp returns dashboard data and blocklist mutations through se
   const statusResponse = await app.fetch(
     new Request("https://runtime.example/admin/api/gateway/status", {
       headers: { cookie },
-    })
+    }),
   );
   assert.equal(statusResponse.status, 200);
 
@@ -447,7 +478,7 @@ test("createRuntimeApp returns dashboard data and blocklist mutations through se
       method: "POST",
       headers: { cookie, "content-type": "application/json" },
       body: JSON.stringify({ key: "bot_user_id", value: "new-bot-id" }),
-    })
+    }),
   );
   assert.equal(configResponse.status, 200);
 
@@ -456,7 +487,7 @@ test("createRuntimeApp returns dashboard data and blocklist mutations through se
       method: "POST",
       headers: { cookie, "content-type": "application/json" },
       body: JSON.stringify({ guildId: "guild-1", emoji: "🚫", action: "add" }),
-    })
+    }),
   );
   assert.equal(blocklistResponse.status, 200);
   assert.deepEqual(calls, ["config:bot_user_id:new-bot-id", "blocklist:guild-1:🚫:add"]);
@@ -468,7 +499,12 @@ test("createRuntimeApp exposes dashboard overview data for discoverability in th
   const SEND_MESSAGES = 1n << 11n;
   const MANAGE_MESSAGES = 1n << 13n;
   const MANAGE_ROLES = 1n << 28n;
-  const BOT_ROLE_PERMISSIONS = (VIEW_CHANNEL | SEND_MESSAGES | MANAGE_MESSAGES | MANAGE_ROLES).toString();
+  const BOT_ROLE_PERMISSIONS = (
+    VIEW_CHANNEL |
+    SEND_MESSAGES |
+    MANAGE_MESSAGES |
+    MANAGE_ROLES
+  ).toString();
   const timedRoles: TimedRoleAssignment[] = [
     {
       guildId: "guild-1",
@@ -486,18 +522,28 @@ test("createRuntimeApp exposes dashboard overview data for discoverability in th
     },
   ];
   globalThis.fetch = (async (input: RequestInfo | URL) => {
-    const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+    const url =
+      typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
 
     if (url.endsWith("/guilds/guild-1/channels")) {
       return Response.json([
-        { id: "channel-1", name: "general", type: 0, parent_id: null, position: 0, permission_overwrites: [] },
+        {
+          id: "channel-1",
+          name: "general",
+          type: 0,
+          parent_id: null,
+          position: 0,
+          permission_overwrites: [],
+        },
         {
           id: "channel-2",
           name: "staff",
           type: 0,
           parent_id: null,
           position: 1,
-          permission_overwrites: [{ id: "guild-1", type: 0, allow: "0", deny: MANAGE_MESSAGES.toString() }],
+          permission_overwrites: [
+            { id: "guild-1", type: 0, allow: "0", deny: MANAGE_MESSAGES.toString() },
+          ],
         },
       ]);
     }
@@ -532,7 +578,14 @@ test("createRuntimeApp exposes dashboard overview data for discoverability in th
 
     if (url.endsWith("/guilds/guild-3/channels")) {
       return Response.json([
-        { id: "channel-3", name: "general", type: 0, parent_id: null, position: 0, permission_overwrites: [] },
+        {
+          id: "channel-3",
+          name: "general",
+          type: 0,
+          parent_id: null,
+          position: 0,
+          permission_overwrites: [],
+        },
       ]);
     }
 
@@ -590,7 +643,7 @@ test("createRuntimeApp exposes dashboard overview data for discoverability in th
     const response = await app.fetch(
       new Request("https://runtime.example/admin/api/overview", {
         headers: { cookie },
-      })
+      }),
     );
 
     assert.equal(response.status, 200);
@@ -621,7 +674,8 @@ test("createRuntimeApp exposes dashboard overview data for discoverability in th
             {
               label: "Manage Messages in text channels",
               status: "warning",
-              detail: "Manage Messages is missing in 1 of 2 visible text channels, so reaction cleanup can fail there.",
+              detail:
+                "Manage Messages is missing in 1 of 2 visible text channels, so reaction cleanup can fail there.",
             },
           ],
           roleNamesById: { "guild-1": "@everyone", "role-1": "Member", "role-bot-1": "Bot" },
@@ -665,11 +719,7 @@ test("createRuntimeApp exposes the bot guild directory for the admin UI", async 
   const originalFetch = globalThis.fetch;
   globalThis.fetch = (async (input: RequestInfo | URL) => {
     const url =
-      typeof input === "string"
-        ? input
-        : input instanceof URL
-          ? input.toString()
-          : input.url;
+      typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
 
     if (url.endsWith("/users/@me/guilds")) {
       return Response.json([
@@ -697,7 +747,7 @@ test("createRuntimeApp exposes the bot guild directory for the admin UI", async 
     const response = await app.fetch(
       new Request("https://runtime.example/admin/api/guilds", {
         headers: { cookie },
-      })
+      }),
     );
 
     assert.equal(response.status, 200);
@@ -721,7 +771,8 @@ test("createRuntimeApp exposes live blocklist permission diagnostics through ses
   const BOT_ROLE_PERMISSIONS = (VIEW_CHANNEL | SEND_MESSAGES | MANAGE_MESSAGES).toString();
 
   globalThis.fetch = (async (input: RequestInfo | URL) => {
-    const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+    const url =
+      typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
 
     if (url.endsWith("/guilds/guild-1/channels")) {
       return Response.json([
@@ -777,7 +828,10 @@ test("createRuntimeApp exposes live blocklist permission diagnostics through ses
       verifyDiscordRequest: async () => true,
       stores: createMockRuntimeStores({
         async readConfig() {
-          return { guilds: { "guild-1": { enabled: true, emojis: ["🚫"] } }, botUserId: "bot-user-id" };
+          return {
+            guilds: { "guild-1": { enabled: true, emojis: ["🚫"] } },
+            botUserId: "bot-user-id",
+          };
         },
       }),
       gateway: {} as GatewayController,
@@ -785,9 +839,12 @@ test("createRuntimeApp exposes live blocklist permission diagnostics through ses
 
     const cookie = await createAdminSessionCookie("session-secret");
     const response = await app.fetch(
-      new Request("https://runtime.example/admin/api/permissions?guildId=guild-1&feature=blocklist", {
-        headers: { cookie },
-      })
+      new Request(
+        "https://runtime.example/admin/api/permissions?guildId=guild-1&feature=blocklist",
+        {
+          headers: { cookie },
+        },
+      ),
     );
 
     assert.equal(response.status, 200);
@@ -803,7 +860,8 @@ test("createRuntimeApp exposes live blocklist permission diagnostics through ses
         {
           label: "Manage Messages in text channels",
           status: "warning",
-          detail: "Manage Messages is missing in 1 of 2 visible text channels, so reaction cleanup can fail there.",
+          detail:
+            "Manage Messages is missing in 1 of 2 visible text channels, so reaction cleanup can fail there.",
         },
       ],
     });
@@ -825,7 +883,8 @@ test("createRuntimeApp exposes timed-role admin APIs through session auth", asyn
   ];
   const originalFetch = globalThis.fetch;
   globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
-    const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+    const url =
+      typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
     calls.push(`${init?.method ?? "GET"}:${url}`);
     return new Response(null, { status: 204 });
   }) as typeof fetch;
@@ -852,7 +911,7 @@ test("createRuntimeApp exposes timed-role admin APIs through session auth", asyn
             (assignment) =>
               assignment.guildId === body.guildId &&
               assignment.userId === body.userId &&
-              assignment.roleId === body.roleId
+              assignment.roleId === body.roleId,
           );
           if (index >= 0) {
             assignments.splice(index, 1);
@@ -867,7 +926,7 @@ test("createRuntimeApp exposes timed-role admin APIs through session auth", asyn
     const listResponse = await app.fetch(
       new Request("https://runtime.example/admin/api/timed-roles?guildId=guild-1", {
         headers: { cookie },
-      })
+      }),
     );
     assert.equal(listResponse.status, 200);
     assert.deepEqual(await listResponse.json(), {
@@ -892,7 +951,7 @@ test("createRuntimeApp exposes timed-role admin APIs through session auth", asyn
           roleId: "role-2",
           duration: "2h",
         }),
-      })
+      }),
     );
     assert.equal(addResponse.status, 200);
 
@@ -906,16 +965,13 @@ test("createRuntimeApp exposes timed-role admin APIs through session auth", asyn
           userId: "user-1",
           roleId: "role-1",
         }),
-      })
+      }),
     );
     assert.equal(removeResponse.status, 200);
-    assert.deepEqual(
-      calls,
-      [
-        "PUT:https://discord.com/api/v10/guilds/guild-1/members/user-2/roles/role-2",
-        "DELETE:https://discord.com/api/v10/guilds/guild-1/members/user-1/roles/role-1",
-      ]
-    );
+    assert.deepEqual(calls, [
+      "PUT:https://discord.com/api/v10/guilds/guild-1/members/user-2/roles/role-2",
+      "DELETE:https://discord.com/api/v10/guilds/guild-1/members/user-1/roles/role-1",
+    ]);
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -936,9 +992,7 @@ test("createRuntimeApp exposes new member timed-role config through session auth
     verifyDiscordRequest: async () => true,
     stores: createMockRuntimeStores({
       async readNewMemberTimedRoleConfig(guildId: string) {
-        return guildId === config.guildId
-          ? config
-          : { guildId, roleId: null, durationInput: null };
+        return guildId === config.guildId ? config : { guildId, roleId: null, durationInput: null };
       },
       async upsertNewMemberTimedRoleConfig(nextConfig: typeof config) {
         config = nextConfig;
@@ -957,7 +1011,7 @@ test("createRuntimeApp exposes new member timed-role config through session auth
         roleId: "role-newbie",
         duration: "2h",
       }),
-    })
+    }),
   );
 
   assert.equal(saveResponse.status, 200);
@@ -978,7 +1032,7 @@ test("createRuntimeApp exposes new member timed-role config through session auth
         roleId: "role-newbie",
         duration: "eventually",
       }),
-    })
+    }),
   );
 
   assert.equal(invalidResponse.status, 400);
@@ -1021,11 +1075,13 @@ test("createRuntimeApp rejects malformed POST /admin/api/timed-roles bodies with
           userId: "user-1",
           roleId: "role-1",
         }),
-      })
+      }),
     );
 
     assert.equal(response.status, 400);
-    assert.deepEqual(await response.json(), { error: "Missing or invalid duration for timed role add" });
+    assert.deepEqual(await response.json(), {
+      error: "Missing or invalid duration for timed role add",
+    });
     assert.deepEqual(calls, []);
   } finally {
     globalThis.fetch = originalFetch;
@@ -1037,7 +1093,9 @@ test("createRuntimeApp returns 502 JSON when timed-role add fails at Discord", a
   const originalFetch = globalThis.fetch;
   globalThis.fetch = (async () => {
     calls.push("discord:fail");
-    return new Response(JSON.stringify({ message: "Missing Permissions", code: 50013 }), { status: 403 });
+    return new Response(JSON.stringify({ message: "Missing Permissions", code: 50013 }), {
+      status: 403,
+    });
   }) as typeof fetch;
 
   try {
@@ -1073,7 +1131,7 @@ test("createRuntimeApp returns 502 JSON when timed-role add fails at Discord", a
           roleId: "role-1",
           duration: "1h",
         }),
-      })
+      }),
     );
 
     assert.equal(response.status, 502);
@@ -1092,7 +1150,9 @@ test("createRuntimeApp returns 502 JSON when timed-role remove fails at Discord"
   const originalFetch = globalThis.fetch;
   globalThis.fetch = (async () => {
     calls.push("discord:fail");
-    return new Response(JSON.stringify({ message: "Unknown Member", code: 10007 }), { status: 404 });
+    return new Response(JSON.stringify({ message: "Unknown Member", code: 10007 }), {
+      status: 404,
+    });
   }) as typeof fetch;
 
   try {
@@ -1124,7 +1184,7 @@ test("createRuntimeApp returns 502 JSON when timed-role remove fails at Discord"
           userId: "user-1",
           roleId: "role-1",
         }),
-      })
+      }),
     );
 
     assert.equal(response.status, 502);
@@ -1161,7 +1221,7 @@ test("createRuntimeApp rejects malformed POST /admin/api/config bodies with 400 
       method: "POST",
       headers: { cookie, "content-type": "application/json" },
       body: JSON.stringify({ key: "bot_user_id" }),
-    })
+    }),
   );
 
   assert.equal(response.status, 400);
@@ -1193,7 +1253,7 @@ test("createRuntimeApp rejects malformed POST /admin/api/blocklist bodies with 4
       method: "POST",
       headers: { cookie, "content-type": "application/json" },
       body: JSON.stringify({ guildId: "guild-1", emoji: "🚫", action: "block" }),
-    })
+    }),
   );
 
   assert.equal(response.status, 400);
@@ -1218,7 +1278,7 @@ test("createRuntimeApp rejects null body on POST /admin/api/blocklist with 400 J
       method: "POST",
       headers: { cookie, "content-type": "application/json" },
       body: "null",
-    })
+    }),
   );
 
   assert.equal(response.status, 400);
@@ -1243,7 +1303,7 @@ test("createRuntimeApp rejects non-string emoji on POST /admin/api/blocklist wit
       method: "POST",
       headers: { cookie, "content-type": "application/json" },
       body: JSON.stringify({ guildId: "guild-1", emoji: {}, action: "add" }),
-    })
+    }),
   );
 
   assert.equal(response.status, 400);
@@ -1268,7 +1328,7 @@ test("createRuntimeApp rejects null body on POST /admin/api/timed-roles with 400
       method: "POST",
       headers: { cookie, "content-type": "application/json" },
       body: "null",
-    })
+    }),
   );
 
   assert.equal(response.status, 400);
@@ -1299,7 +1359,7 @@ test("createRuntimeApp rejects non-string duration on POST /admin/api/timed-role
         roleId: "role-1",
         duration: {},
       }),
-    })
+    }),
   );
 
   assert.equal(response.status, 400);
@@ -1318,11 +1378,9 @@ test("createRuntimeApp rejects unauthenticated /admin/api/* requests with 401 JS
     gateway: {} as GatewayController,
   });
 
-  const response = await app.fetch(
-    new Request("https://runtime.example/admin/api/gateway/status")
-  );
+  const response = await app.fetch(new Request("https://runtime.example/admin/api/gateway/status"));
   assert.equal(response.status, 401);
-  const body = await response.json() as { error: string };
+  const body = (await response.json()) as { error: string };
   assert.equal(body.error, "Unauthorized");
 });
 
@@ -1340,7 +1398,7 @@ test("createRuntimeApp serves admin shell with data-authenticated for authentica
   const cookie = await createAdminSessionCookie("session-secret");
 
   const response = await app.fetch(
-    new Request("https://runtime.example/admin", { headers: { cookie } })
+    new Request("https://runtime.example/admin", { headers: { cookie } }),
   );
   assert.equal(response.status, 200);
   assert.match(await response.text(), /data-authenticated="true"/);
@@ -1367,10 +1425,10 @@ test("createRuntimeApp GET /admin/api/config returns current config under sessio
   const cookie = await createAdminSessionCookie("session-secret");
 
   const response = await app.fetch(
-    new Request("https://runtime.example/admin/api/config", { headers: { cookie } })
+    new Request("https://runtime.example/admin/api/config", { headers: { cookie } }),
   );
   assert.equal(response.status, 200);
-  const body = await response.json() as { botUserId: string };
+  const body = (await response.json()) as { botUserId: string };
   assert.equal(body.botUserId, "bot-user-id");
 });
 
@@ -1380,7 +1438,8 @@ test("createRuntimeApp exposes ticket admin APIs through session auth and publis
   let storedPanel: TicketPanelConfig | null = null;
 
   globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
-    const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+    const url =
+      typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
     const method = init?.method ?? "GET";
     let body: unknown = null;
     if (typeof init?.body === "string") {
@@ -1392,7 +1451,13 @@ test("createRuntimeApp exposes ticket admin APIs through session auth and publis
       return Response.json([
         { id: "category-1", name: "Tickets", type: 4, parent_id: null, position: 1 },
         { id: "panel-channel", name: "ticket-panel", type: 0, parent_id: null, position: 2 },
-        { id: "transcript-channel", name: "ticket-transcripts", type: 0, parent_id: null, position: 3 },
+        {
+          id: "transcript-channel",
+          name: "ticket-transcripts",
+          type: 0,
+          parent_id: null,
+          position: 3,
+        },
         { id: "text-1", name: "general", type: 0, parent_id: null, position: 4 },
         { id: "voice-1", name: "voice", type: 2, parent_id: null, position: 5 },
       ]);
@@ -1440,7 +1505,7 @@ test("createRuntimeApp exposes ticket admin APIs through session auth and publis
         method: "POST",
         headers: { cookie, "content-type": "application/json" },
         body: JSON.stringify({ guildId: "guild-1" }),
-      })
+      }),
     );
     assert.equal(invalidPanelResponse.status, 400);
     assert.deepEqual(await invalidPanelResponse.json(), { error: "Missing panelChannelId" });
@@ -1450,7 +1515,7 @@ test("createRuntimeApp exposes ticket admin APIs through session auth and publis
         method: "POST",
         headers: { cookie, "content-type": "application/json" },
         body: JSON.stringify({}),
-      })
+      }),
     );
     assert.equal(invalidPublishResponse.status, 400);
     assert.deepEqual(await invalidPublishResponse.json(), { error: "Missing guildId" });
@@ -1469,7 +1534,7 @@ test("createRuntimeApp exposes ticket admin APIs through session auth and publis
             },
           ],
         }),
-      })
+      }),
     );
     assert.equal(invalidSupportRoleResponse.status, 400);
     assert.deepEqual(await invalidSupportRoleResponse.json(), {
@@ -1483,7 +1548,7 @@ test("createRuntimeApp exposes ticket admin APIs through session auth and publis
           ...panel,
           ticketTypes: [panel.ticketTypes[0], { ...panel.ticketTypes[0], label: "Appeal Copy" }],
         }),
-      })
+      }),
     );
     assert.equal(duplicateTicketTypeResponse.status, 400);
     assert.deepEqual(await duplicateTicketTypeResponse.json(), {
@@ -1508,7 +1573,7 @@ test("createRuntimeApp exposes ticket admin APIs through session auth and publis
             },
           ],
         }),
-      })
+      }),
     );
     assert.equal(tooManyQuestionsResponse.status, 400);
     assert.deepEqual(await tooManyQuestionsResponse.json(), {
@@ -1520,7 +1585,7 @@ test("createRuntimeApp exposes ticket admin APIs through session auth and publis
         method: "POST",
         headers: { cookie, "content-type": "application/json" },
         body: JSON.stringify(panel),
-      })
+      }),
     );
     assert.equal(saveResponse.status, 200);
     assert.deepEqual(await saveResponse.json(), { ok: true, panel });
@@ -1528,7 +1593,7 @@ test("createRuntimeApp exposes ticket admin APIs through session auth and publis
     const readResponse = await app.fetch(
       new Request("https://runtime.example/admin/api/tickets/panel?guildId=guild-1", {
         headers: { cookie },
-      })
+      }),
     );
     assert.equal(readResponse.status, 200);
     assert.deepEqual(await readResponse.json(), { panel });
@@ -1536,7 +1601,7 @@ test("createRuntimeApp exposes ticket admin APIs through session auth and publis
     const resourcesResponse = await app.fetch(
       new Request("https://runtime.example/admin/api/tickets/resources?guildId=guild-1", {
         headers: { cookie },
-      })
+      }),
     );
     assert.equal(resourcesResponse.status, 200);
     assert.deepEqual(await resourcesResponse.json(), {
@@ -1559,7 +1624,7 @@ test("createRuntimeApp exposes ticket admin APIs through session auth and publis
         method: "POST",
         headers: { cookie, "content-type": "application/json" },
         body: JSON.stringify({ guildId: "guild-1" }),
-      })
+      }),
     );
     assert.equal(publishResponse.status, 200);
     assert.deepEqual(await publishResponse.json(), { ok: true, panelMessageId: "panel-message-1" });
@@ -1571,12 +1636,12 @@ test("createRuntimeApp exposes ticket admin APIs through session auth and publis
         method: "POST",
         headers: { cookie, "content-type": "application/json" },
         body: JSON.stringify({ guildId: "guild-1" }),
-      })
+      }),
     );
     assert.equal(refreshResponse.status, 200);
 
     const publishCreate = fetchCalls.find(
-      (call) => call.method === "POST" && call.url.endsWith("/channels/panel-channel/messages")
+      (call) => call.method === "POST" && call.url.endsWith("/channels/panel-channel/messages"),
     );
     assert.deepEqual(publishCreate?.body, {
       content: "",
@@ -1609,8 +1674,8 @@ test("createRuntimeApp exposes ticket admin APIs through session auth and publis
       fetchCalls.some(
         (call) =>
           call.method === "PATCH" &&
-          call.url.endsWith("/channels/panel-channel/messages/panel-message-1")
-      )
+          call.url.endsWith("/channels/panel-channel/messages/panel-message-1"),
+      ),
     );
   } finally {
     globalThis.fetch = originalFetch;
@@ -1632,7 +1697,8 @@ test("createRuntimeApp rejects ticket panel publish when referenced Discord targ
   };
 
   globalThis.fetch = (async (input: RequestInfo | URL) => {
-    const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+    const url =
+      typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
 
     if (url.endsWith("/guilds/guild-1/channels")) {
       return Response.json([
@@ -1672,7 +1738,7 @@ test("createRuntimeApp rejects ticket panel publish when referenced Discord targ
         method: "POST",
         headers: { cookie, "content-type": "application/json" },
         body: JSON.stringify({ guildId: "guild-1" }),
-      })
+      }),
     );
     assert.equal(publishResponse.status, 400);
     assert.deepEqual(await publishResponse.json(), {
@@ -1703,7 +1769,8 @@ test("createRuntimeApp handles ticket open modal submit and close interactions",
 
   Date.now = () => 1_700_000_000_000;
   globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
-    const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+    const url =
+      typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
     const method = init?.method ?? "GET";
     let body: unknown = null;
 
@@ -1725,7 +1792,13 @@ test("createRuntimeApp handles ticket open modal submit and close interactions",
     if (url.endsWith("/guilds/guild-1/channels") && method === "GET") {
       return Response.json([
         { id: "ticket-channel-1", name: "ticket-0011", type: 0, parent_id: null, position: 1 },
-        { id: "transcript-channel", name: "ticket-transcripts", type: 0, parent_id: null, position: 2 },
+        {
+          id: "transcript-channel",
+          name: "ticket-transcripts",
+          type: 0,
+          parent_id: null,
+          position: 2,
+        },
       ]);
     }
 
@@ -1738,7 +1811,11 @@ test("createRuntimeApp handles ticket open modal submit and close interactions",
     }
 
     if (url.endsWith("/channels/ticket-channel-1/messages") && method === "POST") {
-      return Response.json({ id: "opening-message-1", channel_id: "ticket-channel-1", content: "" });
+      return Response.json({
+        id: "opening-message-1",
+        channel_id: "ticket-channel-1",
+        content: "",
+      });
     }
 
     if (url.endsWith("/channels/ticket-channel-1/messages?limit=100") && method === "GET") {
@@ -1795,16 +1872,26 @@ test("createRuntimeApp handles ticket open modal submit and close interactions",
       ]);
     }
 
-    if (url === "https://cdn.discordapp.com/attachments/ticket-channel-1/proof.png" && method === "GET") {
+    if (
+      url === "https://cdn.discordapp.com/attachments/ticket-channel-1/proof.png" &&
+      method === "GET"
+    ) {
       return new Response("image-bytes", { headers: { "content-type": "image/png" } });
     }
 
-    if (url === "https://cdn.discordapp.com/attachments/ticket-channel-1/clip.mp4" && method === "GET") {
+    if (
+      url === "https://cdn.discordapp.com/attachments/ticket-channel-1/clip.mp4" &&
+      method === "GET"
+    ) {
       return new Response("video-bytes", { headers: { "content-type": "video/mp4" } });
     }
 
     if (url.endsWith("/channels/transcript-channel/messages") && method === "POST") {
-      return Response.json({ id: "transcript-message-1", channel_id: "transcript-channel", content: "" });
+      return Response.json({
+        id: "transcript-message-1",
+        channel_id: "transcript-channel",
+        content: "",
+      });
     }
 
     if (url.endsWith("/channels/ticket-channel-1") && method === "DELETE") {
@@ -1829,7 +1916,7 @@ test("createRuntimeApp handles ticket open modal submit and close interactions",
         async putAttachment(
           key: string,
           body: ReadableStream<Uint8Array> | ArrayBuffer | string,
-          options: { contentType: string | null }
+          options: { contentType: string | null },
         ) {
           transcriptMediaByKey.set(key, {
             body: await new Response(body).arrayBuffer(),
@@ -1877,7 +1964,7 @@ test("createRuntimeApp handles ticket open modal submit and close interactions",
         guild_id: "guild-1",
         member: { user: { id: "user-1" }, roles: [] },
         data: { custom_id: buildTicketOpenCustomId("appeals") },
-      })
+      }),
     );
     assert.equal(openResponse.status, 200);
     assert.deepEqual(await openResponse.json(), buildTicketModalResponse(panel.ticketTypes[0]!));
@@ -1896,7 +1983,7 @@ test("createRuntimeApp handles ticket open modal submit and close interactions",
             },
           ],
         },
-      })
+      }),
     );
     assert.equal(submitResponse.status, 200);
     assert.deepEqual(await submitResponse.json(), {
@@ -1926,7 +2013,7 @@ test("createRuntimeApp handles ticket open modal submit and close interactions",
     });
 
     const channelCreateCall = discordCalls.find(
-      (call) => call.method === "POST" && call.url.endsWith("/guilds/guild-1/channels")
+      (call) => call.method === "POST" && call.url.endsWith("/guilds/guild-1/channels"),
     );
     assert.deepEqual(channelCreateCall?.body, {
       name: "appeal-001",
@@ -1941,7 +2028,7 @@ test("createRuntimeApp handles ticket open modal submit and close interactions",
     });
 
     const openMessageCall = discordCalls.find(
-      (call) => call.method === "POST" && call.url.endsWith("/channels/ticket-channel-1/messages")
+      (call) => call.method === "POST" && call.url.endsWith("/channels/ticket-channel-1/messages"),
     );
     assert.deepEqual(openMessageCall?.body, {
       content: "<@user-1>",
@@ -1986,7 +2073,7 @@ test("createRuntimeApp handles ticket open modal submit and close interactions",
         channel_id: "ticket-channel-1",
         member: { user: { id: "user-1" }, roles: [] },
         data: { custom_id: buildTicketCloseCustomId("ticket-channel-1") },
-      })
+      }),
     );
     assert.equal(closeResponse.status, 200);
     assert.deepEqual(await closeResponse.json(), {
@@ -2004,46 +2091,57 @@ test("createRuntimeApp handles ticket open modal submit and close interactions",
     ]);
     assert.ok(
       discordCalls.some(
-        (call) => call.method === "DELETE" && call.url.endsWith("/channels/ticket-channel-1")
-      )
+        (call) => call.method === "DELETE" && call.url.endsWith("/channels/ticket-channel-1"),
+      ),
     );
 
     const transcriptCall = discordCalls.find(
-      (call) => call.method === "POST" && call.url.endsWith("/channels/transcript-channel/messages")
+      (call) =>
+        call.method === "POST" && call.url.endsWith("/channels/transcript-channel/messages"),
     );
     const transcriptPayload = JSON.parse(
       String(
         transcriptCall?.body && typeof transcriptCall.body === "object"
           ? (transcriptCall.body as { payload_json: FormDataEntryValue | null }).payload_json
-          : null
-      )
+          : null,
+      ),
     ) as {
       content?: string;
       embeds?: Array<{ title?: string; fields?: Array<{ name: string; value: string }> }>;
       attachments: Array<{ id: number; filename: string }>;
     };
-    assert.equal(transcriptPayload.content, "HTML transcript: https://runtime.example/transcripts/guild-1/ticket-channel-1");
-    assert.deepEqual(transcriptPayload.attachments, [{ id: 0, filename: "ticket-ticket-channel-1.txt" }]);
+    assert.equal(
+      transcriptPayload.content,
+      "HTML transcript: https://runtime.example/transcripts/guild-1/ticket-channel-1",
+    );
+    assert.deepEqual(transcriptPayload.attachments, [
+      { id: 0, filename: "ticket-ticket-channel-1.txt" },
+    ]);
     assert.equal(transcriptPayload.embeds?.[0]?.title, "Ticket Transcript");
     assert.equal(
       transcriptPayload.embeds?.[0]?.fields?.find((field) => field.name === "Ticket Owner")?.value,
-      "Alice (user-1)"
+      "Alice (user-1)",
     );
     assert.equal(
-      transcriptPayload.embeds?.[0]?.fields?.find((field) => field.name === "Users in transcript")?.value,
-      "1 - Alice\n1 - CAF Assist"
+      transcriptPayload.embeds?.[0]?.fields?.find((field) => field.name === "Users in transcript")
+        ?.value,
+      "1 - Alice\n1 - CAF Assist",
     );
     assert.equal(
       transcriptPayload.embeds?.[0]?.fields?.find((field) => field.name === "Attachments")?.value,
-      "2"
+      "2",
     );
     const archivedImageUrl = `https://runtime.example${buildTicketTranscriptAttachmentPath("guild-1", "ticket-channel-1", "attachment-image-1", "proof.png")}`;
     const archivedVideoUrl = `https://runtime.example${buildTicketTranscriptAttachmentPath("guild-1", "ticket-channel-1", "attachment-video-1", "clip.mp4")}`;
-    const transcriptFile = transcriptCall?.body && typeof transcriptCall.body === "object"
-      ? ((transcriptCall.body as { transcript: FormDataEntryValue | null }).transcript as File | null)
-      : null;
+    const transcriptFile =
+      transcriptCall?.body && typeof transcriptCall.body === "object"
+        ? ((transcriptCall.body as { transcript: FormDataEntryValue | null })
+            .transcript as File | null)
+        : null;
     assert.ok(transcriptFile instanceof File);
-    assert.equal(await transcriptFile?.text(), `# Ticket Transcript
+    assert.equal(
+      await transcriptFile?.text(),
+      `# Ticket Transcript
 Guild: guild-1
 Ticket Type: Appeal (appeals)
 Channel: ticket-channel-1
@@ -2062,10 +2160,13 @@ Closed by: user-1
   Image: proof.png (image/png, 1.5 KB) - ${archivedImageUrl}
   Video: clip.mp4 (video/mp4, 1 MB) - ${archivedVideoUrl}
 [2024-01-01T00:00:01.000Z] CAF Assist: Support reply
-`);
+`,
+    );
 
     const transcriptResponse = await app.fetch(
-      new Request(`https://runtime.example${buildTicketTranscriptPath("guild-1", "ticket-channel-1")}`)
+      new Request(
+        `https://runtime.example${buildTicketTranscriptPath("guild-1", "ticket-channel-1")}`,
+      ),
     );
     assert.equal(transcriptResponse.status, 200);
     assert.match(transcriptResponse.headers.get("content-type") ?? "", /text\/html/);
@@ -2073,8 +2174,16 @@ Closed by: user-1
     assert.match(transcriptHtmlResponse, /<h1>Ticket Transcript<\/h1>/);
     assert.match(transcriptHtmlResponse, /Opened by<\/dt><dd>Alice \(user-1\)<\/dd>/);
     assert.match(transcriptHtmlResponse, /Closed by<\/dt><dd>Alice \(user-1\)<\/dd>/);
-    assert.ok(transcriptHtmlResponse.includes(`<img src="${archivedImageUrl}" alt="proof.png" loading="lazy" />`));
-    assert.ok(transcriptHtmlResponse.includes(`<video controls preload="metadata"><source src="${archivedVideoUrl}" type="video/mp4" /></video>`));
+    assert.ok(
+      transcriptHtmlResponse.includes(
+        `<img src="${archivedImageUrl}" alt="proof.png" loading="lazy" />`,
+      ),
+    );
+    assert.ok(
+      transcriptHtmlResponse.includes(
+        `<video controls preload="metadata"><source src="${archivedVideoUrl}" type="video/mp4" /></video>`,
+      ),
+    );
 
     const mediaResponse = await app.fetch(new Request(archivedImageUrl));
     assert.equal(mediaResponse.status, 200);
@@ -2103,7 +2212,8 @@ test("createRuntimeApp creates a ticket immediately when the ticket type has no 
 
   Date.now = () => 1_700_000_000_000;
   globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
-    const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+    const url =
+      typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
     const method = init?.method ?? "GET";
     const body = init?.body ? JSON.parse(String(init.body)) : null;
     discordCalls.push({ method, url, body });
@@ -2147,7 +2257,7 @@ test("createRuntimeApp creates a ticket immediately when the ticket type has no 
         guild_id: "guild-1",
         member: { user: { id: "user-1" }, roles: [] },
         data: { custom_id: buildTicketOpenCustomId("appeals") },
-      })
+      }),
     );
 
     assert.equal(response.status, 200);
@@ -2156,7 +2266,7 @@ test("createRuntimeApp creates a ticket immediately when the ticket type has no 
       data: { flags: 64, content: "Created your ticket: <#ticket-channel-1>" },
     });
     const channelCreateCall = discordCalls.find(
-      (call) => call.method === "POST" && call.url.endsWith("/guilds/guild-1/channels")
+      (call) => call.method === "POST" && call.url.endsWith("/guilds/guild-1/channels"),
     );
     assert.deepEqual(channelCreateCall?.body, {
       name: "appeal-001",
@@ -2187,7 +2297,7 @@ test("createRuntimeApp creates a ticket immediately when the ticket type has no 
     ]);
 
     const openMessageCall = discordCalls.find(
-      (call) => call.method === "POST" && call.url.endsWith("/channels/ticket-channel-1/messages")
+      (call) => call.method === "POST" && call.url.endsWith("/channels/ticket-channel-1/messages"),
     );
     assert.deepEqual(openMessageCall?.body, {
       content: "<@user-1>",
@@ -2238,7 +2348,8 @@ test("createRuntimeApp rolls back ticket creation when the opening message fails
   const panel = createTicketPanelConfig();
 
   globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
-    const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+    const url =
+      typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
     const method = init?.method ?? "GET";
     const body = typeof init?.body === "string" ? JSON.parse(init.body) : null;
     discordCalls.push({ method, url, body });
@@ -2297,7 +2408,7 @@ test("createRuntimeApp rolls back ticket creation when the opening message fails
             },
           ],
         },
-      })
+      }),
     );
     assert.equal(submitResponse.status, 200);
     assert.deepEqual(await submitResponse.json(), {
@@ -2308,8 +2419,8 @@ test("createRuntimeApp rolls back ticket creation when the opening message fails
     assert.deepEqual(deletedInstances, [{ guildId: "guild-1", channelId: "ticket-channel-1" }]);
     assert.ok(
       discordCalls.some(
-        (call) => call.method === "DELETE" && call.url.endsWith("/channels/ticket-channel-1")
-      )
+        (call) => call.method === "DELETE" && call.url.endsWith("/channels/ticket-channel-1"),
+      ),
     );
   } finally {
     globalThis.fetch = originalFetch;
@@ -2336,7 +2447,8 @@ test("createRuntimeApp lets support request ticket close approval from the opene
   const panel = createTicketPanelConfig();
 
   globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
-    const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+    const url =
+      typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
     const method = init?.method ?? "GET";
     const body = init?.body ? JSON.parse(String(init.body)) : null;
     discordCalls.push({ method, url, body });
@@ -2371,7 +2483,7 @@ test("createRuntimeApp lets support request ticket close approval from the opene
         channel_id: "ticket-channel-1",
         member: { user: { id: "support-1" }, roles: ["role-1"] },
         data: { custom_id: buildTicketCloseRequestCustomId("ticket-channel-1") },
-      })
+      }),
     );
 
     assert.equal(response.status, 200);
@@ -2381,10 +2493,11 @@ test("createRuntimeApp lets support request ticket close approval from the opene
     });
 
     const requestMessageCall = discordCalls.find(
-      (call) => call.method === "POST" && call.url.endsWith("/channels/ticket-channel-1/messages")
+      (call) => call.method === "POST" && call.url.endsWith("/channels/ticket-channel-1/messages"),
     );
     assert.deepEqual(requestMessageCall?.body, {
-      content: "<@user-1> <@support-1> requested to close this ticket. Do you want to close it now?",
+      content:
+        "<@user-1> <@support-1> requested to close this ticket. Do you want to close it now?",
       allowed_mentions: { users: ["user-1"] },
       components: [
         {
@@ -2440,7 +2553,8 @@ test("createRuntimeApp closes a ticket after the opener approves a close request
 
   Date.now = () => 1_700_000_000_000;
   globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
-    const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+    const url =
+      typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
     const method = init?.method ?? "GET";
     let body: unknown = null;
     if (typeof init?.body === "string") {
@@ -2500,7 +2614,7 @@ test("createRuntimeApp closes a ticket after the opener approves a close request
         channel_id: "ticket-channel-1",
         member: { user: { id: "user-1", username: "Alice" }, roles: [] },
         data: { custom_id: buildTicketCloseConfirmCustomId("ticket-channel-1") },
-      })
+      }),
     );
 
     assert.equal(response.status, 200);
@@ -2558,7 +2672,7 @@ test("createRuntimeApp leaves a ticket open when the opener declines a close req
       channel_id: "ticket-channel-1",
       member: { user: { id: "user-1" }, roles: [] },
       data: { custom_id: buildTicketCloseDeclineCustomId("ticket-channel-1") },
-    })
+    }),
   );
 
   assert.equal(response.status, 200);
@@ -2578,7 +2692,8 @@ test("createRuntimeApp returns an ephemeral failure when ticket channel creation
   const panel = createTicketPanelConfig();
 
   globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
-    const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+    const url =
+      typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
     const method = init?.method ?? "GET";
 
     if (url.endsWith("/guilds/guild-1/channels") && method === "POST") {
@@ -2624,7 +2739,7 @@ test("createRuntimeApp returns an ephemeral failure when ticket channel creation
             },
           ],
         },
-      })
+      }),
     );
     assert.equal(submitResponse.status, 200);
     assert.deepEqual(await submitResponse.json(), {
@@ -2670,7 +2785,8 @@ test("createRuntimeApp keeps the ticket open and posts an in-channel error when 
   };
 
   globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
-    const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+    const url =
+      typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
     const method = init?.method ?? "GET";
     let body: unknown = null;
 
@@ -2707,7 +2823,11 @@ test("createRuntimeApp keeps the ticket open and posts an in-channel error when 
     }
 
     if (url.endsWith("/channels/ticket-channel-1/messages") && method === "POST") {
-      return Response.json({ id: "warning-message-1", channel_id: "ticket-channel-1", content: "" });
+      return Response.json({
+        id: "warning-message-1",
+        channel_id: "ticket-channel-1",
+        content: "",
+      });
     }
 
     throw new Error(`Unexpected Discord call: ${method} ${url}`);
@@ -2745,7 +2865,7 @@ test("createRuntimeApp keeps the ticket open and posts an in-channel error when 
         channel_id: "ticket-channel-1",
         member: { user: { id: "user-1" }, roles: [] },
         data: { custom_id: buildTicketCloseCustomId("ticket-channel-1") },
-      })
+      }),
     );
     assert.equal(closeResponse.status, 200);
     assert.deepEqual(await closeResponse.json(), {
@@ -2759,14 +2879,16 @@ test("createRuntimeApp keeps the ticket open and posts an in-channel error when 
     assert.deepEqual(closeCalls, []);
     assert.ok(
       !discordCalls.some(
-        (call) => call.method === "DELETE" && call.url.endsWith("/channels/ticket-channel-1")
-      )
+        (call) => call.method === "DELETE" && call.url.endsWith("/channels/ticket-channel-1"),
+      ),
     );
     const warningCall =
       [...discordCalls]
         .reverse()
-        .find((call) => call.method === "POST" && call.url.endsWith("/channels/ticket-channel-1/messages")) ??
-      null;
+        .find(
+          (call) =>
+            call.method === "POST" && call.url.endsWith("/channels/ticket-channel-1/messages"),
+        ) ?? null;
     assert.deepEqual(warningCall?.body, {
       content:
         "Failed to upload the transcript for this ticket. The ticket will remain open so support staff can retry closing it.",
@@ -2803,7 +2925,8 @@ test("createRuntimeApp reports partial success when ticket close cleanup fails",
   };
 
   globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
-    const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+    const url =
+      typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
     const method = init?.method ?? "GET";
 
     if (url.endsWith("/channels/ticket-channel-1/messages?limit=100") && method === "GET") {
@@ -2811,7 +2934,11 @@ test("createRuntimeApp reports partial success when ticket close cleanup fails",
     }
 
     if (url.endsWith("/channels/transcript-channel/messages") && method === "POST") {
-      return Response.json({ id: "transcript-message-1", channel_id: "transcript-channel", content: "" });
+      return Response.json({
+        id: "transcript-message-1",
+        channel_id: "transcript-channel",
+        content: "",
+      });
     }
 
     if (url.endsWith("/channels/ticket-channel-1") && method === "DELETE") {
@@ -2854,7 +2981,7 @@ test("createRuntimeApp reports partial success when ticket close cleanup fails",
         channel_id: "ticket-channel-1",
         member: { user: { id: "user-1" }, roles: [] },
         data: { custom_id: buildTicketCloseCustomId("ticket-channel-1") },
-      })
+      }),
     );
     assert.equal(closeResponse.status, 200);
     assert.deepEqual(await closeResponse.json(), {

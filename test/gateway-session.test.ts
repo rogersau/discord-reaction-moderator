@@ -5,20 +5,13 @@ import assert from "node:assert/strict";
 // @ts-ignore -- The worker typecheck config omits Node built-ins and full node:test types conflict with Workers globals; tsconfig.tests provides the runtime test types.
 import test from "node:test";
 
-import {
-  buildHeartbeatPayload,
-  buildIdentifyPayload,
-  buildResumePayload,
-} from "../src/gateway";
+import { buildHeartbeatPayload, buildIdentifyPayload, buildResumePayload } from "../src/gateway";
 import { GatewaySessionDO } from "../src/durable-objects/gateway-session";
 import { handleGatewayDispatch } from "../src/services/gateway/handle-gateway-dispatch";
 
 test("GatewaySessionDO reports idle status before startup", async () => {
   const { state } = createGatewayState();
-  const gateway = new GatewaySessionDO(
-    state,
-    { DISCORD_BOT_TOKEN: "bot-token" } as never
-  );
+  const gateway = new GatewaySessionDO(state, { DISCORD_BOT_TOKEN: "bot-token" } as never);
 
   const response = await gateway.fetch(new Request("https://gateway-session/status"));
   const status = (await response.json()) as Record<string, unknown>;
@@ -36,13 +29,10 @@ test("GatewaySessionDO starts a fresh websocket session from the default gateway
   const { restore, sockets } = installFakeWebSocket();
 
   try {
-    const gateway = new GatewaySessionDO(
-      state,
-      { DISCORD_BOT_TOKEN: "bot-token" } as never
-    );
+    const gateway = new GatewaySessionDO(state, { DISCORD_BOT_TOKEN: "bot-token" } as never);
 
     const response = await gateway.fetch(
-      new Request("https://gateway-session/start", { method: "POST" })
+      new Request("https://gateway-session/start", { method: "POST" }),
     );
     const status = (await response.json()) as Record<string, unknown>;
 
@@ -61,10 +51,7 @@ test("GatewaySessionDO sends identify and schedules heartbeat after HELLO", asyn
   const { restore, sockets } = installFakeWebSocket();
 
   try {
-    const gateway = new GatewaySessionDO(
-      state,
-      { DISCORD_BOT_TOKEN: "bot-token" } as never
-    );
+    const gateway = new GatewaySessionDO(state, { DISCORD_BOT_TOKEN: "bot-token" } as never);
     await gateway.fetch(new Request("https://gateway-session/start", { method: "POST" }));
 
     await sockets[0]?.emitMessage({
@@ -87,10 +74,7 @@ test("GatewaySessionDO reports heartbeat interval in its public status snapshot"
   const { restore, sockets } = installFakeWebSocket();
 
   try {
-    const gateway = new GatewaySessionDO(
-      state,
-      { DISCORD_BOT_TOKEN: "bot-token" } as never
-    );
+    const gateway = new GatewaySessionDO(state, { DISCORD_BOT_TOKEN: "bot-token" } as never);
     await gateway.fetch(new Request("https://gateway-session/start", { method: "POST" }));
 
     await sockets[0]?.emitMessage({
@@ -114,10 +98,7 @@ test("GatewaySessionDO ignores HELLO frames when the socket is no longer open", 
   const { restore, sockets } = installFakeWebSocket();
 
   try {
-    const gateway = new GatewaySessionDO(
-      state,
-      { DISCORD_BOT_TOKEN: "bot-token" } as never
-    );
+    const gateway = new GatewaySessionDO(state, { DISCORD_BOT_TOKEN: "bot-token" } as never);
     await gateway.fetch(new Request("https://gateway-session/start", { method: "POST" }));
 
     if (sockets[0]) {
@@ -143,10 +124,7 @@ test("GatewaySessionDO records malformed gateway messages instead of crashing", 
   const { restore, sockets } = installFakeWebSocket();
 
   try {
-    const gateway = new GatewaySessionDO(
-      state,
-      { DISCORD_BOT_TOKEN: "bot-token" } as never
-    );
+    const gateway = new GatewaySessionDO(state, { DISCORD_BOT_TOKEN: "bot-token" } as never);
     await gateway.fetch(new Request("https://gateway-session/start", { method: "POST" }));
 
     await sockets[0]?.emitRawMessage("{");
@@ -191,7 +169,7 @@ test("GatewaySessionDO moderates blocked reaction dispatch events", async () => 
             botUserId: "bot-1",
           });
         },
-      })
+      }),
     );
     await gateway.fetch(new Request("https://gateway-session/start", { method: "POST" }));
 
@@ -228,10 +206,7 @@ test("GatewaySessionDO resumes persisted sessions after HELLO", async () => {
   const { restore, sockets } = installFakeWebSocket();
 
   try {
-    const gateway = new GatewaySessionDO(
-      state,
-      { DISCORD_BOT_TOKEN: "bot-token" } as never
-    );
+    const gateway = new GatewaySessionDO(state, { DISCORD_BOT_TOKEN: "bot-token" } as never);
     await gateway.fetch(new Request("https://gateway-session/start", { method: "POST" }));
 
     assert.equal(sockets[0]?.url, "wss://resume.discord.gg/?v=10&encoding=json");
@@ -258,10 +233,7 @@ test("GatewaySessionDO persists READY metadata and reports ready status", async 
   const { restore, sockets } = installFakeWebSocket();
 
   try {
-    const gateway = new GatewaySessionDO(
-      state,
-      { DISCORD_BOT_TOKEN: "bot-token" } as never
-    );
+    const gateway = new GatewaySessionDO(state, { DISCORD_BOT_TOKEN: "bot-token" } as never);
     await gateway.fetch(new Request("https://gateway-session/start", { method: "POST" }));
 
     await sockets[0]?.emitMessage({
@@ -293,10 +265,7 @@ test("GatewaySessionDO alarm sends a heartbeat with the last known sequence", as
   const { restore, sockets } = installFakeWebSocket();
 
   try {
-    const gateway = new GatewaySessionDO(
-      state,
-      { DISCORD_BOT_TOKEN: "bot-token" } as never
-    );
+    const gateway = new GatewaySessionDO(state, { DISCORD_BOT_TOKEN: "bot-token" } as never);
     await gateway.fetch(new Request("https://gateway-session/start", { method: "POST" }));
 
     await sockets[0]?.emitMessage({
@@ -317,10 +286,7 @@ test("GatewaySessionDO alarm sends a heartbeat with the last known sequence", as
 
     await gateway.alarm();
 
-    assert.equal(
-      sockets[0]?.sent.at(-1),
-      JSON.stringify(buildHeartbeatPayload(12))
-    );
+    assert.equal(sockets[0]?.sent.at(-1), JSON.stringify(buildHeartbeatPayload(12)));
   } finally {
     restore();
     clock.restore();
@@ -333,10 +299,7 @@ test("GatewaySessionDO heartbeat send failures update status and reschedule alar
   const { restore, sockets } = installFakeWebSocket();
 
   try {
-    const gateway = new GatewaySessionDO(
-      state,
-      { DISCORD_BOT_TOKEN: "bot-token" } as never
-    );
+    const gateway = new GatewaySessionDO(state, { DISCORD_BOT_TOKEN: "bot-token" } as never);
     await gateway.fetch(new Request("https://gateway-session/start", { method: "POST" }));
 
     await sockets[0]?.emitMessage({
@@ -373,10 +336,7 @@ test("GatewaySessionDO clears non-resumable sessions and schedules reconnect on 
   const { restore, sockets } = installFakeWebSocket();
 
   try {
-    const gateway = new GatewaySessionDO(
-      state,
-      { DISCORD_BOT_TOKEN: "bot-token" } as never
-    );
+    const gateway = new GatewaySessionDO(state, { DISCORD_BOT_TOKEN: "bot-token" } as never);
     await gateway.fetch(new Request("https://gateway-session/start", { method: "POST" }));
 
     await sockets[0]?.emitMessage({
@@ -411,10 +371,7 @@ test("GatewaySessionDO reconnects after invalid sessions close the current socke
   const { restore, sockets } = installFakeWebSocket();
 
   try {
-    const gateway = new GatewaySessionDO(
-      state,
-      { DISCORD_BOT_TOKEN: "bot-token" } as never
-    );
+    const gateway = new GatewaySessionDO(state, { DISCORD_BOT_TOKEN: "bot-token" } as never);
     await gateway.fetch(new Request("https://gateway-session/start", { method: "POST" }));
     await sockets[0]?.emitMessage({
       op: 9,
@@ -441,17 +398,12 @@ test("GatewaySessionDO unexpected close events enter backoff and reconnect on al
   const { restore, sockets } = installFakeWebSocket();
 
   try {
-    const gateway = new GatewaySessionDO(
-      state,
-      { DISCORD_BOT_TOKEN: "bot-token" } as never
-    );
+    const gateway = new GatewaySessionDO(state, { DISCORD_BOT_TOKEN: "bot-token" } as never);
     await gateway.fetch(new Request("https://gateway-session/start", { method: "POST" }));
 
     await sockets[0]?.emitClose();
 
-    const statusResponse = await gateway.fetch(
-      new Request("https://gateway-session/status")
-    );
+    const statusResponse = await gateway.fetch(new Request("https://gateway-session/status"));
     const status = (await statusResponse.json()) as Record<string, unknown>;
 
     assert.equal(status.status, "backoff");
@@ -478,10 +430,7 @@ test("GatewaySessionDO ignores stale close events from an old socket", async () 
   const { restore, sockets } = installFakeWebSocket();
 
   try {
-    const gateway = new GatewaySessionDO(
-      state,
-      { DISCORD_BOT_TOKEN: "bot-token" } as never
-    );
+    const gateway = new GatewaySessionDO(state, { DISCORD_BOT_TOKEN: "bot-token" } as never);
     await gateway.fetch(new Request("https://gateway-session/start", { method: "POST" }));
     await sockets[0]?.emitMessage({
       op: 9,
@@ -520,10 +469,7 @@ test("GatewaySessionDO ignores stale HELLO messages from an old socket after rec
   const { restore, sockets } = installFakeWebSocket();
 
   try {
-    const gateway = new GatewaySessionDO(
-      state,
-      { DISCORD_BOT_TOKEN: "bot-token" } as never
-    );
+    const gateway = new GatewaySessionDO(state, { DISCORD_BOT_TOKEN: "bot-token" } as never);
     await gateway.fetch(new Request("https://gateway-session/start", { method: "POST" }));
     await sockets[0]?.emitMessage({
       op: 9,
@@ -546,7 +492,7 @@ test("GatewaySessionDO ignores stale HELLO messages from an old socket after rec
     assert.deepEqual(
       sockets[1]?.sent,
       [],
-      "stale HELLO from the old socket should not drive the active websocket"
+      "stale HELLO from the old socket should not drive the active websocket",
     );
     assert.deepEqual(alarms, [51_000]);
   } finally {
@@ -565,10 +511,7 @@ test("GatewaySessionDO ignores stale error events from an old socket after recon
   const { restore, sockets } = installFakeWebSocket();
 
   try {
-    const gateway = new GatewaySessionDO(
-      state,
-      { DISCORD_BOT_TOKEN: "bot-token" } as never
-    );
+    const gateway = new GatewaySessionDO(state, { DISCORD_BOT_TOKEN: "bot-token" } as never);
     await gateway.fetch(new Request("https://gateway-session/start", { method: "POST" }));
     await sockets[0]?.emitMessage({
       op: 9,
@@ -579,7 +522,7 @@ test("GatewaySessionDO ignores stale error events from an old socket after recon
 
     clock.set(61_000);
     await gateway.alarm();
-    const statusBeforeError = (await gateway.fetch(new Request("https://gateway-session/status")));
+    const statusBeforeError = await gateway.fetch(new Request("https://gateway-session/status"));
     const previous = (await statusBeforeError.json()) as Record<string, unknown>;
 
     await sockets[0]?.emitError();
@@ -771,7 +714,7 @@ test("handleGatewayDispatch routes reaction and guild member add events", async 
     { op: 0, t: "MESSAGE_REACTION_ADD", d: { message_id: "1" } },
     async () => {
       calls.push("moderate");
-    }
+    },
   );
 
   await handleGatewayDispatch(
@@ -781,15 +724,12 @@ test("handleGatewayDispatch routes reaction and guild member add events", async 
     },
     async (member) => {
       calls.push(`member:${member?.guild_id}:${member?.user?.id}`);
-    }
+    },
   );
 
-  await handleGatewayDispatch(
-    { op: 0, t: "READY", d: {} },
-    async () => {
-      calls.push("unexpected");
-    }
-  );
+  await handleGatewayDispatch({ op: 0, t: "READY", d: {} }, async () => {
+    calls.push("unexpected");
+  });
 
   assert.deepEqual(calls, ["moderate", "member:guild-1:user-1"]);
 });

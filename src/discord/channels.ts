@@ -11,7 +11,7 @@ export interface CreateTicketChannelInput {
 
 export async function createTicketChannel(
   input: CreateTicketChannelInput,
-  botToken: string
+  botToken: string,
 ): Promise<{ id: string }> {
   const response = await fetch(`${DISCORD_API}/guilds/${input.guildId}/channels`, {
     method: "POST",

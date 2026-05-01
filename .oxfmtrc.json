@@ -1,0 +1,18 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "printWidth": 100,
+  "tabWidth": 2,
+  "semi": true,
+  "singleQuote": false,
+  "sortPackageJson": false,
+  "ignorePatterns": [
+    ".worktrees/**",
+    ".wrangler/**",
+    "dist/**",
+    "dist-admin/**",
+    "dist-node/**",
+    "dist-tests/**",
+    "node_modules/**",
+    "src/runtime/admin-bundle.ts"
+  ]
+}

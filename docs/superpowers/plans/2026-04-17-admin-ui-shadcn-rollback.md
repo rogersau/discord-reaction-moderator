@@ -27,6 +27,7 @@
 ### Task 1: Lock plain shadcn dark defaults for the shared admin styling layer
 
 **Files:**
+
 - Modify: `test/admin-styles.test.ts:10-20`
 - Create: `test/admin-primitives.test.tsx`
 - Modify: `src/admin/styles.css:1-57`
@@ -109,7 +110,7 @@ test("admin card and input use standard shadcn surface classes", () => {
         <CardContent>Body</CardContent>
       </Card>
       <Input value="" onChange={() => undefined} />
-    </>
+    </>,
   );
 
   assert.match(html, /rounded-lg border bg-card text-card-foreground shadow-sm/);
@@ -136,7 +137,7 @@ test("admin table and alert drop the custom accent-heavy chrome", () => {
       <Alert>
         <AlertDescription>Saved.</AlertDescription>
       </Alert>
-    </>
+    </>,
   );
 
   assert.match(html, /w-full caption-bottom text-sm/);
@@ -236,12 +237,11 @@ const buttonVariants = cva(
       variant: "default",
       size: "default",
     },
-  }
+  },
 );
 
 export interface ButtonProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement>,
-    VariantProps<typeof buttonVariants> {
+  extends React.ButtonHTMLAttributes<HTMLButtonElement>, VariantProps<typeof buttonVariants> {
   asChild?: boolean;
 }
 
@@ -251,7 +251,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     return (
       <Comp className={cn(buttonVariants({ variant, size, className }))} ref={ref} {...props} />
     );
-  }
+  },
 );
 Button.displayName = "Button";
 
@@ -271,28 +271,32 @@ const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElemen
       className={cn("rounded-lg border bg-card text-card-foreground shadow-sm", className)}
       {...props}
     />
-  )
+  ),
 );
 Card.displayName = "Card";
 
 const CardHeader = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
   ({ className, ...props }, ref) => (
     <div ref={ref} className={cn("flex flex-col space-y-1.5 p-6", className)} {...props} />
-  )
+  ),
 );
 CardHeader.displayName = "CardHeader";
 
 const CardTitle = React.forwardRef<HTMLParagraphElement, React.HTMLAttributes<HTMLHeadingElement>>(
   ({ className, ...props }, ref) => (
-    <h3 ref={ref} className={cn("text-2xl font-semibold leading-none tracking-tight", className)} {...props} />
-  )
+    <h3
+      ref={ref}
+      className={cn("text-2xl font-semibold leading-none tracking-tight", className)}
+      {...props}
+    />
+  ),
 );
 CardTitle.displayName = "CardTitle";
 
 const CardContent = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
   ({ className, ...props }, ref) => (
     <div ref={ref} className={cn("p-6 pt-0", className)} {...props} />
-  )
+  ),
 );
 CardContent.displayName = "CardContent";
 
@@ -311,12 +315,12 @@ const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLI
       type={type}
       className={cn(
         "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
-        className
+        className,
       )}
       ref={ref}
       {...props}
     />
-  )
+  ),
 );
 Input.displayName = "Input";
 
@@ -334,7 +338,7 @@ const Table = React.forwardRef<HTMLTableElement, React.HTMLAttributes<HTMLTableE
     <div className="relative w-full overflow-auto">
       <table ref={ref} className={cn("w-full caption-bottom text-sm", className)} {...props} />
     </div>
-  )
+  ),
 );
 Table.displayName = "Table";
 
@@ -361,7 +365,7 @@ const TableRow = React.forwardRef<HTMLTableRowElement, React.HTMLAttributes<HTML
       className={cn("border-b transition-colors hover:bg-muted/50", className)}
       {...props}
     />
-  )
+  ),
 );
 TableRow.displayName = "TableRow";
 
@@ -447,6 +451,7 @@ git commit -m $'style: revert admin UI primitives to shadcn defaults\n\nCo-autho
 ### Task 2: Simplify the dashboard chrome in `App.tsx` without changing behavior
 
 **Files:**
+
 - Modify: `test/admin-app.test.tsx:11-32`
 - Modify: `src/admin/App.tsx:148-803`
 - Regenerate: `src/runtime/admin-bundle.ts`
@@ -481,8 +486,14 @@ test("authenticated admin dashboard keeps guild load controls in a plain shadcn 
 test("authenticated admin dashboard avoids the old custom editor panel chrome", () => {
   const html = renderToString(<App initialAuthenticated />);
 
-  assert.doesNotMatch(html, /rounded-\[1\.75rem\] border border-border\/70 bg-background\/30 p-5 lg:p-6/);
-  assert.doesNotMatch(html, /border-t border-border\/70 pt-5 sm:flex-row sm:items-center sm:justify-end/);
+  assert.doesNotMatch(
+    html,
+    /rounded-\[1\.75rem\] border border-border\/70 bg-background\/30 p-5 lg:p-6/,
+  );
+  assert.doesNotMatch(
+    html,
+    /border-t border-border\/70 pt-5 sm:flex-row sm:items-center sm:justify-end/,
+  );
   assert.match(html, /rounded-lg border bg-muted\/30 p-4 md:p-6/);
 });
 ```
@@ -603,7 +614,9 @@ function FormField({
 }
 
 function EditorActions({ children }: { children: React.ReactNode }) {
-  return <div className="flex flex-col gap-3 border-t pt-4 sm:flex-row sm:justify-end">{children}</div>;
+  return (
+    <div className="flex flex-col gap-3 border-t pt-4 sm:flex-row sm:justify-end">{children}</div>
+  );
 }
 
 function SummaryChip({
@@ -621,7 +634,7 @@ function SummaryChip({
         "min-w-[8rem] rounded-md border bg-muted/40 px-3 py-2",
         tone === "success" && "border-emerald-500/30 bg-emerald-500/10",
         tone === "warning" && "border-amber-500/30 bg-amber-500/10",
-        tone === "danger" && "border-destructive/40 bg-destructive/10"
+        tone === "danger" && "border-destructive/40 bg-destructive/10",
       )}
     >
       <p className="text-xs font-medium text-muted-foreground">{label}</p>
@@ -631,7 +644,11 @@ function SummaryChip({
 }
 
 function EmptyState({ message }: { message: string }) {
-  return <div className="rounded-lg border border-dashed bg-muted/20 px-4 py-5 text-sm text-muted-foreground">{message}</div>;
+  return (
+    <div className="rounded-lg border border-dashed bg-muted/20 px-4 py-5 text-sm text-muted-foreground">
+      {message}
+    </div>
+  );
 }
 
 function StatusBadge({ status }: { status: string }) {
@@ -644,7 +661,7 @@ function StatusBadge({ status }: { status: string }) {
         tone === "success" && "border-emerald-500/30 bg-emerald-500/10 text-emerald-100",
         tone === "warning" && "border-amber-500/30 bg-amber-500/10 text-amber-100",
         tone === "danger" && "border-destructive/40 bg-destructive/10 text-destructive-foreground",
-        tone === "neutral" && "border-border bg-muted/40 text-foreground"
+        tone === "neutral" && "border-border bg-muted/40 text-foreground",
       )}
     >
       {status}
@@ -713,6 +730,7 @@ git commit -m $'style: simplify admin dashboard chrome\n\nCo-authored-by: Copilo
 ### Task 3: Run repository verification and confirm the rollback stayed visual-only
 
 **Files:**
+
 - Verify: `src/admin/styles.css`
 - Verify: `src/admin/components/ui/button.tsx`
 - Verify: `src/admin/components/ui/card.tsx`

@@ -2,7 +2,7 @@ export class AdminApiInputError extends Error {}
 
 export async function parseJsonBody<T>(
   request: Request,
-  parse: (body: unknown) => T
+  parse: (body: unknown) => T,
 ): Promise<{ ok: true; value: T } | { ok: false; response: Response }> {
   try {
     return { ok: true, value: parse(await request.json()) };
@@ -10,10 +10,7 @@ export async function parseJsonBody<T>(
     if (error instanceof SyntaxError || error instanceof AdminApiInputError) {
       return {
         ok: false,
-        response: Response.json(
-          { error: error.message || "Invalid JSON body" },
-          { status: 400 }
-        ),
+        response: Response.json({ error: error.message || "Invalid JSON body" }, { status: 400 }),
       };
     }
 
@@ -120,7 +117,7 @@ export function parseGuildNotificationChannelBody(body: unknown): {
     guildId: asRequiredString(body.guildId, "guildId"),
     notificationChannelId: asOptionalNullableString(
       body.notificationChannelId,
-      "notificationChannelId"
+      "notificationChannelId",
     ),
   };
 }

@@ -3,19 +3,16 @@ import { DISCORD_API } from "./client";
 
 export async function syncApplicationCommands(
   applicationId: string,
-  botToken: string
+  botToken: string,
 ): Promise<void> {
-  const response = await fetch(
-    `${DISCORD_API}/applications/${applicationId}/commands`,
-    {
-      method: "PUT",
-      headers: {
-        Authorization: `Bot ${botToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(SLASH_COMMAND_DEFINITIONS),
-    }
-  );
+  const response = await fetch(`${DISCORD_API}/applications/${applicationId}/commands`, {
+    method: "PUT",
+    headers: {
+      Authorization: `Bot ${botToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(SLASH_COMMAND_DEFINITIONS),
+  });
 
   if (!response.ok) {
     const error = await response.text().catch(() => "Unknown error");
@@ -34,22 +31,18 @@ export async function verifyDiscordSignature(
   publicKeyHex: string,
   timestamp: string,
   body: string,
-  signatureHex: string
+  signatureHex: string,
 ): Promise<boolean> {
   try {
-    const key = await crypto.subtle.importKey(
-      "raw",
-      hexToBuffer(publicKeyHex),
-      "Ed25519",
-      false,
-      ["verify"]
-    );
+    const key = await crypto.subtle.importKey("raw", hexToBuffer(publicKeyHex), "Ed25519", false, [
+      "verify",
+    ]);
 
     return crypto.subtle.verify(
       "Ed25519",
       key,
       hexToBuffer(signatureHex),
-      new TextEncoder().encode(`${timestamp}${body}`)
+      new TextEncoder().encode(`${timestamp}${body}`),
     );
   } catch {
     return false;

@@ -70,7 +70,6 @@ This opens Cloudflare in your browser so Wrangler can connect to your account.
 7. Invite the bot with the permissions required for the features you plan to use.
 
    For the full suite described in this README, grant:
-
    - **View Channels**
    - **Send Messages**
    - **Embed Links**
@@ -218,16 +217,16 @@ For timed roles, the role must already exist and be configured in Discord; the b
 
 ## Admin UI and operator routes
 
-| Method | Endpoint | Description |
-| --- | --- | --- |
-| GET | `/health` | Basic health check |
-| POST | `/interactions` | Discord interactions callback endpoint |
-| GET | `/transcripts/:guildId/:channelId` | Public HTML transcript page for a closed ticket |
-| GET | `/admin/login` | Render the admin login page |
-| GET | `/admin` | Render the authenticated admin dashboard |
-| GET | `/admin/api/gateway/status` | Runtime endpoint used by the dashboard for gateway state |
-| POST | `/admin/api/gateway/start` | Runtime endpoint used by the dashboard to force bootstrap |
-| GET/POST | `/admin/api/*` | Session-protected dashboard APIs for gateway, guild blocklist, timed-role, and ticket-panel operations |
+| Method   | Endpoint                           | Description                                                                                            |
+| -------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| GET      | `/health`                          | Basic health check                                                                                     |
+| POST     | `/interactions`                    | Discord interactions callback endpoint                                                                 |
+| GET      | `/transcripts/:guildId/:channelId` | Public HTML transcript page for a closed ticket                                                        |
+| GET      | `/admin/login`                     | Render the admin login page                                                                            |
+| GET      | `/admin`                           | Render the authenticated admin dashboard                                                               |
+| GET      | `/admin/api/gateway/status`        | Runtime endpoint used by the dashboard for gateway state                                               |
+| POST     | `/admin/api/gateway/start`         | Runtime endpoint used by the dashboard to force bootstrap                                              |
+| GET/POST | `/admin/api/*`                     | Session-protected dashboard APIs for gateway, guild blocklist, timed-role, and ticket-panel operations |
 
 Set `ADMIN_UI_PASSWORD` and `ADMIN_SESSION_SECRET` to enable the supported browser-based operator workflow. The dashboard is the supported interface for gateway status/bootstrap, reviewing stored guild state, guild blocklist management, and timed-role management by guild ID. Admin session cookies are signed with `ADMIN_SESSION_SECRET` to ensure secure authentication.
 
@@ -238,6 +237,8 @@ This project targets Cloudflare Workers and Durable Objects only. Standalone Nod
 ## Local validation
 
 ```bash
+pnpm run lint
+pnpm run format:check
 pnpm test
 pnpm run typecheck
 pnpm exec wrangler deploy --dry-run

@@ -13,13 +13,7 @@ interface GuildPickerProps {
   onChange: (nextGuildId: string) => void;
 }
 
-export function GuildPicker({
-  id,
-  value,
-  guildDirectory,
-  loadError,
-  onChange,
-}: GuildPickerProps) {
+export function GuildPicker({ id, value, guildDirectory, loadError, onChange }: GuildPickerProps) {
   const [query, setQuery] = useState("");
 
   const filteredGuilds = useMemo(() => {
@@ -32,9 +26,7 @@ export function GuildPicker({
       return guildDirectory;
     }
 
-    return guildDirectory.filter((guild) =>
-      guild.label.toLowerCase().includes(normalizedQuery)
-    );
+    return guildDirectory.filter((guild) => guild.label.toLowerCase().includes(normalizedQuery));
   }, [guildDirectory, query]);
 
   if (loadError) {
@@ -78,9 +70,7 @@ export function GuildPicker({
             onChange={(event) => onChange(event.target.value)}
             disabled={!guildDirectory}
           >
-            <option value="">
-              {guildDirectory ? "— select a server —" : "Loading servers…"}
-            </option>
+            <option value="">{guildDirectory ? "— select a server —" : "Loading servers…"}</option>
             {filteredGuilds.map((guild) => (
               <option key={guild.guildId} value={guild.guildId}>
                 {guild.label}

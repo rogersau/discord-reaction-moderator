@@ -31,6 +31,7 @@
 ### Task 1: Add shared dashboard routes and nested runtime shell support
 
 **Files:**
+
 - Create: `src/admin/dashboard-routes.ts`
 - Modify: `src/runtime/app.ts`
 - Modify: `src/admin/main.tsx`
@@ -54,7 +55,7 @@ test("createRuntimeApp serves authenticated dashboard shells for nested admin pa
   const response = await app.fetch(
     new Request("https://runtime.example/admin/tickets", {
       headers: { cookie },
-    })
+    }),
   );
 
   assert.equal(response.status, 200);
@@ -111,10 +112,7 @@ export function normalizeAdminDashboardPath(pathname: string): AdminDashboardPat
 
 ```ts
 // src/runtime/app.ts
-import {
-  isAdminDashboardPath,
-  normalizeAdminDashboardPath,
-} from "../admin/dashboard-routes";
+import { isAdminDashboardPath, normalizeAdminDashboardPath } from "../admin/dashboard-routes";
 
 if (request.method === "GET" && isAdminDashboardPath(url.pathname)) {
   if (!(await isAdminUiAuthorized(request, options))) {
@@ -124,10 +122,7 @@ if (request.method === "GET" && isAdminDashboardPath(url.pathname)) {
   return renderAdminShell(true, normalizeAdminDashboardPath(url.pathname));
 }
 
-function renderAdminShell(
-  authenticated = false,
-  initialPath: string = "/admin"
-): Response {
+function renderAdminShell(authenticated = false, initialPath: string = "/admin"): Response {
   const attributes = [
     authenticated ? 'data-authenticated="true"' : "",
     `data-initial-path="${initialPath}"`,
@@ -137,7 +132,7 @@ function renderAdminShell(
 
   const html = ADMIN_LOGIN_HTML.replace(
     '<div id="admin-root"></div>',
-    `<div id="admin-root" ${attributes}></div>`
+    `<div id="admin-root" ${attributes}></div>`,
   );
 
   return new Response(html, {
@@ -174,6 +169,7 @@ git commit -m "feat: add admin dashboard route support" -m "Co-authored-by: Copi
 ### Task 2: Build the persistent shell and overview landing page
 
 **Files:**
+
 - Create: `src/admin/components/admin-shell.tsx`
 - Create: `src/admin/components/admin-page-header.tsx`
 - Create: `src/admin/components/admin-overview-page.tsx`
@@ -241,7 +237,7 @@ export function AdminShell({
                     "flex items-center rounded-md px-3 py-2 text-sm font-medium transition-colors",
                     active
                       ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground",
                   )}
                 >
                   {route.label}
@@ -250,7 +246,10 @@ export function AdminShell({
             })}
           </nav>
           <form className="mt-6 border-t pt-4" method="post" action="/admin/logout">
-            <button className="w-full rounded-md border px-3 py-2 text-sm font-medium" type="submit">
+            <button
+              className="w-full rounded-md border px-3 py-2 text-sm font-medium"
+              type="submit"
+            >
               Sign out
             </button>
           </form>
@@ -264,13 +263,7 @@ export function AdminShell({
 
 ```tsx
 // src/admin/components/admin-page-header.tsx
-export function AdminPageHeader({
-  title,
-  description,
-}: {
-  title: string;
-  description: string;
-}) {
+export function AdminPageHeader({ title, description }: { title: string; description: string }) {
   return (
     <div className="space-y-1.5">
       <h2 className="text-2xl font-semibold tracking-tight">{title}</h2>
@@ -304,21 +297,50 @@ export function AdminOverviewPage({
         description="Operational overview, gateway health, and quick actions."
       />
       <div className="grid gap-4 md:grid-cols-3">
-        <Card><CardHeader><CardTitle>Gateway</CardTitle></CardHeader><CardContent>{gatewayStatus?.status ?? "Loading"}</CardContent></Card>
-        <Card><CardHeader><CardTitle>Stored servers</CardTitle></CardHeader><CardContent>{overview ? String(overview.guilds.length) : "-"}</CardContent></Card>
-        <Card><CardHeader><CardTitle>Timed roles</CardTitle></CardHeader><CardContent>{overview ? String(overview.guilds.reduce((sum, guild) => sum + guild.timedRoles.length, 0)) : "-"}</CardContent></Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Gateway</CardTitle>
+          </CardHeader>
+          <CardContent>{gatewayStatus?.status ?? "Loading"}</CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Stored servers</CardTitle>
+          </CardHeader>
+          <CardContent>{overview ? String(overview.guilds.length) : "-"}</CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Timed roles</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {overview
+              ? String(overview.guilds.reduce((sum, guild) => sum + guild.timedRoles.length, 0))
+              : "-"}
+          </CardContent>
+        </Card>
       </div>
       <Card>
-        <CardHeader><CardTitle>Quick actions</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle>Quick actions</CardTitle>
+        </CardHeader>
         <CardContent className="flex flex-wrap gap-3">
           <Button onClick={onStartGateway}>Start gateway</Button>
-          <Button variant="outline" onClick={onRefresh}>Refresh dashboard</Button>
+          <Button variant="outline" onClick={onRefresh}>
+            Refresh dashboard
+          </Button>
         </CardContent>
       </Card>
       <Card>
-        <CardHeader><CardTitle>Stored server data</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle>Stored server data</CardTitle>
+        </CardHeader>
         <CardContent className="space-y-4">
-          {overviewError ? <Alert variant="destructive"><AlertDescription>{overviewError}</AlertDescription></Alert> : null}
+          {overviewError ? (
+            <Alert variant="destructive">
+              <AlertDescription>{overviewError}</AlertDescription>
+            </Alert>
+          ) : null}
           {overview?.guilds.map((guild) => (
             <GuildOverviewCard
               key={guild.guildId}
@@ -335,10 +357,7 @@ export function AdminOverviewPage({
 
 ```tsx
 // src/admin/App.tsx
-import {
-  normalizeAdminDashboardPath,
-  type AdminDashboardPath,
-} from "./dashboard-routes";
+import { normalizeAdminDashboardPath, type AdminDashboardPath } from "./dashboard-routes";
 
 interface Props {
   initialAuthenticated?: boolean;
@@ -378,6 +397,7 @@ git commit -m "feat: add admin shell and overview page" -m "Co-authored-by: Copi
 ### Task 3: Move gateway controls into a dedicated dashboard page
 
 **Files:**
+
 - Create: `src/admin/components/admin-gateway-page.tsx`
 - Modify: `src/admin/App.tsx`
 - Test: `test/admin-app.test.tsx`
@@ -427,10 +447,20 @@ export function AdminGatewayPage({
         <CardContent className="space-y-5 pt-6">
           <div className="flex flex-wrap gap-3">
             <Button onClick={onStartGateway}>Start gateway</Button>
-            <Button variant="outline" onClick={onRefresh}>Refresh dashboard</Button>
+            <Button variant="outline" onClick={onRefresh}>
+              Refresh dashboard
+            </Button>
           </div>
-          {gatewayError ? <Alert variant="destructive"><AlertDescription>{gatewayError}</AlertDescription></Alert> : null}
-          {gatewayStatus ? <GatewayDetails status={gatewayStatus} /> : <EmptyState message="Loading gateway status..." />}
+          {gatewayError ? (
+            <Alert variant="destructive">
+              <AlertDescription>{gatewayError}</AlertDescription>
+            </Alert>
+          ) : null}
+          {gatewayStatus ? (
+            <GatewayDetails status={gatewayStatus} />
+          ) : (
+            <EmptyState message="Loading gateway status..." />
+          )}
         </CardContent>
       </Card>
     </section>
@@ -452,14 +482,14 @@ return (
         onRefresh={loadOverview}
       />
     ) : null}
-{currentPath === "/admin/gateway" ? (
-  <AdminGatewayPage
-    gatewayStatus={gatewayStatus}
-    gatewayError={gatewayError}
-    onStartGateway={handleGatewayStart}
-    onRefresh={loadOverview}
-  />
-) : null}
+    {currentPath === "/admin/gateway" ? (
+      <AdminGatewayPage
+        gatewayStatus={gatewayStatus}
+        gatewayError={gatewayError}
+        onStartGateway={handleGatewayStart}
+        onRefresh={loadOverview}
+      />
+    ) : null}
   </AdminShell>
 );
 ```
@@ -479,6 +509,7 @@ git commit -m "feat: split gateway into its own dashboard page" -m "Co-authored-
 ### Task 4: Extract the blocklist workflow into its own page
 
 **Files:**
+
 - Create: `src/admin/components/admin-form-layout.tsx`
 - Create: `src/admin/components/admin-blocklist-page.tsx`
 - Modify: `src/admin/App.tsx`
@@ -530,7 +561,9 @@ export function FormField({
 }
 
 export function EditorActions({ children }: { children: React.ReactNode }) {
-  return <div className="flex flex-col gap-3 border-t pt-4 sm:flex-row sm:justify-end">{children}</div>;
+  return (
+    <div className="flex flex-col gap-3 border-t pt-4 sm:flex-row sm:justify-end">{children}</div>
+  );
 }
 ```
 
@@ -557,7 +590,7 @@ export function AdminBlocklistPage({
     }
 
     const response = await fetch(
-      `/admin/api/blocklist?guildId=${encodeURIComponent(normalizedGuildId)}`
+      `/admin/api/blocklist?guildId=${encodeURIComponent(normalizedGuildId)}`,
     );
     if (response.ok) {
       const data = (await response.json()) as { emojis: string[] };
@@ -590,18 +623,38 @@ export function AdminBlocklistPage({
         <CardContent className="space-y-4 pt-6">
           <EditorPanel>
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-[minmax(0,1.45fr)_minmax(0,1.05fr)_minmax(14rem,0.95fr)]">
-              <GuildPicker id="bl-guild" value={guildId} guildDirectory={guildDirectory} loadError={guildLookupError} onChange={setGuildId} />
+              <GuildPicker
+                id="bl-guild"
+                value={guildId}
+                guildDirectory={guildDirectory}
+                loadError={guildLookupError}
+                onChange={setGuildId}
+              />
               <FormField label="Emoji" htmlFor="bl-emoji">
-                <Input id="bl-emoji" value={emoji} onChange={(event) => setEmoji(event.target.value)} />
+                <Input
+                  id="bl-emoji"
+                  value={emoji}
+                  onChange={(event) => setEmoji(event.target.value)}
+                />
               </FormField>
             </div>
             <EditorActions>
-              <Button variant="outline" onClick={() => void loadBlocklist(guildId)}>Load blocklist</Button>
+              <Button variant="outline" onClick={() => void loadBlocklist(guildId)}>
+                Load blocklist
+              </Button>
               <Button onClick={() => void handleSubmit()}>Apply</Button>
             </EditorActions>
           </EditorPanel>
-          {currentEmojis !== null ? <p className="text-sm text-muted-foreground">{currentEmojis.join(" ") || "No emojis currently blocked in this guild."}</p> : null}
-          {result ? <Alert><AlertDescription>{result}</AlertDescription></Alert> : null}
+          {currentEmojis !== null ? (
+            <p className="text-sm text-muted-foreground">
+              {currentEmojis.join(" ") || "No emojis currently blocked in this guild."}
+            </p>
+          ) : null}
+          {result ? (
+            <Alert>
+              <AlertDescription>{result}</AlertDescription>
+            </Alert>
+          ) : null}
         </CardContent>
       </Card>
     </section>
@@ -611,12 +664,11 @@ export function AdminBlocklistPage({
 
 ```tsx
 // src/admin/App.tsx
-{currentPath === "/admin/blocklist" ? (
-  <AdminBlocklistPage
-    guildDirectory={guildDirectory}
-    guildLookupError={guildLookupError}
-  />
-) : null}
+{
+  currentPath === "/admin/blocklist" ? (
+    <AdminBlocklistPage guildDirectory={guildDirectory} guildLookupError={guildLookupError} />
+  ) : null;
+}
 ```
 
 - [ ] **Step 4: Run test to verify it passes**
@@ -634,6 +686,7 @@ git commit -m "feat: split blocklist into its own dashboard page" -m "Co-authore
 ### Task 5: Extract the timed-role workflow into its own page
 
 **Files:**
+
 - Create: `src/admin/components/admin-timed-roles-page.tsx`
 - Modify: `src/admin/App.tsx`
 - Test: `test/admin-app.test.tsx`
@@ -685,7 +738,7 @@ export function AdminTimedRolesPage({
     }
 
     const response = await fetch(
-      `/admin/api/timed-roles?guildId=${encodeURIComponent(normalizedGuildId)}`
+      `/admin/api/timed-roles?guildId=${encodeURIComponent(normalizedGuildId)}`,
     );
     if (!response.ok) {
       setError("Failed to load timed roles.");
@@ -727,19 +780,55 @@ export function AdminTimedRolesPage({
         <CardContent className="space-y-4 pt-6">
           <EditorPanel>
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(8rem,0.8fr)]">
-              <GuildPicker id="tr-guild" value={guildId} guildDirectory={guildDirectory} loadError={guildLookupError} onChange={setGuildId} />
-              <FormField label="User ID" htmlFor="tr-user"><Input id="tr-user" value={userId} onChange={(event) => setUserId(event.target.value)} /></FormField>
-              <FormField label="Role ID" htmlFor="tr-role"><Input id="tr-role" value={roleId} onChange={(event) => setRoleId(event.target.value)} /></FormField>
-              <FormField label="Duration" htmlFor="tr-duration"><Input id="tr-duration" value={duration} onChange={(event) => setDuration(event.target.value)} /></FormField>
+              <GuildPicker
+                id="tr-guild"
+                value={guildId}
+                guildDirectory={guildDirectory}
+                loadError={guildLookupError}
+                onChange={setGuildId}
+              />
+              <FormField label="User ID" htmlFor="tr-user">
+                <Input
+                  id="tr-user"
+                  value={userId}
+                  onChange={(event) => setUserId(event.target.value)}
+                />
+              </FormField>
+              <FormField label="Role ID" htmlFor="tr-role">
+                <Input
+                  id="tr-role"
+                  value={roleId}
+                  onChange={(event) => setRoleId(event.target.value)}
+                />
+              </FormField>
+              <FormField label="Duration" htmlFor="tr-duration">
+                <Input
+                  id="tr-duration"
+                  value={duration}
+                  onChange={(event) => setDuration(event.target.value)}
+                />
+              </FormField>
             </div>
             <EditorActions>
-              <Button variant="outline" onClick={() => void loadAssignments(guildId)}>Load timed roles</Button>
+              <Button variant="outline" onClick={() => void loadAssignments(guildId)}>
+                Load timed roles
+              </Button>
               <Button onClick={() => void handleAdd()}>Add timed role</Button>
             </EditorActions>
           </EditorPanel>
-          {assignments?.length === 0 ? <EmptyState message="No timed roles are active in this guild." /> : null}
-          {message ? <Alert><AlertDescription>{message}</AlertDescription></Alert> : null}
-          {error ? <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert> : null}
+          {assignments?.length === 0 ? (
+            <EmptyState message="No timed roles are active in this guild." />
+          ) : null}
+          {message ? (
+            <Alert>
+              <AlertDescription>{message}</AlertDescription>
+            </Alert>
+          ) : null}
+          {error ? (
+            <Alert variant="destructive">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          ) : null}
         </CardContent>
       </Card>
     </section>
@@ -749,12 +838,11 @@ export function AdminTimedRolesPage({
 
 ```tsx
 // src/admin/App.tsx
-{currentPath === "/admin/timed-roles" ? (
-  <AdminTimedRolesPage
-    guildDirectory={guildDirectory}
-    guildLookupError={guildLookupError}
-  />
-) : null}
+{
+  currentPath === "/admin/timed-roles" ? (
+    <AdminTimedRolesPage guildDirectory={guildDirectory} guildLookupError={guildLookupError} />
+  ) : null;
+}
 ```
 
 - [ ] **Step 4: Run test to verify it passes**
@@ -772,6 +860,7 @@ git commit -m "feat: split timed roles into its own dashboard page" -m "Co-autho
 ### Task 6: Extract the tickets workflow into its own page
 
 **Files:**
+
 - Create: `src/admin/components/admin-tickets-page.tsx`
 - Modify: `src/admin/App.tsx`
 - Test: `test/admin-app.test.tsx`
@@ -854,7 +943,7 @@ export function AdminTicketsPage({
           panelFooter: null,
           panelMessageId: null,
           ticketTypes: [],
-        }
+        },
       );
       setLoadError(null);
     } catch (error) {
@@ -897,14 +986,28 @@ export function AdminTicketsPage({
       <Card>
         <CardContent className="space-y-4 pt-6">
           <EditorPanel>
-            <GuildPicker id="tp-guild" value={guildId} guildDirectory={guildDirectory} loadError={guildLookupError} onChange={setGuildId} />
+            <GuildPicker
+              id="tp-guild"
+              value={guildId}
+              guildDirectory={guildDirectory}
+              loadError={guildLookupError}
+              onChange={setGuildId}
+            />
             <EditorActions>
-              <Button variant="outline" disabled={!guildId.trim() || loading} onClick={() => void loadResources(guildId)}>
+              <Button
+                variant="outline"
+                disabled={!guildId.trim() || loading}
+                onClick={() => void loadResources(guildId)}
+              >
                 {loading ? "Loading…" : "Load ticket panel"}
               </Button>
             </EditorActions>
           </EditorPanel>
-          {loadError ? <Alert variant="destructive"><AlertDescription>{loadError}</AlertDescription></Alert> : null}
+          {loadError ? (
+            <Alert variant="destructive">
+              <AlertDescription>{loadError}</AlertDescription>
+            </Alert>
+          ) : null}
           {guildResources && panelConfig ? (
             <TicketPanelEditor
               guildResources={guildResources}
@@ -923,12 +1026,11 @@ export function AdminTicketsPage({
 
 ```tsx
 // src/admin/App.tsx
-{currentPath === "/admin/tickets" ? (
-  <AdminTicketsPage
-    guildDirectory={guildDirectory}
-    guildLookupError={guildLookupError}
-  />
-) : null}
+{
+  currentPath === "/admin/tickets" ? (
+    <AdminTicketsPage guildDirectory={guildDirectory} guildLookupError={guildLookupError} />
+  ) : null;
+}
 ```
 
 - [ ] **Step 4: Run test to verify it passes**
@@ -946,6 +1048,7 @@ git commit -m "feat: split tickets into their own dashboard page" -m "Co-authore
 ### Task 7: Refresh the generated admin bundle and run full verification
 
 **Files:**
+
 - Generated: `src/runtime/admin-bundle.ts`
 - Verify: `test/admin-app.test.tsx`
 - Verify: `test/runtime-app.test.ts`

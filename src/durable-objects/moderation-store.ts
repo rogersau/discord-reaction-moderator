@@ -97,7 +97,7 @@ export class ModerationStoreDO implements DurableObject {
     this.sql.exec(
       "INSERT OR IGNORE INTO app_config(key, value) VALUES(?, ?)",
       "bot_user_id",
-      env.BOT_USER_ID
+      env.BOT_USER_ID,
     );
   }
 
@@ -168,7 +168,9 @@ export class ModerationStoreDO implements DurableObject {
       try {
         const guildId = url.searchParams.get("guildId");
         return Response.json(
-          guildId ? timedRoleStore.listTimedRolesByGuild(this.sql, guildId) : timedRoleStore.listTimedRoles(this.sql)
+          guildId
+            ? timedRoleStore.listTimedRolesByGuild(this.sql, guildId)
+            : timedRoleStore.listTimedRoles(this.sql),
         );
       } catch (error) {
         return this.errorResponse(error);
@@ -178,9 +180,7 @@ export class ModerationStoreDO implements DurableObject {
     if (request.method === "GET" && url.pathname === "/timed-role/new-member-config") {
       try {
         const guildId = asRequiredSearchParam(url.searchParams, "guildId");
-        return Response.json(
-          timedRoleStore.readNewMemberTimedRoleConfig(this.sql, guildId)
-        );
+        return Response.json(timedRoleStore.readNewMemberTimedRoleConfig(this.sql, guildId));
       } catch (error) {
         return this.errorResponse(error);
       }
@@ -208,7 +208,9 @@ export class ModerationStoreDO implements DurableObject {
     if (request.method === "POST" && url.pathname === "/ticket-number/next") {
       try {
         const body = parseGuildIdRequest(await request.json());
-        return Response.json({ ticketNumber: ticketStore.reserveNextTicketNumber(this.sql, body.guildId) });
+        return Response.json({
+          ticketNumber: ticketStore.reserveNextTicketNumber(this.sql, body.guildId),
+        });
       } catch (error) {
         return this.errorResponse(error);
       }
@@ -285,7 +287,7 @@ export class ModerationStoreDO implements DurableObject {
           row.guildId,
           row.userId,
           row.roleId,
-          this.env.DISCORD_BOT_TOKEN
+          this.env.DISCORD_BOT_TOKEN,
         );
         timedRoleStore.deleteTimedRole(this.sql, {
           guildId: row.guildId,
@@ -298,7 +300,7 @@ export class ModerationStoreDO implements DurableObject {
             action: "expire",
             userId: row.userId,
             roleId: row.roleId,
-          })
+          }),
         );
       } catch (error) {
         console.error("Failed to remove expired timed role", error);
@@ -331,23 +333,16 @@ export class ModerationStoreDO implements DurableObject {
 
   private async postGuildModerationUpdate(
     guildId: string,
-    body: Parameters<typeof createChannelMessage>[1]
+    body: Parameters<typeof createChannelMessage>[1],
   ): Promise<void> {
     try {
-      const notificationChannelId = blocklistStore.readGuildNotificationChannel(
-        this.sql,
-        guildId
-      );
+      const notificationChannelId = blocklistStore.readGuildNotificationChannel(this.sql, guildId);
 
       if (!notificationChannelId) {
         return;
       }
 
-      await createChannelMessage(
-        notificationChannelId,
-        body,
-        this.env.DISCORD_BOT_TOKEN
-      );
+      await createChannelMessage(notificationChannelId, body, this.env.DISCORD_BOT_TOKEN);
     } catch (error) {
       console.error("Failed to post moderation update", error);
     }
@@ -355,10 +350,7 @@ export class ModerationStoreDO implements DurableObject {
 
   private errorResponse(error: unknown): Response {
     if (error instanceof SyntaxError || error instanceof ModerationStoreInputError) {
-      return Response.json(
-        { error: error.message || "Invalid JSON body" },
-        { status: 400 }
-      );
+      return Response.json({ error: error.message || "Invalid JSON body" }, { status: 400 });
     }
 
     console.error("Moderation store request failed", error);

@@ -11,7 +11,7 @@ const DISCORD_INTERACTION_MAX_AGE_SECONDS = 5 * 60;
 
 export async function handleInteractionRequest(
   request: Request,
-  options: RuntimeAppOptions
+  options: RuntimeAppOptions,
 ): Promise<Response> {
   const signature = request.headers.get("x-signature-ed25519");
   const timestamp = request.headers.get("x-signature-timestamp");
@@ -49,7 +49,7 @@ export async function handleInteractionRequest(
       options.stores,
       options.discordBotToken,
       new URL(request.url).origin,
-      options.ticketTranscriptBlobs
+      options.ticketTranscriptBlobs,
     );
   }
 

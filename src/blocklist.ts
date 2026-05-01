@@ -1,18 +1,12 @@
-import type {
-  AppConfigRow,
-  BlocklistConfig,
-  GuildBlockedEmojiRow,
-  GuildSettingRow,
-} from "./types";
+import type { AppConfigRow, BlocklistConfig, GuildBlockedEmojiRow, GuildSettingRow } from "./types";
 
 export function buildBlocklistConfig(
   guildRows: GuildSettingRow[],
   guildEmojiRows: GuildBlockedEmojiRow[],
-  appConfigRows: AppConfigRow[]
+  appConfigRows: AppConfigRow[],
 ): BlocklistConfig {
   const guilds: BlocklistConfig["guilds"] = {};
-  const botUserId =
-    appConfigRows.find((row) => row.key === "bot_user_id")?.value ?? "";
+  const botUserId = appConfigRows.find((row) => row.key === "bot_user_id")?.value ?? "";
 
   for (const row of guildRows) {
     guilds[row.guild_id] = {
@@ -33,14 +27,12 @@ export function buildBlocklistConfig(
 }
 
 export async function getBlocklistFromStore(
-  fetchConfig: () => Promise<Response>
+  fetchConfig: () => Promise<Response>,
 ): Promise<BlocklistConfig> {
   const response = await fetchConfig();
 
   if (!response.ok) {
-    throw new Error(
-      `Failed to load moderation config from store (${response.status})`
-    );
+    throw new Error(`Failed to load moderation config from store (${response.status})`);
   }
 
   return (await response.json()) as BlocklistConfig;
@@ -49,7 +41,7 @@ export async function getBlocklistFromStore(
 export function isEmojiBlocked(
   emoji: string,
   config: BlocklistConfig,
-  guildId: string | undefined
+  guildId: string | undefined,
 ): boolean {
   if (guildId && config.guilds[guildId]) {
     const guildConfig = config.guilds[guildId];

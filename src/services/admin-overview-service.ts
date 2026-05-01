@@ -23,8 +23,8 @@ export class AdminOverviewService {
     private readonly buildOverviewGuilds: (
       config: BlocklistConfig,
       timedRoles: TimedRoleAssignment[],
-      refreshDiscordCache: boolean
-    ) => Promise<AdminOverviewGuild[]>
+      refreshDiscordCache: boolean,
+    ) => Promise<AdminOverviewGuild[]>,
   ) {}
 
   async getOverview(refreshDiscordCache = false): Promise<AdminOverviewData> {

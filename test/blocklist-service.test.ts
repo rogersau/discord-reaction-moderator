@@ -65,10 +65,7 @@ test("BlocklistService.addEmoji posts a moderation update when a channel is conf
   assert.equal(result.alreadyBlocked, false);
   assert.equal(postedMessages.length, 1);
   assert.equal(postedMessages[0]?.channelId, "log-channel-1");
-  assert.equal(
-    postedMessages[0]?.body.content,
-    "🧱 Blocklist update by <@admin-1>: blocked ✅."
-  );
+  assert.equal(postedMessages[0]?.body.content, "🧱 Blocklist update by <@admin-1>: blocked ✅.");
   assert.deepEqual(postedMessages[0]?.body.allowed_mentions, { parse: [] });
 });
 

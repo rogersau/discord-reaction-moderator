@@ -40,7 +40,11 @@ interface SelectionEdit {
   selectAfter?: boolean;
 }
 
-function wrap(prefix: string, suffix: string = prefix, placeholder: string = "text"): ToolbarAction["apply"] {
+function wrap(
+  prefix: string,
+  suffix: string = prefix,
+  placeholder: string = "text",
+): ToolbarAction["apply"] {
   return ({ selected }) => {
     const inner = selected.length > 0 ? selected : placeholder;
     return { before: prefix, selected: inner, after: suffix, selectAfter: selected.length === 0 };
@@ -166,7 +170,9 @@ const ACTIONS: ToolbarAction[] = [
       if (selected.length === 0) {
         return { before: "1. ", selected: "list item", after: "", selectAfter: true };
       }
-      const lines = selected.split("\n").map((line, index) => (line.length > 0 ? `${index + 1}. ${line}` : line));
+      const lines = selected
+        .split("\n")
+        .map((line, index) => (line.length > 0 ? `${index + 1}. ${line}` : line));
       return { before: "", selected: lines.join("\n"), after: "" };
     },
   },
@@ -207,7 +213,7 @@ export function MarkdownEditor({
         if (action.multilineOnly && !multiline) return false;
         return true;
       }),
-    [flavor, multiline]
+    [flavor, multiline],
   );
 
   function applyAction(action: ToolbarAction) {
@@ -259,7 +265,12 @@ export function MarkdownEditor({
             <button
               key={action.id}
               type="button"
-              title={action.hint + (action.shortcut ? ` (${action.shortcut.replace("Mod", isMac() ? "⌘" : "Ctrl")})` : "")}
+              title={
+                action.hint +
+                (action.shortcut
+                  ? ` (${action.shortcut.replace("Mod", isMac() ? "⌘" : "Ctrl")})`
+                  : "")
+              }
               aria-label={action.hint}
               onClick={() => applyAction(action)}
               className="inline-flex h-7 min-w-[1.75rem] items-center justify-center rounded-md border border-transparent px-2 text-xs font-semibold text-muted-foreground transition-colors hover:border-border hover:bg-background hover:text-foreground"
@@ -269,7 +280,7 @@ export function MarkdownEditor({
                   action.id === "bold" && "font-bold",
                   action.id === "italic" && "italic",
                   action.id === "underline" && "underline",
-                  action.id === "strike" && "line-through"
+                  action.id === "strike" && "line-through",
                 )}
               >
                 {action.label}
@@ -362,7 +373,7 @@ function DiscordPreview({
     <div
       className={cn(
         "rounded-md border bg-background p-3 text-sm leading-relaxed",
-        !multiline && "py-2"
+        !multiline && "py-2",
       )}
     >
       <DiscordMarkdown source={value} flavor={flavor} />
@@ -412,7 +423,7 @@ function renderDiscordMarkdown(source: string, flavor: MarkdownFlavor): ReactNod
           className="overflow-x-auto rounded-md border bg-muted/40 p-3 font-mono text-xs"
         >
           <code>{buf.join("\n")}</code>
-        </pre>
+        </pre>,
       );
       continue;
     }
@@ -421,7 +432,7 @@ function renderDiscordMarkdown(source: string, flavor: MarkdownFlavor): ReactNod
       out.push(
         <h4 key={state.key++} className="text-base font-semibold">
           {renderInline(line.slice(4), state, flavor)}
-        </h4>
+        </h4>,
       );
       i++;
       continue;
@@ -430,7 +441,7 @@ function renderDiscordMarkdown(source: string, flavor: MarkdownFlavor): ReactNod
       out.push(
         <h3 key={state.key++} className="text-lg font-semibold">
           {renderInline(line.slice(3), state, flavor)}
-        </h3>
+        </h3>,
       );
       i++;
       continue;
@@ -439,7 +450,7 @@ function renderDiscordMarkdown(source: string, flavor: MarkdownFlavor): ReactNod
       out.push(
         <h2 key={state.key++} className="text-xl font-semibold">
           {renderInline(line.slice(2), state, flavor)}
-        </h2>
+        </h2>,
       );
       i++;
       continue;
@@ -448,7 +459,7 @@ function renderDiscordMarkdown(source: string, flavor: MarkdownFlavor): ReactNod
       out.push(
         <p key={state.key++} className="text-xs text-muted-foreground">
           {renderInline(line.slice(3), state, flavor)}
-        </p>
+        </p>,
       );
       i++;
       continue;
@@ -468,7 +479,7 @@ function renderDiscordMarkdown(source: string, flavor: MarkdownFlavor): ReactNod
           {buf.map((b, idx) => (
             <p key={idx}>{renderInline(b, state, flavor)}</p>
           ))}
-        </blockquote>
+        </blockquote>,
       );
       continue;
     }
@@ -484,7 +495,7 @@ function renderDiscordMarkdown(source: string, flavor: MarkdownFlavor): ReactNod
           {items.map((item, idx) => (
             <li key={idx}>{renderInline(item, state, flavor)}</li>
           ))}
-        </ol>
+        </ol>,
       );
       continue;
     }
@@ -500,7 +511,7 @@ function renderDiscordMarkdown(source: string, flavor: MarkdownFlavor): ReactNod
           {items.map((item, idx) => (
             <li key={idx}>{renderInline(item, state, flavor)}</li>
           ))}
-        </ul>
+        </ul>,
       );
       continue;
     }
@@ -513,7 +524,7 @@ function renderDiscordMarkdown(source: string, flavor: MarkdownFlavor): ReactNod
     out.push(
       <p key={state.key++} className="whitespace-pre-wrap">
         {renderInline(line, state, flavor)}
-      </p>
+      </p>,
     );
     i++;
   }
@@ -583,10 +594,7 @@ const INLINE_RULES: InlineRule[] = [
   {
     pattern: /`([^`\n]+)`/,
     render: (m, state) => (
-      <code
-        key={state.key++}
-        className="rounded bg-muted/60 px-1 py-0.5 font-mono text-xs"
-      >
+      <code key={state.key++} className="rounded bg-muted/60 px-1 py-0.5 font-mono text-xs">
         {m[1]}
       </code>
     ),
@@ -608,10 +616,7 @@ const INLINE_RULES: InlineRule[] = [
   {
     pattern: /<#(\d+)>/,
     render: (_m, state) => (
-      <span
-        key={state.key++}
-        className="rounded bg-sky-500/15 px-1 text-sky-300"
-      >
+      <span key={state.key++} className="rounded bg-sky-500/15 px-1 text-sky-300">
         #channel
       </span>
     ),
@@ -619,10 +624,7 @@ const INLINE_RULES: InlineRule[] = [
   {
     pattern: /<@!?(\d+)>/,
     render: (_m, state) => (
-      <span
-        key={state.key++}
-        className="rounded bg-indigo-500/15 px-1 text-indigo-300"
-      >
+      <span key={state.key++} className="rounded bg-indigo-500/15 px-1 text-indigo-300">
         @user
       </span>
     ),
@@ -630,10 +632,7 @@ const INLINE_RULES: InlineRule[] = [
   {
     pattern: /<@&(\d+)>/,
     render: (_m, state) => (
-      <span
-        key={state.key++}
-        className="rounded bg-fuchsia-500/15 px-1 text-fuchsia-300"
-      >
+      <span key={state.key++} className="rounded bg-fuchsia-500/15 px-1 text-fuchsia-300">
         @role
       </span>
     ),
