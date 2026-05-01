@@ -1,4 +1,10 @@
-import { listBotGuilds, listGuildTicketResources, type GuildTicketResources } from "../discord";
+import {
+  listBotGuilds,
+  listGuildEmojis,
+  listGuildTicketResources,
+  type DiscordGuildEmojiResource,
+  type GuildTicketResources,
+} from "../discord";
 import {
   loadGuildPermissionContext,
   type GuildPermissionContext,
@@ -51,6 +57,18 @@ export function getCachedGuildTicketResources(
     `ticket-resources:${botToken}:${guildId}`,
     refresh,
     () => listGuildTicketResources(guildId, botToken)
+  );
+}
+
+export function getCachedGuildEmojis(
+  guildId: string,
+  botToken: string,
+  refresh: boolean
+): Promise<DiscordGuildEmojiResource[]> {
+  return readCached(
+    `guild-emojis:${botToken}:${guildId}`,
+    refresh,
+    () => listGuildEmojis(guildId, botToken)
   );
 }
 

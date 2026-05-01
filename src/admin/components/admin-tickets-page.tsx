@@ -3,11 +3,12 @@ import { useEffect, useRef, useState } from "react";
 import type { TicketPanelConfig } from "../../types";
 import { TicketPanelEditor, type GuildResources } from "./ticket-panel-editor";
 import { AdminPageHeader } from "./admin-page-header";
+import { NoGuildSelected } from "./no-guild-selected";
 import { PermissionNotice } from "./permission-notice";
 import { Alert, AlertDescription } from "./ui/alert";
 import { Button } from "./ui/button";
 import { Card, CardContent } from "./ui/card";
-import { RefreshIcon, TicketIcon } from "./ui/icons";
+import { RefreshIcon } from "./ui/icons";
 
 export function AdminTicketsPage({
   selectedGuildId,
@@ -146,7 +147,12 @@ function TicketPanelsEditor({
   }
 
   if (!trimmedGuildId) {
-    return <NoGuildSelected />;
+    return (
+      <NoGuildSelected
+        feature="ticket panel"
+        description="Pick a server from the sidebar to load its ticket panel. We will fetch live Discord data automatically."
+      />
+    );
   }
 
   if (loadError && !guildResources) {
@@ -210,25 +216,6 @@ function TicketPanelsEditor({
         onPublish={handlePublish}
       />
     </div>
-  );
-}
-
-function NoGuildSelected() {
-  return (
-    <Card>
-      <CardContent className="flex flex-col items-center gap-3 px-6 py-12 text-center">
-        <span className="flex h-12 w-12 items-center justify-center rounded-full border bg-muted/40 text-muted-foreground">
-          <TicketIcon className="h-5 w-5" />
-        </span>
-        <div className="space-y-1">
-          <p className="text-sm font-medium text-foreground">No server selected</p>
-          <p className="text-xs text-muted-foreground">
-            Pick a server from the sidebar to load its ticket panel. Click Load ticket panel after
-            selecting to fetch live Discord data.
-          </p>
-        </div>
-      </CardContent>
-    </Card>
   );
 }
 

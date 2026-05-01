@@ -131,8 +131,8 @@ test("authenticated admin dashboard renders the blocklist workspace on /admin/bl
 
   assert.match(html, /aria-current="page"[^>]*>Blocklist</);
   assert.match(html, /id="sidebar-guild-query"/);
-  assert.match(html, /Load blocklist/i);
-  assert.match(html, /Apply/i);
+  assert.match(html, /No server selected/i);
+  assert.match(html, /Pick a server from the sidebar to load its blocklist/i);
   assert.doesNotMatch(html, /Permission check/i);
   assert.doesNotMatch(html, /live Discord permission check/i);
   assert.doesNotMatch(html, /id="bl-guild-query"/);
@@ -147,16 +147,14 @@ test("authenticated admin dashboard renders the timed roles workspace on /admin/
 
   assert.match(html, /aria-current="page"[^>]*>Timed Roles</);
   assert.match(html, /id="sidebar-guild-query"/);
-  assert.match(html, /Load timed roles/i);
-  assert.match(html, /Add timed role/i);
-  assert.match(html, /New member temporary role/i);
-  assert.match(html, /Save new member role/i);
-  assert.match(html, /Duration/i);
+  assert.match(html, /No server selected/i);
+  assert.match(html, /Pick a server from the sidebar to load its timed roles/i);
   assert.doesNotMatch(html, /Permission check/i);
   assert.doesNotMatch(html, /live Discord permission check/i);
   assert.doesNotMatch(html, /Manage Roles/i);
   assert.doesNotMatch(html, /highest role/i);
   assert.doesNotMatch(html, /id="tr-guild-query"/);
+  assert.doesNotMatch(html, /Add timed role/i);
   assert.doesNotMatch(html, /Load blocklist/i);
   assert.doesNotMatch(html, /Load ticket panel/i);
 });
@@ -166,8 +164,8 @@ test("authenticated admin dashboard renders the tickets workspace on /admin/tick
 
   assert.match(html, /aria-current="page"[^>]*>Tickets</);
   assert.match(html, /id="sidebar-guild-query"/);
-  assert.match(html, /Load ticket panel/i);
-  assert.match(html, /Ticket Panels|Tickets/i);
+  assert.match(html, /No server selected/i);
+  assert.match(html, /Pick a server from the sidebar to load its ticket panel/i);
   assert.doesNotMatch(html, /Permission check/i);
   assert.doesNotMatch(html, /live Discord permission check/i);
   assert.doesNotMatch(html, /channel access/i);

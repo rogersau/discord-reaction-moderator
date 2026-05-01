@@ -1551,6 +1551,7 @@ test("createRuntimeApp exposes ticket admin APIs through session auth and publis
         { id: "transcript-channel", name: "ticket-transcripts" },
         { id: "text-1", name: "general" },
       ],
+      emojis: [],
     });
 
     const publishResponse = await app.fetch(

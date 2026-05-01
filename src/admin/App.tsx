@@ -261,6 +261,16 @@ export default function App({
     }
   }, []);
 
+  useEffect(() => {
+    if (!guildDirectory || guildDirectory.length !== 1) {
+      return;
+    }
+    if (selectedGuildId) {
+      return;
+    }
+    handleSelectedGuildChange(guildDirectory[0]!.guildId);
+  }, [guildDirectory, selectedGuildId, handleSelectedGuildChange]);
+
   const handleDashboardNavigation = useCallback((nextPath: string) => {
     const normalizedPath = normalizeAdminDashboardPath(nextPath);
     setCurrentPath(normalizedPath);

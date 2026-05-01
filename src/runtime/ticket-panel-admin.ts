@@ -7,6 +7,7 @@ import { buildTicketOpenCustomId } from "../tickets";
 import type { TicketPanelConfig, TicketQuestion, TicketTypeConfig } from "../types";
 import type { RuntimeStores } from "./app-types";
 import {
+  getCachedGuildEmojis,
   getCachedGuildTicketResources,
   shouldRefreshAdminDiscordCache,
 } from "./admin-discord-cache";
@@ -59,11 +60,11 @@ export async function handleTicketPanelAdminRequest(
       return Response.json({ error: "guildId is required" }, { status: 400 });
     }
 
-    const resources = await getCachedGuildTicketResources(
-      guildId,
-      options.discordBotToken,
-      shouldRefreshAdminDiscordCache(url)
-    );
+    const refresh = shouldRefreshAdminDiscordCache(url);
+    const [resources, emojis] = await Promise.all([
+      getCachedGuildTicketResources(guildId, options.discordBotToken, refresh),
+      getCachedGuildEmojis(guildId, options.discordBotToken, refresh).catch(() => []),
+    ]);
     return Response.json({
       guildId,
       roles: resources.roles.map(({ id, name }) => ({ id, name })),
@@ -73,6 +74,14 @@ export async function handleTicketPanelAdminRequest(
       textChannels: resources.channels
         .filter((channel) => channel.type === 0)
         .map(({ id, name }) => ({ id, name })),
+      emojis: emojis
+        .filter((emoji) => emoji.id && emoji.name)
+        .map((emoji) => ({
+          id: emoji.id as string,
+          name: emoji.name as string,
+          animated: emoji.animated === true,
+          available: emoji.available !== false,
+        })),
     });
   }
 

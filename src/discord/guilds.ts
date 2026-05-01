@@ -46,6 +46,13 @@ export async function listBotGuilds(
   return guilds.map(({ id, name }) => ({ guildId: id, name }));
 }
 
+export interface DiscordGuildEmojiResource {
+  id: string | null;
+  name: string | null;
+  animated?: boolean;
+  available?: boolean;
+}
+
 export async function listGuildTicketResources(
   guildId: string,
   botToken: string
@@ -59,6 +66,16 @@ export async function listGuildTicketResources(
     channels,
     roles,
   };
+}
+
+export async function listGuildEmojis(
+  guildId: string,
+  botToken: string
+): Promise<DiscordGuildEmojiResource[]> {
+  return discordGetJson<DiscordGuildEmojiResource[]>(
+    `${DISCORD_API}/guilds/${guildId}/emojis`,
+    botToken
+  );
 }
 
 export async function getGuildPermissionResources(

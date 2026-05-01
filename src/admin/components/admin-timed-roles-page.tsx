@@ -1,11 +1,13 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { AdminPageHeader } from "./admin-page-header";
 import { EditorActions, EditorPanel, FormField } from "./admin-form-layout";
+import { NoGuildSelected } from "./no-guild-selected";
 import { PermissionNotice } from "./permission-notice";
 import { Alert, AlertDescription } from "./ui/alert";
 import { Button } from "./ui/button";
 import { Card, CardContent } from "./ui/card";
+import { RefreshIcon } from "./ui/icons";
 import { Input } from "./ui/input";
 import {
   Table,
@@ -40,6 +42,7 @@ export function AdminTimedRolesPage({
 }: {
   selectedGuildId: string;
 }) {
+  const trimmedGuildId = selectedGuildId.trim();
   return (
     <section className="space-y-6">
       <AdminPageHeader
@@ -47,12 +50,17 @@ export function AdminTimedRolesPage({
         description="Load and manage timed role assignments for a specific server."
       />
 
-      <Card>
-        <CardContent className="space-y-5 pt-6">
-          <PermissionNotice selectedGuildId={selectedGuildId} feature="timed-roles" />
-          <TimedRolesEditor selectedGuildId={selectedGuildId} />
-        </CardContent>
-      </Card>
+      <PermissionNotice selectedGuildId={selectedGuildId} feature="timed-roles" />
+
+      {!trimmedGuildId ? (
+        <NoGuildSelected feature="timed roles" />
+      ) : (
+        <Card>
+          <CardContent className="space-y-5 pt-6">
+            <TimedRolesEditor selectedGuildId={selectedGuildId} />
+          </CardContent>
+        </Card>
+      )}
     </section>
   );
 }
@@ -72,7 +80,10 @@ function TimedRolesEditor({
   const [guildResources, setGuildResources] = useState<GuildResources | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [loadedGuildId, setLoadedGuildId] = useState<string>("");
   const trimmedGuildId = selectedGuildId.trim();
+  const requestRef = useRef(0);
 
   async function loadAssignments(nextGuildId: string) {
     const nextTrimmedGuildId = nextGuildId.trim();
@@ -82,33 +93,60 @@ function TimedRolesEditor({
     if (!nextTrimmedGuildId) {
       setAssignments(null);
       setGuildResources(null);
+      setLoadedGuildId("");
       return;
     }
 
-    const [response, resourcesResponse] = await Promise.all([
-      fetch(`/admin/api/timed-roles?guildId=${encodeURIComponent(nextTrimmedGuildId)}`),
-      fetch(`/admin/api/tickets/resources?guildId=${encodeURIComponent(nextTrimmedGuildId)}`),
-    ]);
-    if (!response.ok) {
-      setError("Failed to load timed roles.");
-      return;
-    }
+    const requestId = ++requestRef.current;
+    setLoading(true);
 
-    const data = (await response.json()) as {
-      assignments: TimedRoleAssignment[];
-      notificationChannelId?: string | null;
-      newMemberRoleConfig?: NewMemberRoleConfig;
-    };
-    setAssignments(data.assignments);
-    setNotificationChannelId(data.notificationChannelId ?? "");
-    setNewMemberRoleId(data.newMemberRoleConfig?.roleId ?? "");
-    setNewMemberDuration(data.newMemberRoleConfig?.durationInput ?? "1w");
+    try {
+      const [response, resourcesResponse] = await Promise.all([
+        fetch(`/admin/api/timed-roles?guildId=${encodeURIComponent(nextTrimmedGuildId)}`),
+        fetch(`/admin/api/tickets/resources?guildId=${encodeURIComponent(nextTrimmedGuildId)}`),
+      ]);
+      if (requestRef.current !== requestId) return;
+      if (!response.ok) {
+        setError("Failed to load timed roles.");
+        return;
+      }
 
-    if (resourcesResponse.ok) {
-      const resources = (await resourcesResponse.json()) as GuildResources;
-      setGuildResources(resources);
+      const data = (await response.json()) as {
+        assignments: TimedRoleAssignment[];
+        notificationChannelId?: string | null;
+        newMemberRoleConfig?: NewMemberRoleConfig;
+      };
+      if (requestRef.current !== requestId) return;
+      setAssignments(data.assignments);
+      setNotificationChannelId(data.notificationChannelId ?? "");
+      setNewMemberRoleId(data.newMemberRoleConfig?.roleId ?? "");
+      setNewMemberDuration(data.newMemberRoleConfig?.durationInput ?? "1w");
+
+      if (resourcesResponse.ok) {
+        const resources = (await resourcesResponse.json()) as GuildResources;
+        if (requestRef.current !== requestId) return;
+        setGuildResources(resources);
+      }
+      setLoadedGuildId(nextTrimmedGuildId);
+    } finally {
+      if (requestRef.current === requestId) {
+        setLoading(false);
+      }
     }
   }
+
+  useEffect(() => {
+    if (!trimmedGuildId) {
+      requestRef.current++;
+      setAssignments(null);
+      setGuildResources(null);
+      setLoadedGuildId("");
+      setLoading(false);
+      return;
+    }
+    if (trimmedGuildId === loadedGuildId) return;
+    void loadAssignments(trimmedGuildId);
+  }, [trimmedGuildId, loadedGuildId]);
 
   async function handleSaveNotificationChannel() {
     setMessage(null);
@@ -227,9 +265,25 @@ function TimedRolesEditor({
 
   return (
     <div className="space-y-4">
-      {!trimmedGuildId ? (
-        <EmptyState message="Select a server from the sidebar to manage timed roles." />
-      ) : null}
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-xs text-muted-foreground">
+          {loading
+            ? "Loading timed roles…"
+            : assignments !== null
+              ? "Loaded from Discord."
+              : "Preparing data…"}
+        </p>
+        <Button
+          size="sm"
+          variant="outline"
+          className="gap-2"
+          disabled={loading}
+          onClick={() => void loadAssignments(selectedGuildId)}
+        >
+          <RefreshIcon className="h-4 w-4" />
+          {loading ? "Reloading…" : "Reload"}
+        </Button>
+      </div>
       <EditorPanel>
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(8rem,0.8fr)]">
           <FormField label="User ID" htmlFor="tr-user">
@@ -262,16 +316,7 @@ function TimedRolesEditor({
           <Button
             size="sm"
             className="w-full sm:w-auto sm:min-w-[12rem]"
-            variant="outline"
-            disabled={!trimmedGuildId}
-            onClick={() => void loadAssignments(selectedGuildId)}
-          >
-            Load timed roles
-          </Button>
-          <Button
-            size="sm"
-            className="w-full sm:w-auto sm:min-w-[12rem]"
-            disabled={!trimmedGuildId}
+            disabled={!trimmedGuildId || !userId.trim() || !roleId.trim()}
             onClick={() => void handleAdd()}
           >
             Add timed role

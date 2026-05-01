@@ -4,6 +4,7 @@ import { Alert, AlertDescription } from "./ui/alert";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
+import { MarkdownEditor } from "./markdown-editor";
 
 export interface GuildResources {
   guildId: string;
@@ -272,33 +273,37 @@ export function TicketPanelEditor({
 
         <div className="min-w-0 space-y-2 md:col-span-2">
           <Label className="text-xs" htmlFor="tp-panel-title">Panel title</Label>
-          <Input
+          <MarkdownEditor
             id="tp-panel-title"
-            className="h-9"
+            flavor="inline"
+            multiline={false}
             value={value.panelTitle ?? ""}
-            onChange={(e) =>
+            onChange={(next) =>
               onChange({
                 ...value,
-                panelTitle: e.target.value.trim().length > 0 ? e.target.value : null,
+                panelTitle: next.trim().length > 0 ? next : null,
               })
             }
             placeholder="Support tickets"
+            helpText="Embed titles support bold, italic, underline, and strikethrough."
           />
         </div>
 
         <div className="min-w-0 space-y-2 md:col-span-3">
           <Label className="text-xs" htmlFor="tp-panel-description">Panel description</Label>
-          <textarea
+          <MarkdownEditor
             id="tp-panel-description"
-            className="min-h-20 w-full rounded-md border bg-background px-3 py-2 text-sm"
+            flavor="full"
+            rows={6}
             value={value.panelDescription ?? ""}
-            onChange={(e) =>
+            onChange={(next) =>
               onChange({
                 ...value,
-                panelDescription: e.target.value.trim().length > 0 ? e.target.value : null,
+                panelDescription: next.trim().length > 0 ? next : null,
               })
             }
             placeholder="Tell members when to use this panel and what happens after they open a ticket."
+            helpText="Supports Discord markdown: headings, lists, quotes, links, spoilers, code, and more."
           />
         </div>
 
@@ -316,6 +321,7 @@ export function TicketPanelEditor({
             }
             placeholder="Optional footer text shown under the panel embed"
           />
+          <p className="text-[11px] text-muted-foreground">Discord renders the embed footer as plain text.</p>
         </div>
       </div>
 
