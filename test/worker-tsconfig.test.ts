@@ -18,10 +18,7 @@ test("Cloudflare-only package scripts no longer expose portable runtime commands
 });
 
 test("worker tsconfig explainFiles no longer references removed node runtime files", () => {
-  const result = spawnSync("pnpm", ["exec", "tsc", "--noEmit", "--explainFiles"], {
-    cwd: process.cwd(),
-    encoding: "utf8",
-  });
+  const result = runTscExplainFiles();
   const explainFiles = `${result.stdout}${result.stderr}`;
 
   assert.equal(result.status, 0, explainFiles);
@@ -31,12 +28,20 @@ test("worker tsconfig explainFiles no longer references removed node runtime fil
 });
 
 test("worker tsconfig does not include admin Vite tooling files", () => {
-  const result = spawnSync("pnpm", ["exec", "tsc", "--noEmit", "--explainFiles"], {
-    cwd: process.cwd(),
-    encoding: "utf8",
-  });
+  const result = runTscExplainFiles();
   const explainFiles = `${result.stdout}${result.stderr}`;
 
   assert.equal(result.status, 0, explainFiles);
   assert.doesNotMatch(explainFiles, /vite\.admin\.config\.ts/);
 });
+
+function runTscExplainFiles() {
+  return spawnSync(
+    process.execPath,
+    ["node_modules/typescript/bin/tsc", "--noEmit", "--explainFiles"],
+    {
+      cwd: process.cwd(),
+      encoding: "utf8",
+    },
+  );
+}

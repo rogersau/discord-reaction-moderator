@@ -3,6 +3,7 @@ import { startGatewayStatusMonitor, type GatewayStatusMonitor } from "../admin-g
 import { AdminBlocklistPage } from "./components/admin-blocklist-page";
 import { AdminGatewayPage } from "./components/admin-gateway-page";
 import { AdminOverviewPage } from "./components/admin-overview-page";
+import { AdminMarketplacePage } from "./components/admin-marketplace-page";
 import { AdminShell } from "./components/admin-shell";
 import { AdminTicketsPage } from "./components/admin-tickets-page";
 import { AdminTimedRolesPage } from "./components/admin-timed-roles-page";
@@ -326,6 +327,12 @@ export default function App({
         ) : null}
         {currentPath === "/admin/tickets" ? (
           <AdminTicketsPage key={selectedGuildId || "no-guild"} selectedGuildId={selectedGuildId} />
+        ) : null}
+        {currentPath === "/admin/marketplace" ? (
+          <AdminMarketplacePage
+            key={selectedGuildId || "no-guild"}
+            selectedGuildId={selectedGuildId}
+          />
         ) : null}
       </AdminShell>
     );

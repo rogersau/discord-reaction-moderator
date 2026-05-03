@@ -28,11 +28,18 @@ export type CommandInvocation =
       subcommandName: "remove";
       userId: string;
       roleId: string;
-    };
+    }
+  | { commandName: "marketplace"; subcommandName: "setup" }
+  | { commandName: "marketplace"; subcommandName: "logs"; amount: number };
 
 function getStringOptionValue(options: any[], name: string): string | null {
   const value = options.find((option: any) => option.name === name)?.value;
   return typeof value === "string" ? value : null;
+}
+
+function getIntegerOptionValue(options: any[], name: string): number | null {
+  const value = options.find((option: any) => option.name === name)?.value;
+  return typeof value === "number" && Number.isInteger(value) ? value : null;
 }
 
 export function extractCommandInvocation(invocation: any): CommandInvocation | null {
@@ -60,6 +67,21 @@ export function extractCommandInvocation(invocation: any): CommandInvocation | n
       return { commandName: "timedrole", subcommandName: "list" } as CommandInvocation;
     }
 
+    return null;
+  }
+
+  if (data.name === "marketplace") {
+    const subOptions = Array.isArray(sub.options) ? sub.options : [];
+    if (sub.name === "setup") {
+      return { commandName: "marketplace", subcommandName: "setup" };
+    }
+    if (sub.name === "logs") {
+      return {
+        commandName: "marketplace",
+        subcommandName: "logs",
+        amount: getIntegerOptionValue(subOptions, "amount") ?? 10,
+      };
+    }
     return null;
   }
 

@@ -156,3 +156,62 @@ export function parseAppConfigMutation(body: unknown): {
     value: body.value,
   };
 }
+
+export function parseMarketplaceConfigBody(body: unknown): {
+  guildId: string;
+  noticeChannelId: string | null;
+  noticeMessageId: string | null;
+  logChannelId: string | null;
+  serverOptions: Array<{ id: string; label: string; emoji: string | null }>;
+} {
+  if (!isRecord(body)) {
+    throw new AdminApiInputError("Invalid JSON body");
+  }
+
+  const serverOptions = body.serverOptions;
+  if (!Array.isArray(serverOptions) || serverOptions.length === 0 || serverOptions.length > 25) {
+    throw new AdminApiInputError("Add between 1 and 25 marketplace servers.");
+  }
+
+  const seenIds = new Set<string>();
+  return {
+    guildId: asRequiredString(body.guildId, "guildId"),
+    noticeChannelId: asOptionalNullableString(body.noticeChannelId, "noticeChannelId"),
+    noticeMessageId: asOptionalNullableString(body.noticeMessageId, "noticeMessageId"),
+    logChannelId: asOptionalNullableString(body.logChannelId, "logChannelId"),
+    serverOptions: serverOptions.map((option, index) => {
+      if (!isRecord(option)) {
+        throw new AdminApiInputError(`Invalid serverOptions[${index}]`);
+      }
+      const id = asRequiredString(option.id, `serverOptions[${index}].id`).trim();
+      if (!/^[a-z0-9_-]{1,32}$/.test(id)) {
+        throw new AdminApiInputError(`Invalid serverOptions[${index}].id`);
+      }
+      if (seenIds.has(id)) {
+        throw new AdminApiInputError(`Duplicate serverOptions[${index}].id`);
+      }
+      seenIds.add(id);
+      return {
+        id,
+        label: asRequiredString(option.label, `serverOptions[${index}].label`).trim(),
+        emoji: asOptionalNullableString(option.emoji, `serverOptions[${index}].emoji`),
+      };
+    }),
+  };
+}
+
+export function parseMarketplaceClosePostBody(body: unknown): {
+  guildId: string;
+  postId: string;
+  closedByUserId: string;
+} {
+  if (!isRecord(body)) {
+    throw new AdminApiInputError("Invalid JSON body");
+  }
+
+  return {
+    guildId: asRequiredString(body.guildId, "guildId"),
+    postId: asRequiredString(body.postId, "postId"),
+    closedByUserId: asRequiredString(body.closedByUserId, "closedByUserId"),
+  };
+}

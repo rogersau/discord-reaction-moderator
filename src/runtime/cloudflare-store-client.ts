@@ -4,6 +4,9 @@ import type {
   TimedRoleAssignment,
   TicketPanelConfig,
   TicketInstance,
+  MarketplaceBusinessLog,
+  MarketplaceConfig,
+  MarketplacePost,
 } from "../types";
 
 type FetchLike = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
@@ -167,6 +170,95 @@ export function createCloudflareStoreClient(storeStub: { fetch: FetchLike }) {
         storeStub.fetch("https://moderation-store/timed-role/new-member-config", {
           method: "POST",
           body: JSON.stringify(body),
+        }),
+      );
+    },
+    async readMarketplaceConfig(guildId: string): Promise<MarketplaceConfig> {
+      return readJson<MarketplaceConfig>(
+        storeStub.fetch(
+          `https://moderation-store/marketplace/config?guildId=${encodeURIComponent(guildId)}`,
+        ),
+      );
+    },
+    async upsertMarketplaceConfig(config: MarketplaceConfig): Promise<void> {
+      await readJsonVoid(
+        storeStub.fetch("https://moderation-store/marketplace/config", {
+          method: "POST",
+          body: JSON.stringify(config),
+        }),
+      );
+    },
+    async listMarketplacePosts(
+      guildId: string,
+      options?: { activeOnly?: boolean; limit?: number },
+    ): Promise<MarketplacePost[]> {
+      const url = new URL("https://moderation-store/marketplace/posts");
+      url.searchParams.set("guildId", guildId);
+      if (options?.activeOnly) url.searchParams.set("activeOnly", "1");
+      if (options?.limit) url.searchParams.set("limit", String(options.limit));
+      return readJson<MarketplacePost[]>(storeStub.fetch(url));
+    },
+    async readMarketplacePost(guildId: string, postId: string): Promise<MarketplacePost | null> {
+      return readJson<MarketplacePost | null>(
+        storeStub.fetch(
+          `https://moderation-store/marketplace/post?guildId=${encodeURIComponent(guildId)}&postId=${encodeURIComponent(postId)}`,
+        ),
+      );
+    },
+    async readActiveMarketplacePostByOwner(
+      guildId: string,
+      ownerId: string,
+    ): Promise<MarketplacePost | null> {
+      return readJson<MarketplacePost | null>(
+        storeStub.fetch(
+          `https://moderation-store/marketplace/post/active-by-owner?guildId=${encodeURIComponent(guildId)}&ownerId=${encodeURIComponent(ownerId)}`,
+        ),
+      );
+    },
+    async createMarketplacePost(post: MarketplacePost): Promise<void> {
+      await readJsonVoid(
+        storeStub.fetch("https://moderation-store/marketplace/post", {
+          method: "POST",
+          body: JSON.stringify(post),
+        }),
+      );
+    },
+    async updateMarketplacePostMessage(body: {
+      guildId: string;
+      postId: string;
+      messageId: string;
+    }): Promise<void> {
+      await readJsonVoid(
+        storeStub.fetch("https://moderation-store/marketplace/post/message", {
+          method: "POST",
+          body: JSON.stringify(body),
+        }),
+      );
+    },
+    async closeMarketplacePost(body: {
+      guildId: string;
+      postId: string;
+      closedByUserId: string;
+      closedAtMs: number;
+    }): Promise<MarketplacePost> {
+      return readJson<MarketplacePost>(
+        storeStub.fetch("https://moderation-store/marketplace/post/close", {
+          method: "POST",
+          body: JSON.stringify(body),
+        }),
+      );
+    },
+    async listMarketplaceLogs(guildId: string, limit?: number): Promise<MarketplaceBusinessLog[]> {
+      const url = new URL("https://moderation-store/marketplace/logs");
+      url.searchParams.set("guildId", guildId);
+      if (limit) url.searchParams.set("limit", String(limit));
+      return readJson<MarketplaceBusinessLog[]>(storeStub.fetch(url));
+    },
+    async createMarketplaceLog(log: MarketplaceBusinessLog): Promise<void> {
+      await readJsonVoid(
+        storeStub.fetch("https://moderation-store/marketplace/log", {
+          method: "POST",
+          body: JSON.stringify(log),
         }),
       );
     },

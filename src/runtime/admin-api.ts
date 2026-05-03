@@ -7,6 +7,7 @@ import type {
 } from "./admin-types";
 import {
   buildBlocklistPermissionChecks,
+  buildMarketplacePermissionChecks,
   buildTicketPermissionChecks,
   buildTimedRolePermissionChecks,
 } from "./admin-permissions";
@@ -15,7 +16,12 @@ import {
   getCachedGuildPermissionContext,
   shouldRefreshAdminDiscordCache,
 } from "./admin-discord-cache";
-import { parseJsonBody, parseAppConfigMutation } from "./admin-api-validation";
+import {
+  parseJsonBody,
+  parseAppConfigMutation,
+  parseMarketplaceClosePostBody,
+  parseMarketplaceConfigBody,
+} from "./admin-api-validation";
 import type { RuntimeStores } from "./app-types";
 import { handleTicketPanelAdminRequest } from "./ticket-panel-admin";
 import type { BlocklistConfig, TimedRoleAssignment } from "../types";
@@ -52,7 +58,7 @@ export function createAdminApiHandler(options: AdminApiHandlerOptions) {
       }
       if (!isAdminPermissionFeature(featureParam)) {
         return Response.json(
-          { error: "feature must be blocklist, timed-roles, or tickets" },
+          { error: "feature must be blocklist, timed-roles, tickets, or marketplace" },
           { status: 400 },
         );
       }
@@ -101,6 +107,48 @@ export function createAdminApiHandler(options: AdminApiHandlerOptions) {
 
       await options.stores.appConfig.upsertAppConfig(parsedBody.value);
       return Response.json({ ok: true });
+    }
+
+    if (request.method === "GET" && url.pathname === "/admin/api/marketplace") {
+      const guildId = url.searchParams.get("guildId");
+      if (!guildId) {
+        return Response.json({ error: "guildId is required" }, { status: 400 });
+      }
+
+      const [config, posts, logs] = await Promise.all([
+        options.stores.marketplace.readMarketplaceConfig(guildId),
+        options.stores.marketplace.listMarketplacePosts(guildId, { limit: 50 }),
+        options.stores.marketplace.listMarketplaceLogs(guildId, 20),
+      ]);
+
+      return Response.json({ guildId, config, posts, logs });
+    }
+
+    if (request.method === "POST" && url.pathname === "/admin/api/marketplace/config") {
+      const parsedBody = await parseJsonBody(request, parseMarketplaceConfigBody);
+      if (!parsedBody.ok) {
+        return parsedBody.response;
+      }
+
+      await options.stores.marketplace.upsertMarketplaceConfig({
+        ...parsedBody.value,
+        updatedAtMs: Date.now(),
+      });
+      return Response.json({ ok: true });
+    }
+
+    if (request.method === "POST" && url.pathname === "/admin/api/marketplace/post/close") {
+      const parsedBody = await parseJsonBody(request, parseMarketplaceClosePostBody);
+      if (!parsedBody.ok) {
+        return parsedBody.response;
+      }
+
+      return Response.json(
+        await options.stores.marketplace.closeMarketplacePost({
+          ...parsedBody.value,
+          closedAtMs: Date.now(),
+        }),
+      );
     }
 
     return Response.json({ error: "Not found" }, { status: 404 });
@@ -213,6 +261,17 @@ async function buildAdminPermissionResponse(
     };
   }
 
+  if (feature === "marketplace") {
+    return {
+      guildId,
+      feature,
+      checks: buildMarketplacePermissionChecks(
+        context,
+        await stores.marketplace.readMarketplaceConfig(guildId),
+      ),
+    };
+  }
+
   return {
     guildId,
     feature,
@@ -224,7 +283,12 @@ async function buildAdminPermissionResponse(
 }
 
 function isAdminPermissionFeature(value: string | null): value is AdminPermissionFeature {
-  return value === "blocklist" || value === "timed-roles" || value === "tickets";
+  return (
+    value === "blocklist" ||
+    value === "timed-roles" ||
+    value === "tickets" ||
+    value === "marketplace"
+  );
 }
 
 function buildAdminGuildDirectory(

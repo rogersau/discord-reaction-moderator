@@ -86,6 +86,61 @@ export async function createChannelMessage(
   );
 }
 
+export async function editChannelMessage(
+  channelId: string,
+  messageId: string,
+  body: CreateChannelMessageInput,
+  botToken: string,
+): Promise<DiscordMessageResource> {
+  const response = await fetch(`${DISCORD_API}/channels/${channelId}/messages/${messageId}`, {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bot ${botToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+
+  return await parseDiscordJson<DiscordMessageResource>(response, "Failed to edit channel message");
+}
+
+export async function deleteChannelMessage(
+  channelId: string,
+  messageId: string,
+  botToken: string,
+): Promise<void> {
+  await discordRequest(
+    `${DISCORD_API}/channels/${channelId}/messages/${messageId}`,
+    "DELETE",
+    botToken,
+  );
+}
+
+export async function createUserDmChannel(
+  userId: string,
+  botToken: string,
+): Promise<{ id: string }> {
+  const response = await fetch(`${DISCORD_API}/users/@me/channels`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bot ${botToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ recipient_id: userId }),
+  });
+
+  return await parseDiscordJson<{ id: string }>(response, "Failed to create DM channel");
+}
+
+export async function createUserDmMessage(
+  userId: string,
+  body: CreateChannelMessageInput,
+  botToken: string,
+): Promise<DiscordMessageResource> {
+  const dmChannel = await createUserDmChannel(userId, botToken);
+  return createChannelMessage(dmChannel.id, body, botToken);
+}
+
 export async function listChannelMessages(
   channelId: string,
   botToken: string,

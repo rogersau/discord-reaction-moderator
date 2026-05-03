@@ -13,6 +13,9 @@ import {
 import { BlocklistService } from "../services/blocklist-service";
 import type { GuildNotificationChannelStore } from "../services/moderation-log";
 import { TimedRoleService } from "../services/timed-role-service";
+import { MarketplaceService } from "../services/marketplace-service";
+import { createUserDmMessage, deleteChannelMessage, editChannelMessage } from "../discord/messages";
+import { formatMarketplaceLogs } from "../marketplace";
 import type { RuntimeStores } from "./app-types";
 import type { DiscordInteraction } from "./app-types";
 
@@ -56,6 +59,15 @@ export async function handleApplicationCommand(
     (channelId, body) =>
       createChannelMessage(channelId, body, discordBotToken).then(() => undefined),
   );
+  const marketplaceService = new MarketplaceService(stores.marketplace, {
+    createChannelMessage: (channelId, body) =>
+      createChannelMessage(channelId, body, discordBotToken),
+    editChannelMessage: (channelId, messageId, body) =>
+      editChannelMessage(channelId, messageId, body, discordBotToken),
+    deleteChannelMessage: (channelId, messageId) =>
+      deleteChannelMessage(channelId, messageId, discordBotToken),
+    createUserDmMessage: (userId, body) => createUserDmMessage(userId, body, discordBotToken),
+  });
 
   if (invocation.commandName === "blocklist" && invocation.subcommandName === "list") {
     try {
@@ -85,6 +97,29 @@ export async function handleApplicationCommand(
             )
             .join("\n")}`;
     return Response.json(buildEphemeralMessage(content));
+  }
+
+  if (invocation.commandName === "marketplace" && invocation.subcommandName === "setup") {
+    if (!interaction.channel_id) {
+      return Response.json(buildEphemeralMessage("Could not determine this channel."));
+    }
+    try {
+      await marketplaceService.setupNotice(interaction.guild_id, interaction.channel_id);
+      return Response.json(
+        buildEphemeralMessage(
+          "Marketplace noticeboard button has been created/reset in this channel.",
+        ),
+      );
+    } catch (error) {
+      console.error("Failed to setup marketplace notice", error);
+      return Response.json(buildEphemeralMessage("Failed to setup marketplace noticeboard."));
+    }
+  }
+
+  if (invocation.commandName === "marketplace" && invocation.subcommandName === "logs") {
+    const amount = Math.min(Math.max(invocation.amount, 1), 20);
+    const logs = await marketplaceService.listLogs(interaction.guild_id, amount);
+    return Response.json(buildEphemeralMessage(formatMarketplaceLogs(logs)));
   }
 
   if (invocation.commandName === "timedrole" && invocation.subcommandName === "add") {

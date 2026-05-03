@@ -5,6 +5,7 @@ import type {
   AppConfigStore,
   TimedRoleStore,
   TicketStore,
+  MarketplaceStore,
 } from "./contracts";
 
 export interface DiscordInteraction {
@@ -33,6 +34,7 @@ export interface RuntimeStores {
   appConfig: AppConfigStore;
   timedRoles: TimedRoleStore;
   tickets: TicketStore;
+  marketplace: MarketplaceStore;
 }
 
 export interface RuntimeAppOptions {

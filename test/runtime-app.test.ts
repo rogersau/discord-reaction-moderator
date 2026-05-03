@@ -59,6 +59,23 @@ function createMockRuntimeStores(oldStore: any): RuntimeStores {
       readOpenTicketByChannel: oldStore.readOpenTicketByChannel || (async () => null),
       closeTicketInstance: oldStore.closeTicketInstance || (async () => {}),
     },
+    marketplace: {
+      readMarketplaceConfig: oldStore.readMarketplaceConfig || (async () => null),
+      upsertMarketplaceConfig: oldStore.upsertMarketplaceConfig || (async () => {}),
+      listMarketplacePosts: oldStore.listMarketplacePosts || (async () => []),
+      readMarketplacePost: oldStore.readMarketplacePost || (async () => null),
+      readActiveMarketplacePostByOwner:
+        oldStore.readActiveMarketplacePostByOwner || (async () => null),
+      createMarketplacePost: oldStore.createMarketplacePost || (async () => {}),
+      updateMarketplacePostMessage: oldStore.updateMarketplacePostMessage || (async () => {}),
+      closeMarketplacePost:
+        oldStore.closeMarketplacePost ||
+        (async () => {
+          throw new Error("No marketplace post found");
+        }),
+      listMarketplaceLogs: oldStore.listMarketplaceLogs || (async () => []),
+      createMarketplaceLog: oldStore.createMarketplaceLog || (async () => {}),
+    },
   };
 }
 

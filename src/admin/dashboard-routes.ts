@@ -4,6 +4,7 @@ export const ADMIN_DASHBOARD_ROUTES = [
   { path: "/admin/blocklist", label: "Blocklist" },
   { path: "/admin/timed-roles", label: "Timed Roles" },
   { path: "/admin/tickets", label: "Tickets" },
+  { path: "/admin/marketplace", label: "Marketplace" },
 ] as const;
 
 export type AdminDashboardPath = (typeof ADMIN_DASHBOARD_ROUTES)[number]["path"];

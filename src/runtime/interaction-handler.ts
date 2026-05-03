@@ -6,6 +6,11 @@ import {
   handleMessageComponentInteraction,
   handleTicketModalSubmitInteraction,
 } from "./ticket-interaction-handler";
+import {
+  handleMarketplaceComponentInteraction,
+  handleMarketplaceModalSubmitInteraction,
+} from "./marketplace-interaction-handler";
+import { parseMarketplaceCustomId } from "../marketplace";
 
 const DISCORD_INTERACTION_MAX_AGE_SECONDS = 5 * 60;
 
@@ -44,6 +49,14 @@ export async function handleInteractionRequest(
 
   // Ticket button interactions (open, close, close-request, etc.)
   if (interaction?.type === 3) {
+    if (isMarketplaceInteraction(interaction)) {
+      return handleMarketplaceComponentInteraction(
+        interaction,
+        options.stores,
+        options.discordBotToken,
+      );
+    }
+
     return handleMessageComponentInteraction(
       interaction,
       options.stores,
@@ -55,10 +68,27 @@ export async function handleInteractionRequest(
 
   // Ticket modal submissions (ticket creation with questions)
   if (interaction?.type === 5) {
+    if (isMarketplaceInteraction(interaction)) {
+      return handleMarketplaceModalSubmitInteraction(
+        interaction,
+        options.stores,
+        options.discordBotToken,
+      );
+    }
+
     return handleTicketModalSubmitInteraction(interaction, options.stores, options.discordBotToken);
   }
 
   return Response.json(buildEphemeralMessage("Unsupported interaction type."));
+}
+
+function isMarketplaceInteraction(interaction: DiscordInteraction): boolean {
+  if (typeof interaction.data !== "object" || interaction.data === null) {
+    return false;
+  }
+
+  const customId = (interaction.data as { custom_id?: unknown }).custom_id;
+  return typeof customId === "string" && parseMarketplaceCustomId(customId) !== null;
 }
 
 function isFreshDiscordTimestamp(timestamp: string): boolean {

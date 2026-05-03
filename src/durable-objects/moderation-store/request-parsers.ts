@@ -1,5 +1,8 @@
 import type {
   NewMemberTimedRoleConfig,
+  MarketplaceBusinessLog,
+  MarketplaceConfig,
+  MarketplacePost,
   TicketInstance,
   TicketPanelConfig,
   TimedRoleAssignment,
@@ -210,6 +213,104 @@ export function parseGuildIdRequest(body: unknown): { guildId: string } {
   };
 }
 
+export function parseMarketplaceConfig(body: unknown): MarketplaceConfig {
+  if (!isRecord(body)) {
+    throw new ModerationStoreInputError("Invalid JSON body");
+  }
+
+  return {
+    guildId: asRequiredString(body.guildId, "guildId"),
+    noticeChannelId: asNullableString(body.noticeChannelId, "noticeChannelId"),
+    noticeMessageId: asNullableString(body.noticeMessageId, "noticeMessageId"),
+    logChannelId: asNullableString(body.logChannelId, "logChannelId"),
+    serverOptions: parseMarketplaceServerOptions(body.serverOptions),
+    updatedAtMs: asRequiredFiniteNumber(body.updatedAtMs, "updatedAtMs"),
+  };
+}
+
+export function parseMarketplacePost(body: unknown): MarketplacePost {
+  if (!isRecord(body)) {
+    throw new ModerationStoreInputError("Invalid JSON body");
+  }
+
+  return {
+    guildId: asRequiredString(body.guildId, "guildId"),
+    id: asRequiredString(body.id, "id"),
+    ownerId: asRequiredString(body.ownerId, "ownerId"),
+    ownerDisplayName: asRequiredString(body.ownerDisplayName, "ownerDisplayName"),
+    tradeType: asMarketplaceTradeType(body.tradeType),
+    serverId: asRequiredString(body.serverId, "serverId"),
+    serverLabel: asRequiredString(body.serverLabel, "serverLabel"),
+    have: asRequiredString(body.have, "have"),
+    want: asRequiredString(body.want, "want"),
+    extra: asRequiredString(body.extra, "extra"),
+    channelId: asRequiredString(body.channelId, "channelId"),
+    messageId: asNullableString(body.messageId, "messageId"),
+    active: asBoolean(body.active, "active"),
+    createdAtMs: asRequiredFiniteNumber(body.createdAtMs, "createdAtMs"),
+    closedAtMs: asNullableFiniteNumber(body.closedAtMs, "closedAtMs"),
+    closedByUserId: asNullableString(body.closedByUserId, "closedByUserId"),
+  };
+}
+
+export function parseMarketplacePostMessage(body: unknown): {
+  guildId: string;
+  postId: string;
+  messageId: string;
+} {
+  if (!isRecord(body)) {
+    throw new ModerationStoreInputError("Invalid JSON body");
+  }
+
+  return {
+    guildId: asRequiredString(body.guildId, "guildId"),
+    postId: asRequiredString(body.postId, "postId"),
+    messageId: asRequiredString(body.messageId, "messageId"),
+  };
+}
+
+export function parseMarketplacePostClose(body: unknown): {
+  guildId: string;
+  postId: string;
+  closedByUserId: string;
+  closedAtMs: number;
+} {
+  if (!isRecord(body)) {
+    throw new ModerationStoreInputError("Invalid JSON body");
+  }
+
+  return {
+    guildId: asRequiredString(body.guildId, "guildId"),
+    postId: asRequiredString(body.postId, "postId"),
+    closedByUserId: asRequiredString(body.closedByUserId, "closedByUserId"),
+    closedAtMs: asRequiredFiniteNumber(body.closedAtMs, "closedAtMs"),
+  };
+}
+
+export function parseMarketplaceLog(body: unknown): MarketplaceBusinessLog {
+  if (!isRecord(body)) {
+    throw new ModerationStoreInputError("Invalid JSON body");
+  }
+
+  return {
+    guildId: asRequiredString(body.guildId, "guildId"),
+    id: asRequiredString(body.id, "id"),
+    timestampMs: asRequiredFiniteNumber(body.timestampMs, "timestampMs"),
+    buyerId: asRequiredString(body.buyerId, "buyerId"),
+    buyerDisplayName: asRequiredString(body.buyerDisplayName, "buyerDisplayName"),
+    sellerId: asRequiredString(body.sellerId, "sellerId"),
+    postId: asRequiredString(body.postId, "postId"),
+    channelId: asRequiredString(body.channelId, "channelId"),
+    messageId: asNullableString(body.messageId, "messageId"),
+    tradeType: asMarketplaceTradeType(body.tradeType),
+    serverLabel: asRequiredString(body.serverLabel, "serverLabel"),
+    dmSent: asBoolean(body.dmSent, "dmSent"),
+    dmError: asNullableString(body.dmError, "dmError"),
+    have: asRequiredString(body.have, "have"),
+    want: asRequiredString(body.want, "want"),
+  };
+}
+
 export function asRequiredSearchParam(searchParams: URLSearchParams, fieldName: string): string {
   const value = searchParams.get(fieldName);
 
@@ -313,6 +414,42 @@ function parseTicketAnswers(value: unknown): TicketInstance["answers"] {
       value: asRequiredString(answer.value, `answers[${index}].value`),
     };
   });
+}
+
+function parseMarketplaceServerOptions(value: unknown): MarketplaceConfig["serverOptions"] {
+  if (!Array.isArray(value) || value.length === 0 || value.length > 25) {
+    throw new ModerationStoreInputError("serverOptions must contain 1-25 entries");
+  }
+
+  const seenIds = new Set<string>();
+  return value.map((option, index) => {
+    if (!isRecord(option)) {
+      throw new ModerationStoreInputError(`Invalid serverOptions[${index}]`);
+    }
+
+    const id = asRequiredString(option.id, `serverOptions[${index}].id`);
+    if (!/^[a-z0-9_-]{1,32}$/.test(id)) {
+      throw new ModerationStoreInputError(`Invalid serverOptions[${index}].id`);
+    }
+    if (seenIds.has(id)) {
+      throw new ModerationStoreInputError(`Duplicate serverOptions[${index}].id`);
+    }
+    seenIds.add(id);
+
+    return {
+      id,
+      label: asRequiredString(option.label, `serverOptions[${index}].label`),
+      emoji: asNullableString(option.emoji, `serverOptions[${index}].emoji`),
+    };
+  });
+}
+
+function asMarketplaceTradeType(value: unknown): MarketplacePost["tradeType"] {
+  if (value !== "have" && value !== "want") {
+    throw new ModerationStoreInputError("Missing tradeType");
+  }
+
+  return value;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

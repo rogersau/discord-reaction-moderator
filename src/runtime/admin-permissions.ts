@@ -4,7 +4,7 @@ import {
   type DiscordGuildMemberResource,
   type DiscordRoleResource,
 } from "../discord";
-import type { TicketPanelConfig, TimedRoleAssignment } from "../types";
+import type { MarketplaceConfig, TicketPanelConfig, TimedRoleAssignment } from "../types";
 import type { AdminPermissionCheck } from "./admin-types";
 
 const ADMINISTRATOR_PERMISSION = 1n << 3n;
@@ -197,6 +197,42 @@ export function buildTicketPermissionChecks(
         ? `All ${supportRoleIds.length} configured support role${supportRoleIds.length === 1 ? "" : "s"} are present in the server.`
         : `${missingSupportRoles.length} configured support role${missingSupportRoles.length === 1 ? "" : "s"} could not be found in Discord.`,
   });
+
+  return checks;
+}
+
+export function buildMarketplacePermissionChecks(
+  context: GuildPermissionContext,
+  config: MarketplaceConfig | null,
+): AdminPermissionCheck[] {
+  if (!config) {
+    return [];
+  }
+
+  const channelMap = new Map(context.channels.map((channel) => [channel.id, channel] as const));
+  const checks: AdminPermissionCheck[] = [];
+
+  if (config.noticeChannelId) {
+    checks.push(
+      buildConfiguredChannelCheck(
+        context,
+        channelMap,
+        config.noticeChannelId,
+        "Noticeboard channel access",
+      ),
+    );
+  }
+
+  if (config.logChannelId) {
+    checks.push(
+      buildConfiguredChannelCheck(
+        context,
+        channelMap,
+        config.logChannelId,
+        "Marketplace log channel access",
+      ),
+    );
+  }
 
   return checks;
 }

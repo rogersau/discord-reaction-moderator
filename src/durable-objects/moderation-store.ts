@@ -14,12 +14,18 @@ import {
   parseTicketInstance,
   parseTicketDeleteRequest,
   parseTicketCloseRequest,
+  parseMarketplaceConfig,
+  parseMarketplaceLog,
+  parseMarketplacePost,
+  parseMarketplacePostClose,
+  parseMarketplacePostMessage,
   asRequiredSearchParam,
 } from "./moderation-store/request-parsers";
 import * as blocklistStore from "./moderation-store/blocklist-store";
 import * as appConfigStore from "./moderation-store/app-config-store";
 import * as timedRoleStore from "./moderation-store/timed-role-store";
 import * as ticketStore from "./moderation-store/ticket-store";
+import * as marketplaceStore from "./moderation-store/marketplace-store";
 import { buildTimedRoleUpdateMessage } from "../services/moderation-log";
 
 export class ModerationStoreDO implements DurableObject {
@@ -92,6 +98,53 @@ export class ModerationStoreDO implements DurableObject {
         guild_id TEXT PRIMARY KEY,
         next_ticket_number INTEGER NOT NULL
       );
+      CREATE TABLE IF NOT EXISTS marketplace_configs (
+        guild_id TEXT PRIMARY KEY,
+        notice_channel_id TEXT,
+        notice_message_id TEXT,
+        log_channel_id TEXT,
+        server_options_json TEXT NOT NULL,
+        updated_at_ms INTEGER NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS marketplace_posts (
+        guild_id TEXT NOT NULL,
+        post_id TEXT NOT NULL,
+        owner_id TEXT NOT NULL,
+        owner_display_name TEXT NOT NULL,
+        trade_type TEXT NOT NULL,
+        server_id TEXT NOT NULL,
+        server_label TEXT NOT NULL,
+        have TEXT NOT NULL,
+        want TEXT NOT NULL,
+        extra TEXT NOT NULL,
+        channel_id TEXT NOT NULL,
+        message_id TEXT,
+        active INTEGER NOT NULL,
+        created_at_ms INTEGER NOT NULL,
+        closed_at_ms INTEGER,
+        closed_by_user_id TEXT,
+        PRIMARY KEY (guild_id, post_id)
+      );
+      CREATE INDEX IF NOT EXISTS marketplace_posts_by_owner_active ON marketplace_posts(guild_id, owner_id, active);
+      CREATE TABLE IF NOT EXISTS marketplace_trade_logs (
+        guild_id TEXT NOT NULL,
+        log_id TEXT NOT NULL,
+        timestamp_ms INTEGER NOT NULL,
+        buyer_id TEXT NOT NULL,
+        buyer_display_name TEXT NOT NULL,
+        seller_id TEXT NOT NULL,
+        post_id TEXT NOT NULL,
+        channel_id TEXT NOT NULL,
+        message_id TEXT,
+        trade_type TEXT NOT NULL,
+        server_label TEXT NOT NULL,
+        dm_sent INTEGER NOT NULL,
+        dm_error TEXT,
+        have TEXT NOT NULL,
+        want TEXT NOT NULL,
+        PRIMARY KEY (guild_id, log_id)
+      );
+      CREATE INDEX IF NOT EXISTS marketplace_logs_by_timestamp ON marketplace_trade_logs(guild_id, timestamp_ms DESC);
     `);
 
     this.sql.exec(
@@ -269,6 +322,112 @@ export class ModerationStoreDO implements DurableObject {
       try {
         const body = parseTicketCloseRequest(await request.json());
         ticketStore.closeTicketInstance(this.sql, body);
+        return Response.json({ ok: true });
+      } catch (error) {
+        return this.errorResponse(error);
+      }
+    }
+
+    if (request.method === "GET" && url.pathname === "/marketplace/config") {
+      try {
+        const guildId = asRequiredSearchParam(url.searchParams, "guildId");
+        return Response.json(
+          marketplaceStore.readMarketplaceConfig(this.sql, guildId) ??
+            marketplaceStore.defaultMarketplaceConfig(guildId),
+        );
+      } catch (error) {
+        return this.errorResponse(error);
+      }
+    }
+
+    if (request.method === "POST" && url.pathname === "/marketplace/config") {
+      try {
+        const body = parseMarketplaceConfig(await request.json());
+        marketplaceStore.upsertMarketplaceConfig(this.sql, body);
+        return Response.json({ ok: true });
+      } catch (error) {
+        return this.errorResponse(error);
+      }
+    }
+
+    if (request.method === "GET" && url.pathname === "/marketplace/posts") {
+      try {
+        const guildId = asRequiredSearchParam(url.searchParams, "guildId");
+        const activeOnly = url.searchParams.get("activeOnly") === "1";
+        const limit = Number.parseInt(url.searchParams.get("limit") ?? "50", 10);
+        return Response.json(
+          marketplaceStore.listMarketplacePosts(this.sql, guildId, { activeOnly, limit }),
+        );
+      } catch (error) {
+        return this.errorResponse(error);
+      }
+    }
+
+    if (request.method === "GET" && url.pathname === "/marketplace/post") {
+      try {
+        const guildId = asRequiredSearchParam(url.searchParams, "guildId");
+        const postId = asRequiredSearchParam(url.searchParams, "postId");
+        return Response.json(marketplaceStore.readMarketplacePost(this.sql, guildId, postId));
+      } catch (error) {
+        return this.errorResponse(error);
+      }
+    }
+
+    if (request.method === "GET" && url.pathname === "/marketplace/post/active-by-owner") {
+      try {
+        const guildId = asRequiredSearchParam(url.searchParams, "guildId");
+        const ownerId = asRequiredSearchParam(url.searchParams, "ownerId");
+        return Response.json(
+          marketplaceStore.readActiveMarketplacePostByOwner(this.sql, guildId, ownerId),
+        );
+      } catch (error) {
+        return this.errorResponse(error);
+      }
+    }
+
+    if (request.method === "POST" && url.pathname === "/marketplace/post") {
+      try {
+        const body = parseMarketplacePost(await request.json());
+        marketplaceStore.createMarketplacePost(this.sql, body);
+        return Response.json({ ok: true });
+      } catch (error) {
+        return this.errorResponse(error);
+      }
+    }
+
+    if (request.method === "POST" && url.pathname === "/marketplace/post/message") {
+      try {
+        const body = parseMarketplacePostMessage(await request.json());
+        marketplaceStore.updateMarketplacePostMessage(this.sql, body);
+        return Response.json({ ok: true });
+      } catch (error) {
+        return this.errorResponse(error);
+      }
+    }
+
+    if (request.method === "POST" && url.pathname === "/marketplace/post/close") {
+      try {
+        const body = parseMarketplacePostClose(await request.json());
+        return Response.json(marketplaceStore.closeMarketplacePost(this.sql, body));
+      } catch (error) {
+        return this.errorResponse(error);
+      }
+    }
+
+    if (request.method === "GET" && url.pathname === "/marketplace/logs") {
+      try {
+        const guildId = asRequiredSearchParam(url.searchParams, "guildId");
+        const limit = Number.parseInt(url.searchParams.get("limit") ?? "20", 10);
+        return Response.json(marketplaceStore.listMarketplaceLogs(this.sql, guildId, limit));
+      } catch (error) {
+        return this.errorResponse(error);
+      }
+    }
+
+    if (request.method === "POST" && url.pathname === "/marketplace/log") {
+      try {
+        const body = parseMarketplaceLog(await request.json());
+        marketplaceStore.createMarketplaceLog(this.sql, body);
         return Response.json({ ok: true });
       } catch (error) {
         return this.errorResponse(error);

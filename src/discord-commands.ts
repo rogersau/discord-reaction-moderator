@@ -57,4 +57,30 @@ export const SLASH_COMMAND_DEFINITIONS = [
       },
     ],
   },
+  {
+    name: "marketplace",
+    description: "Manage this server's marketplace",
+    options: [
+      {
+        type: 1,
+        name: "setup",
+        description: "Post or reset the marketplace noticeboard in this channel",
+      },
+      {
+        type: 1,
+        name: "logs",
+        description: "View recent marketplace business logs",
+        options: [
+          {
+            type: 4,
+            name: "amount",
+            description: "Number of logs to show (1-20)",
+            required: false,
+            min_value: 1,
+            max_value: 20,
+          },
+        ],
+      },
+    ],
+  },
 ];

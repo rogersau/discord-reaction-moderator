@@ -119,3 +119,57 @@ export interface TicketInstance {
   closedByUserId: string | null;
   transcriptMessageId: string | null;
 }
+
+export type MarketplaceTradeType = "have" | "want";
+
+export interface MarketplaceServerOption {
+  id: string;
+  label: string;
+  emoji: string | null;
+}
+
+export interface MarketplaceConfig {
+  guildId: string;
+  noticeChannelId: string | null;
+  noticeMessageId: string | null;
+  logChannelId: string | null;
+  serverOptions: MarketplaceServerOption[];
+  updatedAtMs: number;
+}
+
+export interface MarketplacePost {
+  guildId: string;
+  id: string;
+  ownerId: string;
+  ownerDisplayName: string;
+  tradeType: MarketplaceTradeType;
+  serverId: string;
+  serverLabel: string;
+  have: string;
+  want: string;
+  extra: string;
+  channelId: string;
+  messageId: string | null;
+  active: boolean;
+  createdAtMs: number;
+  closedAtMs: number | null;
+  closedByUserId: string | null;
+}
+
+export interface MarketplaceBusinessLog {
+  guildId: string;
+  id: string;
+  timestampMs: number;
+  buyerId: string;
+  buyerDisplayName: string;
+  sellerId: string;
+  postId: string;
+  channelId: string;
+  messageId: string | null;
+  tradeType: MarketplaceTradeType;
+  serverLabel: string;
+  dmSent: boolean;
+  dmError: string | null;
+  have: string;
+  want: string;
+}

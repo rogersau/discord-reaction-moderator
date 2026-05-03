@@ -23,6 +23,7 @@ const ROUTE_ICONS: Record<AdminDashboardPath, (props: { className?: string }) =>
   "/admin/blocklist": (props) => <BanIcon {...props} />,
   "/admin/timed-roles": (props) => <ClockIcon {...props} />,
   "/admin/tickets": (props) => <TicketIcon {...props} />,
+  "/admin/marketplace": (props) => <ShieldIcon {...props} />,
 };
 
 export function AdminShell({
