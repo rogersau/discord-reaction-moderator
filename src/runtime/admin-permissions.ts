@@ -4,7 +4,7 @@ import {
   type DiscordGuildMemberResource,
   type DiscordRoleResource,
 } from "../discord";
-import type { MarketplaceConfig, TicketPanelConfig, TimedRoleAssignment } from "../types";
+import type { LfgConfig, MarketplaceConfig, TicketPanelConfig, TimedRoleAssignment } from "../types";
 import type { AdminPermissionCheck } from "./admin-types";
 
 const ADMINISTRATOR_PERMISSION = 1n << 3n;
@@ -230,6 +230,31 @@ export function buildMarketplacePermissionChecks(
         channelMap,
         config.logChannelId,
         "Marketplace log channel access",
+      ),
+    );
+  }
+
+  return checks;
+}
+
+export function buildLfgPermissionChecks(
+  context: GuildPermissionContext,
+  config: LfgConfig | null,
+): AdminPermissionCheck[] {
+  if (!config) {
+    return [];
+  }
+
+  const channelMap = new Map(context.channels.map((channel) => [channel.id, channel] as const));
+  const checks: AdminPermissionCheck[] = [];
+
+  if (config.noticeChannelId) {
+    checks.push(
+      buildConfiguredChannelCheck(
+        context,
+        channelMap,
+        config.noticeChannelId,
+        "LFG noticeboard channel access",
       ),
     );
   }

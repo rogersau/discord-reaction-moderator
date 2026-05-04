@@ -7,6 +7,7 @@ import { AdminMarketplacePage } from "./components/admin-marketplace-page";
 import { AdminShell } from "./components/admin-shell";
 import { AdminTicketsPage } from "./components/admin-tickets-page";
 import { AdminTimedRolesPage } from "./components/admin-timed-roles-page";
+import { AdminLfgPage } from "./components/admin-lfg-page";
 import { cn } from "./lib/utils";
 import { Alert, AlertDescription } from "./components/ui/alert";
 import { Button } from "./components/ui/button";
@@ -333,6 +334,9 @@ export default function App({
             key={selectedGuildId || "no-guild"}
             selectedGuildId={selectedGuildId}
           />
+        ) : null}
+        {currentPath === "/admin/lfg" ? (
+          <AdminLfgPage key={selectedGuildId || "no-guild"} selectedGuildId={selectedGuildId} />
         ) : null}
       </AdminShell>
     );

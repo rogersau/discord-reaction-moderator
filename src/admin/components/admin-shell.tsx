@@ -13,6 +13,7 @@ import {
   MenuIcon,
   ShieldIcon,
   TicketIcon,
+  UsersIcon,
   XIcon,
 } from "./ui/icons";
 import type { AdminGuildDirectoryEntry } from "../../runtime/admin-types";
@@ -24,6 +25,7 @@ const ROUTE_ICONS: Record<AdminDashboardPath, (props: { className?: string }) =>
   "/admin/timed-roles": (props) => <ClockIcon {...props} />,
   "/admin/tickets": (props) => <TicketIcon {...props} />,
   "/admin/marketplace": (props) => <ShieldIcon {...props} />,
+  "/admin/lfg": (props) => <UsersIcon {...props} />,
 };
 
 export function AdminShell({

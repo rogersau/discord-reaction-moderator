@@ -7,6 +7,7 @@ import type {
 } from "./admin-types";
 import {
   buildBlocklistPermissionChecks,
+  buildLfgPermissionChecks,
   buildMarketplacePermissionChecks,
   buildTicketPermissionChecks,
   buildTimedRolePermissionChecks,
@@ -21,6 +22,8 @@ import {
   parseAppConfigMutation,
   parseMarketplaceClosePostBody,
   parseMarketplaceConfigBody,
+  parseLfgConfigBody,
+  parseLfgClosePostBody,
 } from "./admin-api-validation";
 import type { RuntimeStores } from "./app-types";
 import { handleTicketPanelAdminRequest } from "./ticket-panel-admin";
@@ -58,7 +61,7 @@ export function createAdminApiHandler(options: AdminApiHandlerOptions) {
       }
       if (!isAdminPermissionFeature(featureParam)) {
         return Response.json(
-          { error: "feature must be blocklist, timed-roles, tickets, or marketplace" },
+          { error: "feature must be blocklist, timed-roles, tickets, marketplace, or lfg" },
           { status: 400 },
         );
       }
@@ -145,6 +148,47 @@ export function createAdminApiHandler(options: AdminApiHandlerOptions) {
 
       return Response.json(
         await options.stores.marketplace.closeMarketplacePost({
+          ...parsedBody.value,
+          closedAtMs: Date.now(),
+        }),
+      );
+    }
+
+    if (request.method === "GET" && url.pathname === "/admin/api/lfg") {
+      const guildId = url.searchParams.get("guildId");
+      if (!guildId) {
+        return Response.json({ error: "guildId is required" }, { status: 400 });
+      }
+
+      const [config, posts] = await Promise.all([
+        options.stores.lfg.readLfgConfig(guildId),
+        options.stores.lfg.listLfgPosts(guildId, { limit: 50 }),
+      ]);
+
+      return Response.json({ guildId, config: config ?? defaultLfgConfig(guildId), posts });
+    }
+
+    if (request.method === "POST" && url.pathname === "/admin/api/lfg/config") {
+      const parsedBody = await parseJsonBody(request, parseLfgConfigBody);
+      if (!parsedBody.ok) {
+        return parsedBody.response;
+      }
+
+      await options.stores.lfg.upsertLfgConfig({
+        ...parsedBody.value,
+        updatedAtMs: Date.now(),
+      });
+      return Response.json({ ok: true });
+    }
+
+    if (request.method === "POST" && url.pathname === "/admin/api/lfg/post/close") {
+      const parsedBody = await parseJsonBody(request, parseLfgClosePostBody);
+      if (!parsedBody.ok) {
+        return parsedBody.response;
+      }
+
+      return Response.json(
+        await options.stores.lfg.closeLfgPost({
           ...parsedBody.value,
           closedAtMs: Date.now(),
         }),
@@ -272,6 +316,17 @@ async function buildAdminPermissionResponse(
     };
   }
 
+  if (feature === "lfg") {
+    return {
+      guildId,
+      feature,
+      checks: buildLfgPermissionChecks(
+        context,
+        await stores.lfg.readLfgConfig(guildId),
+      ),
+    };
+  }
+
   return {
     guildId,
     feature,
@@ -287,8 +342,23 @@ function isAdminPermissionFeature(value: string | null): value is AdminPermissio
     value === "blocklist" ||
     value === "timed-roles" ||
     value === "tickets" ||
-    value === "marketplace"
+    value === "marketplace" ||
+    value === "lfg"
   );
+}
+
+function defaultLfgConfig(guildId: string) {
+  return {
+    guildId,
+    noticeChannelId: null,
+    noticeMessageId: null,
+    serverOptions: [
+      { id: "namalsk", label: "Namalsk", emoji: "🧊" },
+      { id: "chernarus", label: "Chernarus", emoji: "🌲" },
+      { id: "both", label: "Both", emoji: "🔁" },
+    ],
+    updatedAtMs: Date.now(),
+  };
 }
 
 function buildAdminGuildDirectory(

@@ -19,7 +19,7 @@ export interface AdminGuildDirectoryResponse {
   guilds: AdminGuildDirectoryEntry[];
 }
 
-export type AdminPermissionFeature = "blocklist" | "timed-roles" | "tickets" | "marketplace";
+export type AdminPermissionFeature = "blocklist" | "timed-roles" | "tickets" | "marketplace" | "lfg";
 
 export type AdminPermissionCheckStatus = "ok" | "warning" | "error";
 
