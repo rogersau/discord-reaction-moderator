@@ -173,3 +173,35 @@ export interface MarketplaceBusinessLog {
   have: string;
   want: string;
 }
+
+export interface LfgServerOption {
+  id: string;
+  label: string;
+  emoji: string | null;
+}
+
+export interface LfgConfig {
+  guildId: string;
+  noticeChannelId: string | null;
+  noticeMessageId: string | null;
+  serverOptions: LfgServerOption[];
+  updatedAtMs: number;
+}
+
+export interface LfgPost {
+  guildId: string;
+  id: string;
+  ownerId: string;
+  ownerDisplayName: string;
+  serverId: string;
+  serverLabel: string;
+  whenPlay: string;
+  lookingFor: string;
+  extraInfo: string;
+  channelId: string;
+  messageId: string | null;
+  active: boolean;
+  createdAtMs: number;
+  closedAtMs: number | null;
+  closedByUserId: string | null;
+}

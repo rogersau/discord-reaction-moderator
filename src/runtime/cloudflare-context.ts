@@ -11,6 +11,7 @@ import type {
   TimedRoleStore,
   TicketStore,
   MarketplaceStore,
+  LfgStore,
 } from "./contracts";
 
 export interface RuntimeAppContext {
@@ -27,6 +28,7 @@ export interface RuntimeAppContext {
     timedRoles: TimedRoleStore;
     tickets: TicketStore;
     marketplace: MarketplaceStore;
+    lfg: LfgStore;
   };
   gateway: GatewayController;
   ticketTranscriptBlobs?: TicketTranscriptBlobStore;
@@ -137,6 +139,16 @@ export function createCloudflareContext(env: Env): RuntimeAppContext {
         closeMarketplacePost: storeClient.closeMarketplacePost,
         listMarketplaceLogs: storeClient.listMarketplaceLogs,
         createMarketplaceLog: storeClient.createMarketplaceLog,
+      },
+      lfg: {
+        readLfgConfig: storeClient.readLfgConfig,
+        upsertLfgConfig: storeClient.upsertLfgConfig,
+        listLfgPosts: storeClient.listLfgPosts,
+        readLfgPost: storeClient.readLfgPost,
+        readActiveLfgPostByOwner: storeClient.readActiveLfgPostByOwner,
+        createLfgPost: storeClient.createLfgPost,
+        updateLfgPostMessage: storeClient.updateLfgPostMessage,
+        closeLfgPost: storeClient.closeLfgPost,
       },
     },
     gateway: {

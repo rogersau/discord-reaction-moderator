@@ -76,6 +76,20 @@ function createMockRuntimeStores(oldStore: any): RuntimeStores {
       listMarketplaceLogs: oldStore.listMarketplaceLogs || (async () => []),
       createMarketplaceLog: oldStore.createMarketplaceLog || (async () => {}),
     },
+    lfg: {
+      readLfgConfig: oldStore.readLfgConfig || (async () => null),
+      upsertLfgConfig: oldStore.upsertLfgConfig || (async () => {}),
+      listLfgPosts: oldStore.listLfgPosts || (async () => []),
+      readLfgPost: oldStore.readLfgPost || (async () => null),
+      readActiveLfgPostByOwner: oldStore.readActiveLfgPostByOwner || (async () => null),
+      createLfgPost: oldStore.createLfgPost || (async () => {}),
+      updateLfgPostMessage: oldStore.updateLfgPostMessage || (async () => {}),
+      closeLfgPost:
+        oldStore.closeLfgPost ||
+        (async () => {
+          throw new Error("No LFG post found");
+        }),
+    },
   };
 }
 

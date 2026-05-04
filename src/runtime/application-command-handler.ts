@@ -14,6 +14,7 @@ import { BlocklistService } from "../services/blocklist-service";
 import type { GuildNotificationChannelStore } from "../services/moderation-log";
 import { TimedRoleService } from "../services/timed-role-service";
 import { MarketplaceService } from "../services/marketplace-service";
+import { LfgService } from "../services/lfg-service";
 import { createUserDmMessage, deleteChannelMessage, editChannelMessage } from "../discord/messages";
 import { formatMarketplaceLogs } from "../marketplace";
 import type { RuntimeStores } from "./app-types";
@@ -68,6 +69,32 @@ export async function handleApplicationCommand(
       deleteChannelMessage(channelId, messageId, discordBotToken),
     createUserDmMessage: (userId, body) => createUserDmMessage(userId, body, discordBotToken),
   });
+  const lfgService = new LfgService(stores.lfg, {
+    createChannelMessage: (channelId, body) =>
+      createChannelMessage(channelId, body, discordBotToken),
+    editChannelMessage: (channelId, messageId, body) =>
+      editChannelMessage(channelId, messageId, body, discordBotToken),
+    deleteChannelMessage: (channelId, messageId) =>
+      deleteChannelMessage(channelId, messageId, discordBotToken),
+    createUserDmMessage: (userId, body) => createUserDmMessage(userId, body, discordBotToken),
+  });
+
+  if (invocation.commandName === "lfg" && invocation.subcommandName === "setup") {
+    if (!interaction.channel_id) {
+      return Response.json(buildEphemeralMessage("Could not determine this channel."));
+    }
+    try {
+      await lfgService.setupNotice(interaction.guild_id, interaction.channel_id);
+      return Response.json(
+        buildEphemeralMessage(
+          "LFG noticeboard button has been created/reset in this channel.",
+        ),
+      );
+    } catch (error) {
+      console.error("Failed to setup LFG notice", error);
+      return Response.json(buildEphemeralMessage("Failed to setup LFG noticeboard."));
+    }
+  }
 
   if (invocation.commandName === "blocklist" && invocation.subcommandName === "list") {
     try {

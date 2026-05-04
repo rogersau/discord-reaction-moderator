@@ -10,7 +10,9 @@ import {
   handleMarketplaceComponentInteraction,
   handleMarketplaceModalSubmitInteraction,
 } from "./marketplace-interaction-handler";
+import { handleLfgComponentInteraction, handleLfgModalSubmitInteraction } from "./lfg-interaction-handler";
 import { parseMarketplaceCustomId } from "../marketplace";
+import { parseLfgCustomId } from "../lfg";
 
 const DISCORD_INTERACTION_MAX_AGE_SECONDS = 5 * 60;
 
@@ -57,6 +59,14 @@ export async function handleInteractionRequest(
       );
     }
 
+    if (isLfgInteraction(interaction)) {
+      return handleLfgComponentInteraction(
+        interaction,
+        options.stores,
+        options.discordBotToken,
+      );
+    }
+
     return handleMessageComponentInteraction(
       interaction,
       options.stores,
@@ -76,6 +86,14 @@ export async function handleInteractionRequest(
       );
     }
 
+    if (isLfgInteraction(interaction)) {
+      return handleLfgModalSubmitInteraction(
+        interaction,
+        options.stores,
+        options.discordBotToken,
+      );
+    }
+
     return handleTicketModalSubmitInteraction(interaction, options.stores, options.discordBotToken);
   }
 
@@ -89,6 +107,15 @@ function isMarketplaceInteraction(interaction: DiscordInteraction): boolean {
 
   const customId = (interaction.data as { custom_id?: unknown }).custom_id;
   return typeof customId === "string" && parseMarketplaceCustomId(customId) !== null;
+}
+
+function isLfgInteraction(interaction: DiscordInteraction): boolean {
+  if (typeof interaction.data !== "object" || interaction.data === null) {
+    return false;
+  }
+
+  const customId = (interaction.data as { custom_id?: unknown }).custom_id;
+  return typeof customId === "string" && parseLfgCustomId(customId) !== null;
 }
 
 function isFreshDiscordTimestamp(timestamp: string): boolean {

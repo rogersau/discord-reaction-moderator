@@ -12,6 +12,7 @@ export type { AppConfigStore } from "./contracts/app-config-store";
 export type { TimedRoleStore } from "./contracts/timed-role-store";
 export type { TicketStore } from "./contracts/ticket-store";
 export type { MarketplaceStore } from "./contracts/marketplace-store";
+export type { LfgStore } from "./contracts/lfg-store";
 
 export interface GatewaySnapshot {
   status: "idle" | "connecting" | "ready" | "resuming" | "backoff";

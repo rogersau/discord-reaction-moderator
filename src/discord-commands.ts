@@ -1,5 +1,16 @@
 export const SLASH_COMMAND_DEFINITIONS = [
   {
+    name: "lfg",
+    description: "Manage the Looking For Gamers noticeboard",
+    options: [
+      {
+        type: 1,
+        name: "setup",
+        description: "Post or reset the LFG noticeboard in this channel",
+      },
+    ],
+  },
+  {
     name: "blocklist",
     description: "Manage this server's blocked emoji list",
     options: [

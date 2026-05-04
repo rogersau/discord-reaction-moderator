@@ -7,6 +7,8 @@ import type {
   MarketplaceBusinessLog,
   MarketplaceConfig,
   MarketplacePost,
+  LfgConfig,
+  LfgPost,
 } from "../types";
 
 type FetchLike = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
@@ -259,6 +261,79 @@ export function createCloudflareStoreClient(storeStub: { fetch: FetchLike }) {
         storeStub.fetch("https://moderation-store/marketplace/log", {
           method: "POST",
           body: JSON.stringify(log),
+        }),
+      );
+    },
+    async readLfgConfig(guildId: string): Promise<LfgConfig> {
+      return readJson<LfgConfig>(
+        storeStub.fetch(`https://moderation-store/lfg/config?guildId=${encodeURIComponent(guildId)}`),
+      );
+    },
+    async upsertLfgConfig(config: LfgConfig): Promise<void> {
+      await readJsonVoid(
+        storeStub.fetch("https://moderation-store/lfg/config", {
+          method: "POST",
+          body: JSON.stringify(config),
+        }),
+      );
+    },
+    async listLfgPosts(
+      guildId: string,
+      options?: { activeOnly?: boolean; limit?: number },
+    ): Promise<LfgPost[]> {
+      const url = new URL("https://moderation-store/lfg/posts");
+      url.searchParams.set("guildId", guildId);
+      if (options?.activeOnly) url.searchParams.set("activeOnly", "1");
+      if (options?.limit) url.searchParams.set("limit", String(options.limit));
+      return readJson<LfgPost[]>(storeStub.fetch(url));
+    },
+    async readLfgPost(guildId: string, postId: string): Promise<LfgPost | null> {
+      return readJson<LfgPost | null>(
+        storeStub.fetch(
+          `https://moderation-store/lfg/post?guildId=${encodeURIComponent(guildId)}&postId=${encodeURIComponent(postId)}`,
+        ),
+      );
+    },
+    async readActiveLfgPostByOwner(
+      guildId: string,
+      ownerId: string,
+    ): Promise<LfgPost | null> {
+      return readJson<LfgPost | null>(
+        storeStub.fetch(
+          `https://moderation-store/lfg/post/active-by-owner?guildId=${encodeURIComponent(guildId)}&ownerId=${encodeURIComponent(ownerId)}`,
+        ),
+      );
+    },
+    async createLfgPost(post: LfgPost): Promise<void> {
+      await readJsonVoid(
+        storeStub.fetch("https://moderation-store/lfg/post", {
+          method: "POST",
+          body: JSON.stringify(post),
+        }),
+      );
+    },
+    async updateLfgPostMessage(body: {
+      guildId: string;
+      postId: string;
+      messageId: string;
+    }): Promise<void> {
+      await readJsonVoid(
+        storeStub.fetch("https://moderation-store/lfg/post/message", {
+          method: "POST",
+          body: JSON.stringify(body),
+        }),
+      );
+    },
+    async closeLfgPost(body: {
+      guildId: string;
+      postId: string;
+      closedByUserId: string;
+      closedAtMs: number;
+    }): Promise<LfgPost> {
+      return readJson<LfgPost>(
+        storeStub.fetch("https://moderation-store/lfg/post/close", {
+          method: "POST",
+          body: JSON.stringify(body),
         }),
       );
     },

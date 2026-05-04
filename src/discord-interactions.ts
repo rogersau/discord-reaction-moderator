@@ -30,7 +30,8 @@ export type CommandInvocation =
       roleId: string;
     }
   | { commandName: "marketplace"; subcommandName: "setup" }
-  | { commandName: "marketplace"; subcommandName: "logs"; amount: number };
+  | { commandName: "marketplace"; subcommandName: "logs"; amount: number }
+  | { commandName: "lfg"; subcommandName: "setup" };
 
 function getStringOptionValue(options: any[], name: string): string | null {
   const value = options.find((option: any) => option.name === name)?.value;
@@ -81,6 +82,13 @@ export function extractCommandInvocation(invocation: any): CommandInvocation | n
         subcommandName: "logs",
         amount: getIntegerOptionValue(subOptions, "amount") ?? 10,
       };
+    }
+    return null;
+  }
+
+  if (data.name === "lfg") {
+    if (sub.name === "setup") {
+      return { commandName: "lfg", subcommandName: "setup" };
     }
     return null;
   }

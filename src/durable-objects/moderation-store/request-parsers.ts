@@ -6,6 +6,8 @@ import type {
   TicketInstance,
   TicketPanelConfig,
   TimedRoleAssignment,
+  LfgConfig,
+  LfgPost,
 } from "../../types";
 import { normalizeEmoji } from "../../blocklist";
 
@@ -311,6 +313,78 @@ export function parseMarketplaceLog(body: unknown): MarketplaceBusinessLog {
   };
 }
 
+export function parseLfgConfig(body: unknown): LfgConfig {
+  if (!isRecord(body)) {
+    throw new ModerationStoreInputError("Invalid JSON body");
+  }
+
+  return {
+    guildId: asRequiredString(body.guildId, "guildId"),
+    noticeChannelId: asNullableString(body.noticeChannelId, "noticeChannelId"),
+    noticeMessageId: asNullableString(body.noticeMessageId, "noticeMessageId"),
+    serverOptions: parseLfgServerOptions(body.serverOptions),
+    updatedAtMs: asRequiredFiniteNumber(body.updatedAtMs, "updatedAtMs"),
+  };
+}
+
+export function parseLfgPost(body: unknown): LfgPost {
+  if (!isRecord(body)) {
+    throw new ModerationStoreInputError("Invalid JSON body");
+  }
+
+  return {
+    guildId: asRequiredString(body.guildId, "guildId"),
+    id: asRequiredString(body.id, "id"),
+    ownerId: asRequiredString(body.ownerId, "ownerId"),
+    ownerDisplayName: asRequiredString(body.ownerDisplayName, "ownerDisplayName"),
+    serverId: asRequiredString(body.serverId, "serverId"),
+    serverLabel: asRequiredString(body.serverLabel, "serverLabel"),
+    whenPlay: asRequiredString(body.whenPlay, "whenPlay"),
+    lookingFor: asRequiredString(body.lookingFor, "lookingFor"),
+    extraInfo: asString(body.extraInfo, "extraInfo"),
+    channelId: asRequiredString(body.channelId, "channelId"),
+    messageId: asNullableString(body.messageId, "messageId"),
+    active: asBoolean(body.active, "active"),
+    createdAtMs: asRequiredFiniteNumber(body.createdAtMs, "createdAtMs"),
+    closedAtMs: asNullableFiniteNumber(body.closedAtMs, "closedAtMs"),
+    closedByUserId: asNullableString(body.closedByUserId, "closedByUserId"),
+  };
+}
+
+export function parseLfgPostMessage(body: unknown): {
+  guildId: string;
+  postId: string;
+  messageId: string;
+} {
+  if (!isRecord(body)) {
+    throw new ModerationStoreInputError("Invalid JSON body");
+  }
+
+  return {
+    guildId: asRequiredString(body.guildId, "guildId"),
+    postId: asRequiredString(body.postId, "postId"),
+    messageId: asRequiredString(body.messageId, "messageId"),
+  };
+}
+
+export function parseLfgPostClose(body: unknown): {
+  guildId: string;
+  postId: string;
+  closedByUserId: string;
+  closedAtMs: number;
+} {
+  if (!isRecord(body)) {
+    throw new ModerationStoreInputError("Invalid JSON body");
+  }
+
+  return {
+    guildId: asRequiredString(body.guildId, "guildId"),
+    postId: asRequiredString(body.postId, "postId"),
+    closedByUserId: asRequiredString(body.closedByUserId, "closedByUserId"),
+    closedAtMs: asRequiredFiniteNumber(body.closedAtMs, "closedAtMs"),
+  };
+}
+
 export function asRequiredSearchParam(searchParams: URLSearchParams, fieldName: string): string {
   const value = searchParams.get(fieldName);
 
@@ -444,6 +518,34 @@ function parseMarketplaceServerOptions(value: unknown): MarketplaceConfig["serve
   });
 }
 
+function parseLfgServerOptions(value: unknown): LfgConfig["serverOptions"] {
+  if (!Array.isArray(value) || value.length === 0 || value.length > 25) {
+    throw new ModerationStoreInputError("serverOptions must contain 1-25 entries");
+  }
+
+  const seenIds = new Set<string>();
+  return value.map((option, index) => {
+    if (!isRecord(option)) {
+      throw new ModerationStoreInputError(`Invalid serverOptions[${index}]`);
+    }
+
+    const id = asRequiredString(option.id, `serverOptions[${index}].id`);
+    if (!/^[a-z0-9_-]{1,32}$/.test(id)) {
+      throw new ModerationStoreInputError(`Invalid serverOptions[${index}].id`);
+    }
+    if (seenIds.has(id)) {
+      throw new ModerationStoreInputError(`Duplicate serverOptions[${index}].id`);
+    }
+    seenIds.add(id);
+
+    return {
+      id,
+      label: asRequiredString(option.label, `serverOptions[${index}].label`),
+      emoji: asNullableString(option.emoji, `serverOptions[${index}].emoji`),
+    };
+  });
+}
+
 function asMarketplaceTradeType(value: unknown): MarketplacePost["tradeType"] {
   if (value !== "have" && value !== "want") {
     throw new ModerationStoreInputError("Missing tradeType");
@@ -478,6 +580,14 @@ function asNullableFiniteNumber(value: unknown, fieldName: string): number | nul
 
 function asRequiredString(value: unknown, fieldName: string): string {
   if (typeof value !== "string" || value.length === 0) {
+    throw new ModerationStoreInputError(`Missing ${fieldName}`);
+  }
+
+  return value;
+}
+
+function asString(value: unknown, fieldName: string): string {
+  if (typeof value !== "string") {
     throw new ModerationStoreInputError(`Missing ${fieldName}`);
   }
 

@@ -19,6 +19,10 @@ import {
   parseMarketplacePost,
   parseMarketplacePostClose,
   parseMarketplacePostMessage,
+  parseLfgConfig,
+  parseLfgPost,
+  parseLfgPostClose,
+  parseLfgPostMessage,
   asRequiredSearchParam,
 } from "./moderation-store/request-parsers";
 import * as blocklistStore from "./moderation-store/blocklist-store";
@@ -26,6 +30,7 @@ import * as appConfigStore from "./moderation-store/app-config-store";
 import * as timedRoleStore from "./moderation-store/timed-role-store";
 import * as ticketStore from "./moderation-store/ticket-store";
 import * as marketplaceStore from "./moderation-store/marketplace-store";
+import * as lfgStore from "./moderation-store/lfg-store";
 import { buildTimedRoleUpdateMessage } from "../services/moderation-log";
 
 export class ModerationStoreDO implements DurableObject {
@@ -145,6 +150,32 @@ export class ModerationStoreDO implements DurableObject {
         PRIMARY KEY (guild_id, log_id)
       );
       CREATE INDEX IF NOT EXISTS marketplace_logs_by_timestamp ON marketplace_trade_logs(guild_id, timestamp_ms DESC);
+      CREATE TABLE IF NOT EXISTS lfg_configs (
+        guild_id TEXT PRIMARY KEY,
+        notice_channel_id TEXT,
+        notice_message_id TEXT,
+        server_options_json TEXT NOT NULL,
+        updated_at_ms INTEGER NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS lfg_posts (
+        guild_id TEXT NOT NULL,
+        post_id TEXT NOT NULL,
+        owner_id TEXT NOT NULL,
+        owner_display_name TEXT NOT NULL,
+        server_id TEXT NOT NULL,
+        server_label TEXT NOT NULL,
+        when_play TEXT NOT NULL,
+        looking_for TEXT NOT NULL,
+        extra_info TEXT NOT NULL,
+        channel_id TEXT NOT NULL,
+        message_id TEXT,
+        active INTEGER NOT NULL,
+        created_at_ms INTEGER NOT NULL,
+        closed_at_ms INTEGER,
+        closed_by_user_id TEXT,
+        PRIMARY KEY (guild_id, post_id)
+      );
+      CREATE INDEX IF NOT EXISTS lfg_posts_by_owner_active ON lfg_posts(guild_id, owner_id, active);
     `);
 
     this.sql.exec(
@@ -429,6 +460,87 @@ export class ModerationStoreDO implements DurableObject {
         const body = parseMarketplaceLog(await request.json());
         marketplaceStore.createMarketplaceLog(this.sql, body);
         return Response.json({ ok: true });
+      } catch (error) {
+        return this.errorResponse(error);
+      }
+    }
+
+    if (request.method === "GET" && url.pathname === "/lfg/config") {
+      try {
+        const guildId = asRequiredSearchParam(url.searchParams, "guildId");
+        return Response.json(
+          lfgStore.readLfgConfig(this.sql, guildId) ?? lfgStore.defaultLfgConfig(guildId),
+        );
+      } catch (error) {
+        return this.errorResponse(error);
+      }
+    }
+
+    if (request.method === "POST" && url.pathname === "/lfg/config") {
+      try {
+        const body = parseLfgConfig(await request.json());
+        lfgStore.upsertLfgConfig(this.sql, body);
+        return Response.json({ ok: true });
+      } catch (error) {
+        return this.errorResponse(error);
+      }
+    }
+
+    if (request.method === "GET" && url.pathname === "/lfg/posts") {
+      try {
+        const guildId = asRequiredSearchParam(url.searchParams, "guildId");
+        const activeOnly = url.searchParams.get("activeOnly") === "1";
+        const limit = Number.parseInt(url.searchParams.get("limit") ?? "50", 10);
+        return Response.json(lfgStore.listLfgPosts(this.sql, guildId, { activeOnly, limit }));
+      } catch (error) {
+        return this.errorResponse(error);
+      }
+    }
+
+    if (request.method === "GET" && url.pathname === "/lfg/post") {
+      try {
+        const guildId = asRequiredSearchParam(url.searchParams, "guildId");
+        const postId = asRequiredSearchParam(url.searchParams, "postId");
+        return Response.json(lfgStore.readLfgPost(this.sql, guildId, postId));
+      } catch (error) {
+        return this.errorResponse(error);
+      }
+    }
+
+    if (request.method === "GET" && url.pathname === "/lfg/post/active-by-owner") {
+      try {
+        const guildId = asRequiredSearchParam(url.searchParams, "guildId");
+        const ownerId = asRequiredSearchParam(url.searchParams, "ownerId");
+        return Response.json(lfgStore.readActiveLfgPostByOwner(this.sql, guildId, ownerId));
+      } catch (error) {
+        return this.errorResponse(error);
+      }
+    }
+
+    if (request.method === "POST" && url.pathname === "/lfg/post") {
+      try {
+        const body = parseLfgPost(await request.json());
+        lfgStore.createLfgPost(this.sql, body);
+        return Response.json({ ok: true });
+      } catch (error) {
+        return this.errorResponse(error);
+      }
+    }
+
+    if (request.method === "POST" && url.pathname === "/lfg/post/message") {
+      try {
+        const body = parseLfgPostMessage(await request.json());
+        lfgStore.updateLfgPostMessage(this.sql, body);
+        return Response.json({ ok: true });
+      } catch (error) {
+        return this.errorResponse(error);
+      }
+    }
+
+    if (request.method === "POST" && url.pathname === "/lfg/post/close") {
+      try {
+        const body = parseLfgPostClose(await request.json());
+        return Response.json(lfgStore.closeLfgPost(this.sql, body));
       } catch (error) {
         return this.errorResponse(error);
       }
