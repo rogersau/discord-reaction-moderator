@@ -1,13 +1,14 @@
-import { getBlocklistFromStore, isEmojiBlocked, normalizeEmoji } from "./blocklist";
-import { deleteReaction } from "./discord";
-import type { Env } from "./env";
-import type { DiscordReaction } from "./types";
+import { getBlocklistFromStore, isEmojiBlocked, normalizeEmoji } from "../../blocklist";
+import { deleteReaction } from "../../discord";
+import type { Env } from "../../env";
+import type { DiscordReaction } from "../../types";
+import { getCommunityStoreStub } from "../../runtime/community-store-stub";
 
-type ModerationEnv = Pick<Env, "DISCORD_BOT_TOKEN" | "MODERATION_STORE_DO">;
+type BlocklistEnv = Pick<Env, "DISCORD_BOT_TOKEN" | "COMMUNITY_STORE_DO">;
 
 export async function moderateReactionAdd(
   reaction: DiscordReaction | null,
-  env: ModerationEnv,
+  env: BlocklistEnv,
 ): Promise<void> {
   if (!reaction) {
     return;
@@ -27,10 +28,10 @@ export async function moderateReactionAdd(
   let blocklist;
   try {
     blocklist = await getBlocklistFromStore(() =>
-      getModerationStoreStub(env).fetch("https://moderation-store/config"),
+      getCommunityStoreStub(env).fetch("https://community-store/config"),
     );
   } catch (error) {
-    console.error("Failed to load moderation config", error);
+    console.error("Failed to load blocklist config", error);
     return;
   }
 
@@ -57,9 +58,4 @@ export async function moderateReactionAdd(
   } catch (error) {
     console.error("Failed to remove reaction:", error);
   }
-}
-
-export function getModerationStoreStub(env: Pick<Env, "MODERATION_STORE_DO">): DurableObjectStub {
-  const storeId = env.MODERATION_STORE_DO.idFromName("moderation-store");
-  return env.MODERATION_STORE_DO.get(storeId);
 }

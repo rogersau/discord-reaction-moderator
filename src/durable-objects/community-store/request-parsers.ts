@@ -11,7 +11,7 @@ import type {
 } from "../../types";
 import { normalizeEmoji } from "../../blocklist";
 
-export class ModerationStoreInputError extends Error {}
+export class CommunityStoreInputError extends Error {}
 
 export function parseGuildEmojiMutation(body: unknown): {
   guildId: string;
@@ -19,7 +19,7 @@ export function parseGuildEmojiMutation(body: unknown): {
   action: "add" | "remove";
 } {
   if (!isRecord(body)) {
-    throw new ModerationStoreInputError("Invalid JSON body");
+    throw new CommunityStoreInputError("Invalid JSON body");
   }
 
   const guildId = body.guildId;
@@ -32,11 +32,11 @@ export function parseGuildEmojiMutation(body: unknown): {
     !normalizedEmoji ||
     typeof action !== "string"
   ) {
-    throw new ModerationStoreInputError("Missing guildId, emoji or action");
+    throw new CommunityStoreInputError("Missing guildId, emoji or action");
   }
 
   if (action !== "add" && action !== "remove") {
-    throw new ModerationStoreInputError("Invalid action. Use 'add' or 'remove'");
+    throw new CommunityStoreInputError("Invalid action. Use 'add' or 'remove'");
   }
 
   return {
@@ -53,7 +53,7 @@ export function parseAppConfigMutation(body: unknown): { key: string; value: str
     body.key.length === 0 ||
     typeof body.value !== "string"
   ) {
-    throw new ModerationStoreInputError("Missing app config key or value");
+    throw new CommunityStoreInputError("Missing app config key or value");
   }
 
   return {
@@ -64,7 +64,7 @@ export function parseAppConfigMutation(body: unknown): { key: string; value: str
 
 export function parseTimedRoleUpsert(body: unknown): TimedRoleAssignment {
   if (!isRecord(body)) {
-    throw new ModerationStoreInputError("Invalid JSON body");
+    throw new CommunityStoreInputError("Invalid JSON body");
   }
 
   const guildId = asRequiredString(body.guildId, "guildId");
@@ -74,7 +74,7 @@ export function parseTimedRoleUpsert(body: unknown): TimedRoleAssignment {
   const expiresAtMs = body.expiresAtMs;
 
   if (typeof expiresAtMs !== "number" || !Number.isFinite(expiresAtMs)) {
-    throw new ModerationStoreInputError("Missing expiresAtMs");
+    throw new CommunityStoreInputError("Missing expiresAtMs");
   }
 
   return {
@@ -92,7 +92,7 @@ export function parseTimedRoleRemoval(body: unknown): {
   roleId: string;
 } {
   if (!isRecord(body)) {
-    throw new ModerationStoreInputError("Invalid JSON body");
+    throw new CommunityStoreInputError("Invalid JSON body");
   }
 
   return {
@@ -104,7 +104,7 @@ export function parseTimedRoleRemoval(body: unknown): {
 
 export function parseNewMemberTimedRoleConfig(body: unknown): NewMemberTimedRoleConfig {
   if (!isRecord(body)) {
-    throw new ModerationStoreInputError("Invalid JSON body");
+    throw new CommunityStoreInputError("Invalid JSON body");
   }
 
   const roleId = asOptionalNullableString(body.roleId, "roleId");
@@ -122,7 +122,7 @@ export function parseGuildNotificationChannelMutation(body: unknown): {
   notificationChannelId: string | null;
 } {
   if (!isRecord(body)) {
-    throw new ModerationStoreInputError("Invalid JSON body");
+    throw new CommunityStoreInputError("Invalid JSON body");
   }
 
   return {
@@ -136,7 +136,7 @@ export function parseGuildNotificationChannelMutation(body: unknown): {
 
 export function parseTicketPanelConfig(body: unknown): TicketPanelConfig {
   if (!isRecord(body)) {
-    throw new ModerationStoreInputError("Invalid JSON body");
+    throw new CommunityStoreInputError("Invalid JSON body");
   }
 
   return {
@@ -155,7 +155,7 @@ export function parseTicketPanelConfig(body: unknown): TicketPanelConfig {
 
 export function parseTicketInstance(body: unknown): TicketInstance {
   if (!isRecord(body)) {
-    throw new ModerationStoreInputError("Invalid JSON body");
+    throw new CommunityStoreInputError("Invalid JSON body");
   }
 
   return {
@@ -182,7 +182,7 @@ export function parseTicketCloseRequest(body: unknown): {
   transcriptMessageId: string | null;
 } {
   if (!isRecord(body)) {
-    throw new ModerationStoreInputError("Invalid JSON body");
+    throw new CommunityStoreInputError("Invalid JSON body");
   }
 
   return {
@@ -196,7 +196,7 @@ export function parseTicketCloseRequest(body: unknown): {
 
 export function parseTicketDeleteRequest(body: unknown): { guildId: string; channelId: string } {
   if (!isRecord(body)) {
-    throw new ModerationStoreInputError("Invalid JSON body");
+    throw new CommunityStoreInputError("Invalid JSON body");
   }
 
   return {
@@ -207,7 +207,7 @@ export function parseTicketDeleteRequest(body: unknown): { guildId: string; chan
 
 export function parseGuildIdRequest(body: unknown): { guildId: string } {
   if (!isRecord(body)) {
-    throw new ModerationStoreInputError("Invalid JSON body");
+    throw new CommunityStoreInputError("Invalid JSON body");
   }
 
   return {
@@ -217,7 +217,7 @@ export function parseGuildIdRequest(body: unknown): { guildId: string } {
 
 export function parseMarketplaceConfig(body: unknown): MarketplaceConfig {
   if (!isRecord(body)) {
-    throw new ModerationStoreInputError("Invalid JSON body");
+    throw new CommunityStoreInputError("Invalid JSON body");
   }
 
   return {
@@ -232,7 +232,7 @@ export function parseMarketplaceConfig(body: unknown): MarketplaceConfig {
 
 export function parseMarketplacePost(body: unknown): MarketplacePost {
   if (!isRecord(body)) {
-    throw new ModerationStoreInputError("Invalid JSON body");
+    throw new CommunityStoreInputError("Invalid JSON body");
   }
 
   return {
@@ -261,7 +261,7 @@ export function parseMarketplacePostMessage(body: unknown): {
   messageId: string;
 } {
   if (!isRecord(body)) {
-    throw new ModerationStoreInputError("Invalid JSON body");
+    throw new CommunityStoreInputError("Invalid JSON body");
   }
 
   return {
@@ -278,7 +278,7 @@ export function parseMarketplacePostClose(body: unknown): {
   closedAtMs: number;
 } {
   if (!isRecord(body)) {
-    throw new ModerationStoreInputError("Invalid JSON body");
+    throw new CommunityStoreInputError("Invalid JSON body");
   }
 
   return {
@@ -291,7 +291,7 @@ export function parseMarketplacePostClose(body: unknown): {
 
 export function parseMarketplaceLog(body: unknown): MarketplaceBusinessLog {
   if (!isRecord(body)) {
-    throw new ModerationStoreInputError("Invalid JSON body");
+    throw new CommunityStoreInputError("Invalid JSON body");
   }
 
   return {
@@ -315,7 +315,7 @@ export function parseMarketplaceLog(body: unknown): MarketplaceBusinessLog {
 
 export function parseLfgConfig(body: unknown): LfgConfig {
   if (!isRecord(body)) {
-    throw new ModerationStoreInputError("Invalid JSON body");
+    throw new CommunityStoreInputError("Invalid JSON body");
   }
 
   return {
@@ -329,7 +329,7 @@ export function parseLfgConfig(body: unknown): LfgConfig {
 
 export function parseLfgPost(body: unknown): LfgPost {
   if (!isRecord(body)) {
-    throw new ModerationStoreInputError("Invalid JSON body");
+    throw new CommunityStoreInputError("Invalid JSON body");
   }
 
   return {
@@ -357,7 +357,7 @@ export function parseLfgPostMessage(body: unknown): {
   messageId: string;
 } {
   if (!isRecord(body)) {
-    throw new ModerationStoreInputError("Invalid JSON body");
+    throw new CommunityStoreInputError("Invalid JSON body");
   }
 
   return {
@@ -374,7 +374,7 @@ export function parseLfgPostClose(body: unknown): {
   closedAtMs: number;
 } {
   if (!isRecord(body)) {
-    throw new ModerationStoreInputError("Invalid JSON body");
+    throw new CommunityStoreInputError("Invalid JSON body");
   }
 
   return {
@@ -389,7 +389,7 @@ export function asRequiredSearchParam(searchParams: URLSearchParams, fieldName: 
   const value = searchParams.get(fieldName);
 
   if (typeof value !== "string" || value.length === 0) {
-    throw new ModerationStoreInputError(`Missing ${fieldName}`);
+    throw new CommunityStoreInputError(`Missing ${fieldName}`);
   }
 
   return value;
@@ -397,18 +397,18 @@ export function asRequiredSearchParam(searchParams: URLSearchParams, fieldName: 
 
 function parseTicketTypes(value: unknown): TicketPanelConfig["ticketTypes"] {
   if (!Array.isArray(value)) {
-    throw new ModerationStoreInputError("Missing ticketTypes");
+    throw new CommunityStoreInputError("Missing ticketTypes");
   }
 
   const seenIds = new Set<string>();
   return value.map((ticketType, index) => {
     if (!isRecord(ticketType)) {
-      throw new ModerationStoreInputError(`Invalid ticketTypes[${index}]`);
+      throw new CommunityStoreInputError(`Invalid ticketTypes[${index}]`);
     }
 
     const id = asRequiredString(ticketType.id, `ticketTypes[${index}].id`);
     if (seenIds.has(id)) {
-      throw new ModerationStoreInputError(`Duplicate ticketTypes[${index}].id`);
+      throw new CommunityStoreInputError(`Duplicate ticketTypes[${index}].id`);
     }
     seenIds.add(id);
 
@@ -435,17 +435,17 @@ function parseTicketQuestions(
   ticketTypeIndex: number,
 ): TicketPanelConfig["ticketTypes"][number]["questions"] {
   if (!Array.isArray(value)) {
-    throw new ModerationStoreInputError(`Missing ticketTypes[${ticketTypeIndex}].questions`);
+    throw new CommunityStoreInputError(`Missing ticketTypes[${ticketTypeIndex}].questions`);
   }
   if (value.length > 5) {
-    throw new ModerationStoreInputError(
+    throw new CommunityStoreInputError(
       `ticketTypes[${ticketTypeIndex}].questions cannot exceed 5 entries`,
     );
   }
 
   return value.map((question, questionIndex) => {
     if (!isRecord(question)) {
-      throw new ModerationStoreInputError(
+      throw new CommunityStoreInputError(
         `Invalid ticketTypes[${ticketTypeIndex}].questions[${questionIndex}]`,
       );
     }
@@ -474,12 +474,12 @@ function parseTicketQuestions(
 
 function parseTicketAnswers(value: unknown): TicketInstance["answers"] {
   if (!Array.isArray(value)) {
-    throw new ModerationStoreInputError("Missing answers");
+    throw new CommunityStoreInputError("Missing answers");
   }
 
   return value.map((answer, index) => {
     if (!isRecord(answer)) {
-      throw new ModerationStoreInputError(`Invalid answers[${index}]`);
+      throw new CommunityStoreInputError(`Invalid answers[${index}]`);
     }
 
     return {
@@ -492,21 +492,21 @@ function parseTicketAnswers(value: unknown): TicketInstance["answers"] {
 
 function parseMarketplaceServerOptions(value: unknown): MarketplaceConfig["serverOptions"] {
   if (!Array.isArray(value) || value.length === 0 || value.length > 25) {
-    throw new ModerationStoreInputError("serverOptions must contain 1-25 entries");
+    throw new CommunityStoreInputError("serverOptions must contain 1-25 entries");
   }
 
   const seenIds = new Set<string>();
   return value.map((option, index) => {
     if (!isRecord(option)) {
-      throw new ModerationStoreInputError(`Invalid serverOptions[${index}]`);
+      throw new CommunityStoreInputError(`Invalid serverOptions[${index}]`);
     }
 
     const id = asRequiredString(option.id, `serverOptions[${index}].id`);
     if (!/^[a-z0-9_-]{1,32}$/.test(id)) {
-      throw new ModerationStoreInputError(`Invalid serverOptions[${index}].id`);
+      throw new CommunityStoreInputError(`Invalid serverOptions[${index}].id`);
     }
     if (seenIds.has(id)) {
-      throw new ModerationStoreInputError(`Duplicate serverOptions[${index}].id`);
+      throw new CommunityStoreInputError(`Duplicate serverOptions[${index}].id`);
     }
     seenIds.add(id);
 
@@ -520,21 +520,21 @@ function parseMarketplaceServerOptions(value: unknown): MarketplaceConfig["serve
 
 function parseLfgServerOptions(value: unknown): LfgConfig["serverOptions"] {
   if (!Array.isArray(value) || value.length === 0 || value.length > 25) {
-    throw new ModerationStoreInputError("serverOptions must contain 1-25 entries");
+    throw new CommunityStoreInputError("serverOptions must contain 1-25 entries");
   }
 
   const seenIds = new Set<string>();
   return value.map((option, index) => {
     if (!isRecord(option)) {
-      throw new ModerationStoreInputError(`Invalid serverOptions[${index}]`);
+      throw new CommunityStoreInputError(`Invalid serverOptions[${index}]`);
     }
 
     const id = asRequiredString(option.id, `serverOptions[${index}].id`);
     if (!/^[a-z0-9_-]{1,32}$/.test(id)) {
-      throw new ModerationStoreInputError(`Invalid serverOptions[${index}].id`);
+      throw new CommunityStoreInputError(`Invalid serverOptions[${index}].id`);
     }
     if (seenIds.has(id)) {
-      throw new ModerationStoreInputError(`Duplicate serverOptions[${index}].id`);
+      throw new CommunityStoreInputError(`Duplicate serverOptions[${index}].id`);
     }
     seenIds.add(id);
 
@@ -548,7 +548,7 @@ function parseLfgServerOptions(value: unknown): LfgConfig["serverOptions"] {
 
 function asMarketplaceTradeType(value: unknown): MarketplacePost["tradeType"] {
   if (value !== "have" && value !== "want") {
-    throw new ModerationStoreInputError("Missing tradeType");
+    throw new CommunityStoreInputError("Missing tradeType");
   }
 
   return value;
@@ -560,7 +560,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function asRequiredFiniteNumber(value: unknown, fieldName: string): number {
   if (typeof value !== "number" || !Number.isFinite(value)) {
-    throw new ModerationStoreInputError(`Missing ${fieldName}`);
+    throw new CommunityStoreInputError(`Missing ${fieldName}`);
   }
 
   return value;
@@ -572,7 +572,7 @@ function asNullableFiniteNumber(value: unknown, fieldName: string): number | nul
   }
 
   if (typeof value !== "number" || !Number.isFinite(value)) {
-    throw new ModerationStoreInputError(`Missing ${fieldName}`);
+    throw new CommunityStoreInputError(`Missing ${fieldName}`);
   }
 
   return value;
@@ -580,7 +580,7 @@ function asNullableFiniteNumber(value: unknown, fieldName: string): number | nul
 
 function asRequiredString(value: unknown, fieldName: string): string {
   if (typeof value !== "string" || value.length === 0) {
-    throw new ModerationStoreInputError(`Missing ${fieldName}`);
+    throw new CommunityStoreInputError(`Missing ${fieldName}`);
   }
 
   return value;
@@ -588,7 +588,7 @@ function asRequiredString(value: unknown, fieldName: string): string {
 
 function asString(value: unknown, fieldName: string): string {
   if (typeof value !== "string") {
-    throw new ModerationStoreInputError(`Missing ${fieldName}`);
+    throw new CommunityStoreInputError(`Missing ${fieldName}`);
   }
 
   return value;
@@ -604,7 +604,7 @@ function asNullableString(value: unknown, fieldName: string): string | null {
   }
 
   if (typeof value !== "string" || value.length === 0) {
-    throw new ModerationStoreInputError(`Missing ${fieldName}`);
+    throw new CommunityStoreInputError(`Missing ${fieldName}`);
   }
 
   return value;
@@ -621,7 +621,7 @@ function asOptionalNullableString(value: unknown, fieldName: string): string | n
 
 function asBoolean(value: unknown, fieldName: string): boolean {
   if (typeof value !== "boolean") {
-    throw new ModerationStoreInputError(`Missing ${fieldName}`);
+    throw new CommunityStoreInputError(`Missing ${fieldName}`);
   }
 
   return value;
@@ -629,7 +629,7 @@ function asBoolean(value: unknown, fieldName: string): boolean {
 
 function asTicketStatus(value: unknown): TicketInstance["status"] {
   if (value !== "open" && value !== "closed") {
-    throw new ModerationStoreInputError("Missing status");
+    throw new CommunityStoreInputError("Missing status");
   }
 
   return value;
@@ -639,7 +639,7 @@ function asTicketButtonStyle(
   value: unknown,
 ): TicketPanelConfig["ticketTypes"][number]["buttonStyle"] {
   if (value !== "primary" && value !== "secondary" && value !== "success" && value !== "danger") {
-    throw new ModerationStoreInputError("Missing buttonStyle");
+    throw new CommunityStoreInputError("Missing buttonStyle");
   }
 
   return value;
@@ -649,7 +649,7 @@ function asTicketQuestionStyle(
   value: unknown,
 ): TicketPanelConfig["ticketTypes"][number]["questions"][number]["style"] {
   if (value !== "short" && value !== "paragraph") {
-    throw new ModerationStoreInputError("Missing style");
+    throw new CommunityStoreInputError("Missing style");
   }
 
   return value;

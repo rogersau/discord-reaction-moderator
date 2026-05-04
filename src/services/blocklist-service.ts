@@ -3,11 +3,11 @@ import { applyGuildEmojiMutation as applyGuildEmojiMutationWorkflow } from "./bl
 import { getGuildBlocklist as getGuildBlocklistWorkflow } from "./blocklist/get-guild-blocklist";
 import {
   buildBlocklistUpdateMessage,
-  postGuildModerationUpdate,
+  postGuildActivityUpdate,
   type ChannelMessageSender,
   type GuildNotificationChannelStore,
-  type ModerationActionActor,
-} from "./moderation-log";
+  type ActionActor,
+} from "./activity-log";
 
 export interface BlocklistMutation {
   guildId: string;
@@ -54,14 +54,14 @@ export class BlocklistService {
   async addEmoji(
     guildId: string,
     emoji: string,
-    actor?: ModerationActionActor,
+    actor?: ActionActor,
   ): Promise<{ alreadyBlocked: boolean }> {
     const guildConfig = await this.getGuildBlocklist(guildId);
     const isAlreadyBlocked = guildConfig.emojis.includes(emoji);
 
     if (!isAlreadyBlocked) {
       await this.applyMutation({ guildId, emoji, action: "add" });
-      await postGuildModerationUpdate(
+      await postGuildActivityUpdate(
         this.store,
         this.sendChannelMessage,
         guildId,
@@ -75,14 +75,14 @@ export class BlocklistService {
   async removeEmoji(
     guildId: string,
     emoji: string,
-    actor?: ModerationActionActor,
+    actor?: ActionActor,
   ): Promise<{ wasBlocked: boolean }> {
     const guildConfig = await this.getGuildBlocklist(guildId);
     const isBlocked = guildConfig.emojis.includes(emoji);
 
     if (isBlocked) {
       await this.applyMutation({ guildId, emoji, action: "remove" });
-      await postGuildModerationUpdate(
+      await postGuildActivityUpdate(
         this.store,
         this.sendChannelMessage,
         guildId,

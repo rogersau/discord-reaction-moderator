@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 // @ts-ignore -- Runtime tests compile under tsconfig.tests.json.
 import test from "node:test";
 
-import { parseLfgPost } from "../src/durable-objects/moderation-store/request-parsers";
+import { parseLfgPost } from "../src/durable-objects/community-store/request-parsers";
 
 test("parseLfgPost accepts blank extra info for optional modal submissions", () => {
   const post = parseLfgPost({

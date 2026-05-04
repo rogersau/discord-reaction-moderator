@@ -244,9 +244,9 @@ function createEnv(options?: {
     ADMIN_AUTH_SECRET: options?.ADMIN_AUTH_SECRET,
     ADMIN_UI_PASSWORD: options?.ADMIN_UI_PASSWORD,
     ADMIN_SESSION_SECRET: options?.ADMIN_SESSION_SECRET,
-    MODERATION_STORE_DO: {
+    COMMUNITY_STORE_DO: {
       idFromName() {
-        return "moderation-store-id" as never;
+        return "community-store-id" as never;
       },
       get() {
         return {

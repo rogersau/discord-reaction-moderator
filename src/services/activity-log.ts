@@ -9,7 +9,7 @@ export interface GuildNotificationChannelStore {
   }): Promise<void>;
 }
 
-export interface ModerationActionActor {
+export interface ActionActor {
   label: string;
   userId?: string;
 }
@@ -22,7 +22,7 @@ export type ChannelMessageSender = (
 export function buildBlocklistUpdateMessage(input: {
   action: "add" | "remove";
   emoji: string;
-  actor?: ModerationActionActor;
+  actor?: ActionActor;
 }): CreateChannelMessageInput {
   return {
     content: `🧱 Blocklist update by ${formatActor(input.actor)}: ${input.action === "add" ? "blocked" : "unblocked"} ${input.emoji}.`,
@@ -34,7 +34,7 @@ export function buildTimedRoleUpdateMessage(
   input:
     | {
         action: "add";
-        actor?: ModerationActionActor;
+        actor?: ActionActor;
         userId: string;
         roleId: string;
         durationInput: string;
@@ -42,7 +42,7 @@ export function buildTimedRoleUpdateMessage(
       }
     | {
         action: "remove";
-        actor?: ModerationActionActor;
+        actor?: ActionActor;
         userId: string;
         roleId: string;
       }
@@ -74,7 +74,7 @@ export function buildTimedRoleUpdateMessage(
   };
 }
 
-export async function postGuildModerationUpdate(
+export async function postGuildActivityUpdate(
   store: Partial<GuildNotificationChannelStore>,
   sendChannelMessage: ChannelMessageSender | undefined,
   guildId: string,
@@ -93,11 +93,11 @@ export async function postGuildModerationUpdate(
 
     await sendChannelMessage(notificationChannelId, body);
   } catch (error) {
-    console.error("Failed to post moderation update", error);
+    console.error("Failed to post activity update", error);
   }
 }
 
-function formatActor(actor?: ModerationActionActor): string {
+function formatActor(actor?: ActionActor): string {
   if (actor?.userId) {
     return `<@${actor.userId}>`;
   }

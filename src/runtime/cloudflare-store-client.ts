@@ -16,12 +16,12 @@ type FetchLike = (input: RequestInfo | URL, init?: RequestInit) => Promise<Respo
 export function createCloudflareStoreClient(storeStub: { fetch: FetchLike }) {
   return {
     async readConfig(): Promise<BlocklistConfig> {
-      return readJson<BlocklistConfig>(storeStub.fetch("https://moderation-store/config"));
+      return readJson<BlocklistConfig>(storeStub.fetch("https://community-store/config"));
     },
     async readGuildNotificationChannel(guildId: string): Promise<string | null> {
       const response = await readJson<{ notificationChannelId: string | null }>(
         storeStub.fetch(
-          `https://moderation-store/guild-notification-channel?guildId=${encodeURIComponent(guildId)}`,
+          `https://community-store/guild-notification-channel?guildId=${encodeURIComponent(guildId)}`,
         ),
       );
 
@@ -32,7 +32,7 @@ export function createCloudflareStoreClient(storeStub: { fetch: FetchLike }) {
       notificationChannelId: string | null;
     }): Promise<void> {
       await readJsonVoid(
-        storeStub.fetch("https://moderation-store/guild-notification-channel", {
+        storeStub.fetch("https://community-store/guild-notification-channel", {
           method: "POST",
           body: JSON.stringify(body),
         }),
@@ -44,7 +44,7 @@ export function createCloudflareStoreClient(storeStub: { fetch: FetchLike }) {
       action: "add" | "remove";
     }): Promise<BlocklistConfig> {
       return readJson<BlocklistConfig>(
-        storeStub.fetch("https://moderation-store/guild-emoji", {
+        storeStub.fetch("https://community-store/guild-emoji", {
           method: "POST",
           body: JSON.stringify(body),
         }),
@@ -52,7 +52,7 @@ export function createCloudflareStoreClient(storeStub: { fetch: FetchLike }) {
     },
     async upsertAppConfig(body: { key: string; value: string }): Promise<void> {
       await readJsonVoid(
-        storeStub.fetch("https://moderation-store/app-config", {
+        storeStub.fetch("https://community-store/app-config", {
           method: "POST",
           body: JSON.stringify(body),
         }),
@@ -60,7 +60,7 @@ export function createCloudflareStoreClient(storeStub: { fetch: FetchLike }) {
     },
     async reserveNextTicketNumber(guildId: string): Promise<number> {
       const response = await readJson<{ ticketNumber: number }>(
-        storeStub.fetch("https://moderation-store/ticket-number/next", {
+        storeStub.fetch("https://community-store/ticket-number/next", {
           method: "POST",
           body: JSON.stringify({ guildId }),
         }),
@@ -70,13 +70,13 @@ export function createCloudflareStoreClient(storeStub: { fetch: FetchLike }) {
     async readTicketPanelConfig(guildId: string): Promise<TicketPanelConfig | null> {
       return readJson<TicketPanelConfig | null>(
         storeStub.fetch(
-          `https://moderation-store/ticket-panel?guildId=${encodeURIComponent(guildId)}`,
+          `https://community-store/ticket-panel?guildId=${encodeURIComponent(guildId)}`,
         ),
       );
     },
     async upsertTicketPanelConfig(panel: TicketPanelConfig): Promise<void> {
       await readJsonVoid(
-        storeStub.fetch("https://moderation-store/ticket-panel", {
+        storeStub.fetch("https://community-store/ticket-panel", {
           method: "POST",
           body: JSON.stringify(panel),
         }),
@@ -84,7 +84,7 @@ export function createCloudflareStoreClient(storeStub: { fetch: FetchLike }) {
     },
     async createTicketInstance(instance: TicketInstance): Promise<void> {
       await readJsonVoid(
-        storeStub.fetch("https://moderation-store/ticket-instance", {
+        storeStub.fetch("https://community-store/ticket-instance", {
           method: "POST",
           body: JSON.stringify(instance),
         }),
@@ -92,7 +92,7 @@ export function createCloudflareStoreClient(storeStub: { fetch: FetchLike }) {
     },
     async deleteTicketInstance(body: { guildId: string; channelId: string }): Promise<void> {
       await readJsonVoid(
-        storeStub.fetch("https://moderation-store/ticket-instance/delete", {
+        storeStub.fetch("https://community-store/ticket-instance/delete", {
           method: "POST",
           body: JSON.stringify(body),
         }),
@@ -104,7 +104,7 @@ export function createCloudflareStoreClient(storeStub: { fetch: FetchLike }) {
     ): Promise<TicketInstance | null> {
       return readJson<TicketInstance | null>(
         storeStub.fetch(
-          `https://moderation-store/ticket-instance/open?guildId=${encodeURIComponent(guildId)}&channelId=${encodeURIComponent(channelId)}`,
+          `https://community-store/ticket-instance/open?guildId=${encodeURIComponent(guildId)}&channelId=${encodeURIComponent(channelId)}`,
         ),
       );
     },
@@ -116,7 +116,7 @@ export function createCloudflareStoreClient(storeStub: { fetch: FetchLike }) {
       transcriptMessageId: string | null;
     }): Promise<void> {
       await readJsonVoid(
-        storeStub.fetch("https://moderation-store/ticket-instance/close", {
+        storeStub.fetch("https://community-store/ticket-instance/close", {
           method: "POST",
           body: JSON.stringify(body),
         }),
@@ -124,13 +124,13 @@ export function createCloudflareStoreClient(storeStub: { fetch: FetchLike }) {
     },
     async listTimedRoles(): Promise<TimedRoleAssignment[]> {
       return readJson<TimedRoleAssignment[]>(
-        storeStub.fetch("https://moderation-store/timed-roles"),
+        storeStub.fetch("https://community-store/timed-roles"),
       );
     },
     async listTimedRolesByGuild(guildId: string): Promise<TimedRoleAssignment[]> {
       return readJson<TimedRoleAssignment[]>(
         storeStub.fetch(
-          `https://moderation-store/timed-roles?guildId=${encodeURIComponent(guildId)}`,
+          `https://community-store/timed-roles?guildId=${encodeURIComponent(guildId)}`,
         ),
       );
     },
@@ -142,7 +142,7 @@ export function createCloudflareStoreClient(storeStub: { fetch: FetchLike }) {
       expiresAtMs: number;
     }): Promise<void> {
       await readJsonVoid(
-        storeStub.fetch("https://moderation-store/timed-role", {
+        storeStub.fetch("https://community-store/timed-role", {
           method: "POST",
           body: JSON.stringify(body),
         }),
@@ -154,7 +154,7 @@ export function createCloudflareStoreClient(storeStub: { fetch: FetchLike }) {
       roleId: string;
     }): Promise<void> {
       await readJsonVoid(
-        storeStub.fetch("https://moderation-store/timed-role/remove", {
+        storeStub.fetch("https://community-store/timed-role/remove", {
           method: "POST",
           body: JSON.stringify(body),
         }),
@@ -163,13 +163,13 @@ export function createCloudflareStoreClient(storeStub: { fetch: FetchLike }) {
     async readNewMemberTimedRoleConfig(guildId: string): Promise<NewMemberTimedRoleConfig> {
       return readJson<NewMemberTimedRoleConfig>(
         storeStub.fetch(
-          `https://moderation-store/timed-role/new-member-config?guildId=${encodeURIComponent(guildId)}`,
+          `https://community-store/timed-role/new-member-config?guildId=${encodeURIComponent(guildId)}`,
         ),
       );
     },
     async upsertNewMemberTimedRoleConfig(body: NewMemberTimedRoleConfig): Promise<void> {
       await readJsonVoid(
-        storeStub.fetch("https://moderation-store/timed-role/new-member-config", {
+        storeStub.fetch("https://community-store/timed-role/new-member-config", {
           method: "POST",
           body: JSON.stringify(body),
         }),
@@ -178,13 +178,13 @@ export function createCloudflareStoreClient(storeStub: { fetch: FetchLike }) {
     async readMarketplaceConfig(guildId: string): Promise<MarketplaceConfig> {
       return readJson<MarketplaceConfig>(
         storeStub.fetch(
-          `https://moderation-store/marketplace/config?guildId=${encodeURIComponent(guildId)}`,
+          `https://community-store/marketplace/config?guildId=${encodeURIComponent(guildId)}`,
         ),
       );
     },
     async upsertMarketplaceConfig(config: MarketplaceConfig): Promise<void> {
       await readJsonVoid(
-        storeStub.fetch("https://moderation-store/marketplace/config", {
+        storeStub.fetch("https://community-store/marketplace/config", {
           method: "POST",
           body: JSON.stringify(config),
         }),
@@ -194,7 +194,7 @@ export function createCloudflareStoreClient(storeStub: { fetch: FetchLike }) {
       guildId: string,
       options?: { activeOnly?: boolean; limit?: number },
     ): Promise<MarketplacePost[]> {
-      const url = new URL("https://moderation-store/marketplace/posts");
+      const url = new URL("https://community-store/marketplace/posts");
       url.searchParams.set("guildId", guildId);
       if (options?.activeOnly) url.searchParams.set("activeOnly", "1");
       if (options?.limit) url.searchParams.set("limit", String(options.limit));
@@ -203,7 +203,7 @@ export function createCloudflareStoreClient(storeStub: { fetch: FetchLike }) {
     async readMarketplacePost(guildId: string, postId: string): Promise<MarketplacePost | null> {
       return readJson<MarketplacePost | null>(
         storeStub.fetch(
-          `https://moderation-store/marketplace/post?guildId=${encodeURIComponent(guildId)}&postId=${encodeURIComponent(postId)}`,
+          `https://community-store/marketplace/post?guildId=${encodeURIComponent(guildId)}&postId=${encodeURIComponent(postId)}`,
         ),
       );
     },
@@ -213,13 +213,13 @@ export function createCloudflareStoreClient(storeStub: { fetch: FetchLike }) {
     ): Promise<MarketplacePost | null> {
       return readJson<MarketplacePost | null>(
         storeStub.fetch(
-          `https://moderation-store/marketplace/post/active-by-owner?guildId=${encodeURIComponent(guildId)}&ownerId=${encodeURIComponent(ownerId)}`,
+          `https://community-store/marketplace/post/active-by-owner?guildId=${encodeURIComponent(guildId)}&ownerId=${encodeURIComponent(ownerId)}`,
         ),
       );
     },
     async createMarketplacePost(post: MarketplacePost): Promise<void> {
       await readJsonVoid(
-        storeStub.fetch("https://moderation-store/marketplace/post", {
+        storeStub.fetch("https://community-store/marketplace/post", {
           method: "POST",
           body: JSON.stringify(post),
         }),
@@ -231,7 +231,7 @@ export function createCloudflareStoreClient(storeStub: { fetch: FetchLike }) {
       messageId: string;
     }): Promise<void> {
       await readJsonVoid(
-        storeStub.fetch("https://moderation-store/marketplace/post/message", {
+        storeStub.fetch("https://community-store/marketplace/post/message", {
           method: "POST",
           body: JSON.stringify(body),
         }),
@@ -244,21 +244,21 @@ export function createCloudflareStoreClient(storeStub: { fetch: FetchLike }) {
       closedAtMs: number;
     }): Promise<MarketplacePost> {
       return readJson<MarketplacePost>(
-        storeStub.fetch("https://moderation-store/marketplace/post/close", {
+        storeStub.fetch("https://community-store/marketplace/post/close", {
           method: "POST",
           body: JSON.stringify(body),
         }),
       );
     },
     async listMarketplaceLogs(guildId: string, limit?: number): Promise<MarketplaceBusinessLog[]> {
-      const url = new URL("https://moderation-store/marketplace/logs");
+      const url = new URL("https://community-store/marketplace/logs");
       url.searchParams.set("guildId", guildId);
       if (limit) url.searchParams.set("limit", String(limit));
       return readJson<MarketplaceBusinessLog[]>(storeStub.fetch(url));
     },
     async createMarketplaceLog(log: MarketplaceBusinessLog): Promise<void> {
       await readJsonVoid(
-        storeStub.fetch("https://moderation-store/marketplace/log", {
+        storeStub.fetch("https://community-store/marketplace/log", {
           method: "POST",
           body: JSON.stringify(log),
         }),
@@ -266,12 +266,12 @@ export function createCloudflareStoreClient(storeStub: { fetch: FetchLike }) {
     },
     async readLfgConfig(guildId: string): Promise<LfgConfig> {
       return readJson<LfgConfig>(
-        storeStub.fetch(`https://moderation-store/lfg/config?guildId=${encodeURIComponent(guildId)}`),
+        storeStub.fetch(`https://community-store/lfg/config?guildId=${encodeURIComponent(guildId)}`),
       );
     },
     async upsertLfgConfig(config: LfgConfig): Promise<void> {
       await readJsonVoid(
-        storeStub.fetch("https://moderation-store/lfg/config", {
+        storeStub.fetch("https://community-store/lfg/config", {
           method: "POST",
           body: JSON.stringify(config),
         }),
@@ -281,7 +281,7 @@ export function createCloudflareStoreClient(storeStub: { fetch: FetchLike }) {
       guildId: string,
       options?: { activeOnly?: boolean; limit?: number },
     ): Promise<LfgPost[]> {
-      const url = new URL("https://moderation-store/lfg/posts");
+      const url = new URL("https://community-store/lfg/posts");
       url.searchParams.set("guildId", guildId);
       if (options?.activeOnly) url.searchParams.set("activeOnly", "1");
       if (options?.limit) url.searchParams.set("limit", String(options.limit));
@@ -290,7 +290,7 @@ export function createCloudflareStoreClient(storeStub: { fetch: FetchLike }) {
     async readLfgPost(guildId: string, postId: string): Promise<LfgPost | null> {
       return readJson<LfgPost | null>(
         storeStub.fetch(
-          `https://moderation-store/lfg/post?guildId=${encodeURIComponent(guildId)}&postId=${encodeURIComponent(postId)}`,
+          `https://community-store/lfg/post?guildId=${encodeURIComponent(guildId)}&postId=${encodeURIComponent(postId)}`,
         ),
       );
     },
@@ -300,13 +300,13 @@ export function createCloudflareStoreClient(storeStub: { fetch: FetchLike }) {
     ): Promise<LfgPost | null> {
       return readJson<LfgPost | null>(
         storeStub.fetch(
-          `https://moderation-store/lfg/post/active-by-owner?guildId=${encodeURIComponent(guildId)}&ownerId=${encodeURIComponent(ownerId)}`,
+          `https://community-store/lfg/post/active-by-owner?guildId=${encodeURIComponent(guildId)}&ownerId=${encodeURIComponent(ownerId)}`,
         ),
       );
     },
     async createLfgPost(post: LfgPost): Promise<void> {
       await readJsonVoid(
-        storeStub.fetch("https://moderation-store/lfg/post", {
+        storeStub.fetch("https://community-store/lfg/post", {
           method: "POST",
           body: JSON.stringify(post),
         }),
@@ -318,7 +318,7 @@ export function createCloudflareStoreClient(storeStub: { fetch: FetchLike }) {
       messageId: string;
     }): Promise<void> {
       await readJsonVoid(
-        storeStub.fetch("https://moderation-store/lfg/post/message", {
+        storeStub.fetch("https://community-store/lfg/post/message", {
           method: "POST",
           body: JSON.stringify(body),
         }),
@@ -331,7 +331,7 @@ export function createCloudflareStoreClient(storeStub: { fetch: FetchLike }) {
       closedAtMs: number;
     }): Promise<LfgPost> {
       return readJson<LfgPost>(
-        storeStub.fetch("https://moderation-store/lfg/post/close", {
+        storeStub.fetch("https://community-store/lfg/post/close", {
           method: "POST",
           body: JSON.stringify(body),
         }),

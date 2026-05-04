@@ -137,7 +137,7 @@ function TimedRolesEditor({ selectedGuildId }: { selectedGuildId: string }) {
     setMessage(null);
     setError(null);
 
-    const response = await fetch("/admin/api/moderation-log-channel", {
+    const response = await fetch("/admin/api/activity-log-channel", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({

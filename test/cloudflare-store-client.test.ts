@@ -26,9 +26,9 @@ test("createCloudflareStoreClient uses typed methods instead of exposing raw fet
   await storeClient.applyGuildEmojiMutation({ guildId: "guild-1", emoji: "✅", action: "add" });
 
   assert.deepEqual(requests, [
-    { url: "https://moderation-store/config", method: "GET", body: null },
+    { url: "https://community-store/config", method: "GET", body: null },
     {
-      url: "https://moderation-store/guild-emoji",
+      url: "https://community-store/guild-emoji",
       method: "POST",
       body: JSON.stringify({ guildId: "guild-1", emoji: "✅", action: "add" }),
     },
@@ -52,7 +52,7 @@ test("createCloudflareStoreClient.upsertAppConfig sends POST to /app-config", as
 
   assert.deepEqual(requests, [
     {
-      url: "https://moderation-store/app-config",
+      url: "https://community-store/app-config",
       method: "POST",
       body: JSON.stringify({ key: "server_name", value: "My Server" }),
     },
@@ -77,7 +77,7 @@ test("createCloudflareStoreClient.reserveNextTicketNumber sends POST to /ticket-
   assert.equal(ticketNumber, 7);
   assert.deepEqual(requests, [
     {
-      url: "https://moderation-store/ticket-number/next",
+      url: "https://community-store/ticket-number/next",
       method: "POST",
       body: JSON.stringify({ guildId: "guild-123" }),
     },
@@ -101,7 +101,7 @@ test("createCloudflareStoreClient.listTimedRolesByGuild sends GET with guildId q
 
   assert.deepEqual(requests, [
     {
-      url: "https://moderation-store/timed-roles?guildId=guild-123",
+      url: "https://community-store/timed-roles?guildId=guild-123",
       method: "GET",
       body: null,
     },
@@ -131,7 +131,7 @@ test("createCloudflareStoreClient.upsertTimedRole sends POST to /timed-role", as
 
   assert.deepEqual(requests, [
     {
-      url: "https://moderation-store/timed-role",
+      url: "https://community-store/timed-role",
       method: "POST",
       body: JSON.stringify({
         guildId: "guild-456",
@@ -161,7 +161,7 @@ test("createCloudflareStoreClient.readTicketPanelConfig sends GET with guildId q
 
   assert.deepEqual(requests, [
     {
-      url: "https://moderation-store/ticket-panel?guildId=guild-999",
+      url: "https://community-store/ticket-panel?guildId=guild-999",
       method: "GET",
       body: null,
     },
@@ -185,7 +185,7 @@ test("createCloudflareStoreClient.listTimedRoles sends GET to /timed-roles", asy
 
   assert.deepEqual(requests, [
     {
-      url: "https://moderation-store/timed-roles",
+      url: "https://community-store/timed-roles",
       method: "GET",
       body: null,
     },
@@ -248,7 +248,7 @@ test("createCloudflareStoreClient.deleteTimedRole sends POST to /timed-role/remo
 
   assert.deepEqual(requests, [
     {
-      url: "https://moderation-store/timed-role/remove",
+      url: "https://community-store/timed-role/remove",
       method: "POST",
       body: JSON.stringify({
         guildId: "guild-111",
@@ -283,12 +283,12 @@ test("createCloudflareStoreClient reads and writes new member timed-role config"
 
   assert.deepEqual(requests, [
     {
-      url: "https://moderation-store/timed-role/new-member-config?guildId=guild-123",
+      url: "https://community-store/timed-role/new-member-config?guildId=guild-123",
       method: "GET",
       body: null,
     },
     {
-      url: "https://moderation-store/timed-role/new-member-config",
+      url: "https://community-store/timed-role/new-member-config",
       method: "POST",
       body: JSON.stringify(config),
     },

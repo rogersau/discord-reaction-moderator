@@ -1,6 +1,6 @@
 import type { Env } from "../env";
 import { assertValidDiscordPublicKey } from "../discord";
-import { getModerationStoreStub } from "../reaction-moderation";
+import { getCommunityStoreStub } from "./community-store-stub";
 import { createCloudflareStoreClient } from "./cloudflare-store-client";
 import { createCloudflareGatewayClient } from "./cloudflare-gateway-client";
 import { parseFeatureFlags } from "./features";
@@ -41,7 +41,7 @@ export function createCloudflareContext(env: Env): RuntimeAppContext {
   const gatewayStub = env.GATEWAY_SESSION_DO.get(
     env.GATEWAY_SESSION_DO.idFromName("gateway-session"),
   );
-  const storeStub = getModerationStoreStub(env);
+  const storeStub = getCommunityStoreStub(env);
 
   const storeClient = createCloudflareStoreClient(storeStub);
   const gatewayClient = createCloudflareGatewayClient(gatewayStub);

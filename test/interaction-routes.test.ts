@@ -217,7 +217,7 @@ test("worker returns a ticket modal for a signed open-ticket button click", asyn
   });
   assert.deepEqual(storeCalls, [
     {
-      input: "https://moderation-store/ticket-panel?guildId=guild-1",
+      input: "https://community-store/ticket-panel?guildId=guild-1",
       method: "GET",
       body: null,
     },
@@ -334,32 +334,32 @@ test("worker forwards valid guild admin add and remove slash commands to the mod
   );
   assert.deepEqual(storeCalls, [
     {
-      input: "https://moderation-store/config",
+      input: "https://community-store/config",
       method: "GET",
       body: null,
     },
     {
-      input: "https://moderation-store/guild-emoji",
+      input: "https://community-store/guild-emoji",
       method: "POST",
       body: { guildId: "guild-123", emoji: "✅", action: "add" },
     },
     {
-      input: "https://moderation-store/guild-notification-channel?guildId=guild-123",
+      input: "https://community-store/guild-notification-channel?guildId=guild-123",
       method: "GET",
       body: null,
     },
     {
-      input: "https://moderation-store/config",
+      input: "https://community-store/config",
       method: "GET",
       body: null,
     },
     {
-      input: "https://moderation-store/guild-emoji",
+      input: "https://community-store/guild-emoji",
       method: "POST",
       body: { guildId: "guild-123", emoji: "✅", action: "remove" },
     },
     {
-      input: "https://moderation-store/guild-notification-channel?guildId=guild-123",
+      input: "https://community-store/guild-notification-channel?guildId=guild-123",
       method: "GET",
       body: null,
     },
@@ -473,7 +473,7 @@ test("worker returns duplicate add feedback without mutating the store", async (
   );
   assert.deepEqual(storeCalls, [
     {
-      input: "https://moderation-store/config",
+      input: "https://community-store/config",
       method: "GET",
       body: null,
     },
@@ -518,7 +518,7 @@ test("worker returns missing remove feedback without mutating the store", async 
   );
   assert.deepEqual(storeCalls, [
     {
-      input: "https://moderation-store/config",
+      input: "https://community-store/config",
       method: "GET",
       body: null,
     },
@@ -568,7 +568,7 @@ test("worker normalizes custom emoji aliases before duplicate and missing checks
   );
   assert.deepEqual(duplicateCalls, [
     {
-      input: "https://moderation-store/config",
+      input: "https://community-store/config",
       method: "GET",
       body: null,
     },
@@ -611,7 +611,7 @@ test("worker normalizes custom emoji aliases before duplicate and missing checks
   );
   assert.deepEqual(missingCalls, [
     {
-      input: "https://moderation-store/config",
+      input: "https://community-store/config",
       method: "GET",
       body: null,
     },
@@ -683,7 +683,7 @@ test("worker returns the empty state for /blocklist list when no emojis are bloc
   );
   assert.deepEqual(storeCalls, [
     {
-      input: "https://moderation-store/config",
+      input: "https://community-store/config",
       method: "GET",
       body: null,
     },
@@ -732,7 +732,7 @@ test("worker returns the current server blocklist for /blocklist list", async ()
   );
   assert.deepEqual(storeCalls, [
     {
-      input: "https://moderation-store/config",
+      input: "https://community-store/config",
       method: "GET",
       body: null,
     },
@@ -859,7 +859,7 @@ test("worker assigns a timed role for a valid guild admin command", async () => 
     },
   );
 
-  assert.equal(storeCalls[0]?.input, "https://moderation-store/timed-role");
+  assert.equal(storeCalls[0]?.input, "https://community-store/timed-role");
   assert.equal(storeCalls[0]?.method, "POST");
   assert.deepEqual(storeCalls[0]?.body, {
     guildId: "guild-123",
@@ -945,8 +945,8 @@ test("worker rolls back timed role persistence when Discord role assignment fail
   assert.deepEqual(
     storeCalls.map((call) => ({ input: call.input, method: call.method })),
     [
-      { input: "https://moderation-store/timed-role", method: "POST" },
-      { input: "https://moderation-store/timed-role/remove", method: "POST" },
+      { input: "https://community-store/timed-role", method: "POST" },
+      { input: "https://community-store/timed-role/remove", method: "POST" },
     ],
   );
 });
@@ -997,8 +997,8 @@ test("worker explains timed role permission failures from Discord", async () => 
   assert.deepEqual(
     storeCalls.map((call) => ({ input: call.input, method: call.method })),
     [
-      { input: "https://moderation-store/timed-role", method: "POST" },
-      { input: "https://moderation-store/timed-role/remove", method: "POST" },
+      { input: "https://community-store/timed-role", method: "POST" },
+      { input: "https://community-store/timed-role/remove", method: "POST" },
     ],
   );
 });
@@ -1056,8 +1056,8 @@ test("worker reports rollback failure when timed role cleanup cannot be persiste
   assert.deepEqual(
     storeCalls.map((call) => ({ input: call.input, method: call.method })),
     [
-      { input: "https://moderation-store/timed-role", method: "POST" },
-      { input: "https://moderation-store/timed-role/remove", method: "POST" },
+      { input: "https://community-store/timed-role", method: "POST" },
+      { input: "https://community-store/timed-role/remove", method: "POST" },
     ],
   );
 });
@@ -1123,15 +1123,15 @@ test("worker removes an active timed role assignment", async () => {
     storeCalls.map((call) => ({ input: call.input, method: call.method })),
     [
       {
-        input: "https://moderation-store/timed-roles?guildId=guild-123",
+        input: "https://community-store/timed-roles?guildId=guild-123",
         method: "GET",
       },
       {
-        input: "https://moderation-store/timed-role/remove",
+        input: "https://community-store/timed-role/remove",
         method: "POST",
       },
       {
-        input: "https://moderation-store/guild-notification-channel?guildId=guild-123",
+        input: "https://community-store/guild-notification-channel?guildId=guild-123",
         method: "GET",
       },
     ],
@@ -1190,7 +1190,7 @@ test("worker returns a no-op response when the timed role assignment is not acti
 
   assert.deepEqual(storeCalls, [
     {
-      input: "https://moderation-store/timed-roles?guildId=guild-123",
+      input: "https://community-store/timed-roles?guildId=guild-123",
       method: "GET",
       body: null,
     },
@@ -1248,7 +1248,7 @@ test("worker returns the current timed role assignments for /timedrole list", as
   );
   assert.deepEqual(storeCalls, [
     {
-      input: "https://moderation-store/timed-roles?guildId=guild-123",
+      input: "https://community-store/timed-roles?guildId=guild-123",
       method: "GET",
       body: null,
     },
@@ -1288,7 +1288,7 @@ test("worker returns the empty state for /timedrole list when no assignments are
   );
   assert.deepEqual(storeCalls, [
     {
-      input: "https://moderation-store/timed-roles?guildId=guild-123",
+      input: "https://community-store/timed-roles?guildId=guild-123",
       method: "GET",
       body: null,
     },
@@ -1428,9 +1428,9 @@ function createEnv(options?: {
     DISCORD_BOT_TOKEN: "bot-token",
     BOT_USER_ID: "bot-user-id",
     DISCORD_PUBLIC_KEY: options?.DISCORD_PUBLIC_KEY ?? "",
-    MODERATION_STORE_DO: {
+    COMMUNITY_STORE_DO: {
       idFromName() {
-        return "moderation-store-id" as never;
+        return "community-store-id" as never;
       },
       get() {
         return {
@@ -1454,7 +1454,7 @@ function createEnv(options?: {
     DISCORD_BOT_TOKEN: string;
     BOT_USER_ID: string;
     DISCORD_PUBLIC_KEY: string;
-    MODERATION_STORE_DO: DurableObjectNamespace;
+    COMMUNITY_STORE_DO: DurableObjectNamespace;
     GATEWAY_SESSION_DO: DurableObjectNamespace;
   };
 }

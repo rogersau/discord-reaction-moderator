@@ -18,7 +18,7 @@ function createMockEnv(overrides: Partial<Env> = {}): Env {
       get: () => ({ fetch: () => Promise.resolve(new Response()) }) as any,
       idFromName: () => ({}) as any,
     } as any,
-    MODERATION_STORE_DO: {
+    COMMUNITY_STORE_DO: {
       get: () => ({ fetch: () => Promise.resolve(new Response()) }) as any,
       idFromName: () => ({}) as any,
     } as any,

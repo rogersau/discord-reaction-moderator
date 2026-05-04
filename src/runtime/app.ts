@@ -23,7 +23,7 @@ import {
 import type { RuntimeAppOptions } from "./app-types";
 import { handleInteractionRequest } from "./interaction-handler";
 import { ALL_FEATURES_ENABLED } from "./features";
-import type { GuildNotificationChannelStore } from "../services/moderation-log";
+import type { GuildNotificationChannelStore } from "../services/activity-log";
 
 export { escapeHtmlAttribute } from "./admin-shell";
 export type { RuntimeAppOptions } from "./app-types";

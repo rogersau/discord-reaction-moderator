@@ -6,11 +6,12 @@ import {
   buildResumePayload,
   nextBackoffMillis,
 } from "../gateway";
-import { getModerationStoreStub, moderateReactionAdd } from "../reaction-moderation";
+import { moderateReactionAdd } from "../services/blocklist/reaction-filter";
+import { getCommunityStoreStub } from "../runtime/community-store-stub";
 import { TimedRoleService } from "../services/timed-role-service";
 import { createCloudflareStoreClient } from "../runtime/cloudflare-store-client";
 import { parseFeatureFlags } from "../runtime/features";
-import type { GuildNotificationChannelStore } from "../services/moderation-log";
+import type { GuildNotificationChannelStore } from "../services/activity-log";
 import {
   handleGatewayDispatch,
   type DiscordGuildMemberAdd,
@@ -362,7 +363,7 @@ async function handleNewMemberTimedRole(
     return;
   }
 
-  const storeClient = createCloudflareStoreClient(getModerationStoreStub(env));
+  const storeClient = createCloudflareStoreClient(getCommunityStoreStub(env));
   const timedRoleService = new TimedRoleService(
     {
       listTimedRoles: storeClient.listTimedRoles,

@@ -25,6 +25,6 @@ export interface Env {
   DISABLE_ADMIN_UI?: string;
 
   GATEWAY_SESSION_DO: DurableObjectNamespace;
-  MODERATION_STORE_DO: DurableObjectNamespace;
+  COMMUNITY_STORE_DO: DurableObjectNamespace;
   TICKET_TRANSCRIPTS_BUCKET?: R2Bucket;
 }

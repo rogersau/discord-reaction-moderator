@@ -27,7 +27,7 @@ The required setup is adding your Discord token, configuring the public Discord 
 
 ## Architecture
 
-- `ModerationStoreDO` stores blocked emojis and app config in SQLite.
+- `CommunityStoreDO` stores blocked emojis and app config in SQLite.
 - `GatewaySessionDO` maintains the Discord Gateway connection, resumes sessions, and applies moderation to `MESSAGE_REACTION_ADD` events.
 - The public Worker exposes `/health`, `/interactions`, `/transcripts/:guildId/:channelId`, `/admin/login`, and the protected `/admin` dashboard.
 - Discord slash commands update the current server's blocklist and timed-role state.
@@ -127,7 +127,7 @@ pnpm run deploy
 
 Deploy provisions:
 
-- `ModerationStoreDO`
+- `CommunityStoreDO`
 - `GatewaySessionDO`
 - SQLite migrations for both Durable Objects
 - a five-minute cron trigger that bootstraps the gateway session automatically
@@ -251,7 +251,7 @@ pnpm exec wrangler deploy --dry-run
 │   ├── admin/
 │   ├── durable-objects/
 │   │   ├── gateway-session.ts
-│   │   └── moderation-store.ts
+│   │   └── community-store.ts
 │   ├── routes/
 │   ├── runtime/
 │   ├── services/

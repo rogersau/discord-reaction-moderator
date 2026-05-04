@@ -6,11 +6,11 @@ import { listTimedRoles as listTimedRolesWorkflow } from "./timed-roles/list-tim
 import { parseTimedRoleDuration } from "../timed-roles";
 import {
   buildTimedRoleUpdateMessage,
-  postGuildModerationUpdate,
+  postGuildActivityUpdate,
   type ChannelMessageSender,
   type GuildNotificationChannelStore,
-  type ModerationActionActor,
-} from "./moderation-log";
+  type ActionActor,
+} from "./activity-log";
 
 export interface TimedRoleKey {
   guildId: string;
@@ -38,7 +38,7 @@ export class TimedRoleService {
 
   async assignTimedRole(
     assignment: TimedRoleAssignment,
-    actor?: ModerationActionActor,
+    actor?: ActionActor,
   ): Promise<void> {
     if (!this.addRoleToMember) {
       await this.store.upsertTimedRole(assignment);
@@ -70,7 +70,7 @@ export class TimedRoleService {
     );
   }
 
-  async removeTimedRole(key: TimedRoleKey, actor?: ModerationActionActor): Promise<void> {
+  async removeTimedRole(key: TimedRoleKey, actor?: ActionActor): Promise<void> {
     await removeTimedRoleWorkflow(this.store, this.removeRoleFromMember, key);
     await this.postUpdate(
       key.guildId,
@@ -136,7 +136,7 @@ export class TimedRoleService {
     guildId: string,
     body: ReturnType<typeof buildTimedRoleUpdateMessage>,
   ): Promise<void> {
-    await postGuildModerationUpdate(
+    await postGuildActivityUpdate(
       this.notificationStore ?? {},
       this.sendChannelMessage,
       guildId,

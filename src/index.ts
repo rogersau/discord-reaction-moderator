@@ -5,11 +5,11 @@
  */
 
 import { GatewaySessionDO } from "./durable-objects/gateway-session";
-import { ModerationStoreDO } from "./durable-objects/moderation-store";
+import { CommunityStoreDO } from "./durable-objects/community-store";
 import type { Env } from "./env";
 import { createCloudflareRuntime } from "./runtime/cloudflare-runtime";
 
-export { GatewaySessionDO, ModerationStoreDO };
+export { GatewaySessionDO, CommunityStoreDO, CommunityStoreDO as ModerationStoreDO };
 
 export default {
   async fetch(request: Request, env: Env, _ctx: ExecutionContext): Promise<Response> {

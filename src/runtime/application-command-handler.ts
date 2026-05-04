@@ -11,7 +11,7 @@ import {
   parseTimedRoleDuration,
 } from "../timed-roles";
 import { BlocklistService } from "../services/blocklist-service";
-import type { GuildNotificationChannelStore } from "../services/moderation-log";
+import type { GuildNotificationChannelStore } from "../services/activity-log";
 import { TimedRoleService } from "../services/timed-role-service";
 import { MarketplaceService } from "../services/marketplace-service";
 import { LfgService } from "../services/lfg-service";

@@ -88,7 +88,7 @@ export function AdminBlocklistPage({ selectedGuildId }: { selectedGuildId: strin
   }, [trimmedGuildId, loadedGuildId]);
 
   async function handleSaveNotificationChannel() {
-    const res = await fetch("/admin/api/moderation-log-channel", {
+    const res = await fetch("/admin/api/activity-log-channel", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({

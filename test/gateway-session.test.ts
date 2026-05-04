@@ -188,7 +188,7 @@ test("GatewaySessionDO moderates blocked reaction dispatch events", async () => 
       },
     });
 
-    assert.deepEqual(storeFetches, ["https://moderation-store/config"]);
+    assert.deepEqual(storeFetches, ["https://community-store/config"]);
     assert.equal(deleteCalls.length, 1);
     assert.equal(deleteCalls[0]?.method, "DELETE");
     assert.match(deleteCalls[0]?.input ?? "", /\/reactions\/%E2%9C%85\/user-1$/);
@@ -247,7 +247,7 @@ test('GatewaySessionDO treats DISABLE_BLOCKLIST="false" as enabled', async () =>
       },
     });
 
-    assert.deepEqual(storeFetches, ["https://moderation-store/config"]);
+    assert.deepEqual(storeFetches, ["https://community-store/config"]);
     assert.equal(deleteCalls.length, 1);
   } finally {
     globalThis.fetch = originalFetch;
@@ -695,9 +695,9 @@ function createGatewayEnv(options?: {
         };
       },
     } as never,
-    MODERATION_STORE_DO: {
+    COMMUNITY_STORE_DO: {
       idFromName() {
-        return "moderation-store-id" as never;
+        return "community-store-id" as never;
       },
       get() {
         return {

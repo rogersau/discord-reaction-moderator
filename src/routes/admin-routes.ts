@@ -198,7 +198,7 @@ export function createAdminRoutes(options: AdminRouteOptions): RouteHandler {
         return Response.json({ ok: true });
       }
 
-      if (request.method === "POST" && url.pathname === "/admin/api/moderation-log-channel") {
+      if (request.method === "POST" && url.pathname === "/admin/api/activity-log-channel") {
         if (!features.blocklist && !features.timedRoles) {
           return Response.json({ error: "Not found" }, { status: 404 });
         }

@@ -18,8 +18,8 @@ crons = ["*/5 * * * *"]
 # wrangler secret put ADMIN_AUTH_SECRET
 
 [[durable_objects.bindings]]
-name = "MODERATION_STORE_DO"
-class_name = "ModerationStoreDO"
+name = "COMMUNITY_STORE_DO"
+class_name = "CommunityStoreDO"
 
 [[durable_objects.bindings]]
 name = "GATEWAY_SESSION_DO"
@@ -32,3 +32,7 @@ bucket_name = "discord-automation-workers-transcripts"
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["ModerationStoreDO", "GatewaySessionDO"]
+
+[[migrations]]
+tag = "v2"
+renamed_classes = [{from = "ModerationStoreDO", to = "CommunityStoreDO"}]
