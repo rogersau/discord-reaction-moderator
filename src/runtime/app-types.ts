@@ -8,6 +8,7 @@ import type {
   MarketplaceStore,
   LfgStore,
 } from "./contracts";
+import type { FeatureFlags } from "./features";
 
 export interface DiscordInteraction {
   type: number;
@@ -50,4 +51,5 @@ export interface RuntimeAppOptions {
   stores: RuntimeStores;
   gateway: GatewayController;
   ticketTranscriptBlobs?: TicketTranscriptBlobStore;
+  features?: FeatureFlags;
 }

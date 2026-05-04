@@ -3,6 +3,7 @@ import { assertValidDiscordPublicKey } from "../discord";
 import { getModerationStoreStub } from "../reaction-moderation";
 import { createCloudflareStoreClient } from "./cloudflare-store-client";
 import { createCloudflareGatewayClient } from "./cloudflare-gateway-client";
+import { parseFeatureFlags } from "./features";
 import type {
   GatewayController,
   TicketTranscriptBlobStore,
@@ -13,6 +14,7 @@ import type {
   MarketplaceStore,
   LfgStore,
 } from "./contracts";
+import type { FeatureFlags } from "./features";
 
 export interface RuntimeAppContext {
   discordPublicKey: string;
@@ -32,6 +34,7 @@ export interface RuntimeAppContext {
   };
   gateway: GatewayController;
   ticketTranscriptBlobs?: TicketTranscriptBlobStore;
+  features: FeatureFlags;
 }
 
 export function createCloudflareContext(env: Env): RuntimeAppContext {
@@ -156,6 +159,7 @@ export function createCloudflareContext(env: Env): RuntimeAppContext {
       status: gatewayClient.status,
     },
     ticketTranscriptBlobs,
+    features: parseFeatureFlags(env),
   };
 
   return context;

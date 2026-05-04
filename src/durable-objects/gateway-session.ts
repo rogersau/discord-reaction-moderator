@@ -9,6 +9,7 @@ import {
 import { getModerationStoreStub, moderateReactionAdd } from "../reaction-moderation";
 import { TimedRoleService } from "../services/timed-role-service";
 import { createCloudflareStoreClient } from "../runtime/cloudflare-store-client";
+import { parseFeatureFlags } from "../runtime/features";
 import type { GuildNotificationChannelStore } from "../services/moderation-log";
 import {
   handleGatewayDispatch,
@@ -40,12 +41,14 @@ export class GatewaySessionDO implements DurableObject {
   private readonly sql: DurableObjectStorage["sql"];
   private readonly env: Env;
   private readonly ctx: DurableObjectState;
+  private readonly features;
   private socket: WebSocket | null = null;
   private snapshot: GatewaySessionSnapshot;
 
   constructor(ctx: DurableObjectState, env: Env) {
     this.ctx = ctx;
     this.env = env;
+    this.features = parseFeatureFlags(env);
     this.sql = ctx.storage.sql;
     this.sql.exec(`
       CREATE TABLE IF NOT EXISTS gateway_state (
@@ -159,8 +162,18 @@ export class GatewaySessionDO implements DurableObject {
 
       await handleGatewayDispatch(
         payload,
-        (reaction) => moderateReactionAdd(reaction, this.env),
-        (member) => handleNewMemberTimedRole(member, this.env),
+        (reaction) => {
+          if (this.features.blocklist) {
+            return moderateReactionAdd(reaction, this.env);
+          }
+          return Promise.resolve();
+        },
+        (member) => {
+          if (this.features.timedRoles) {
+            return handleNewMemberTimedRole(member, this.env);
+          }
+          return Promise.resolve();
+        },
       );
 
       if (payload.t === "READY" && isReadyPayload(payload.d)) {

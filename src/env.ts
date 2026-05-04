@@ -15,6 +15,15 @@ export interface Env {
   // Must be set explicitly to enable secure session-based admin authentication.
   ADMIN_SESSION_SECRET?: string;
 
+  // Feature toggles: set to "true", "1", or "yes" to disable a feature.
+  // All features default to enabled.
+  DISABLE_LFG?: string;
+  DISABLE_MARKETPLACE?: string;
+  DISABLE_TICKETS?: string;
+  DISABLE_BLOCKLIST?: string;
+  DISABLE_TIMED_ROLES?: string;
+  DISABLE_ADMIN_UI?: string;
+
   GATEWAY_SESSION_DO: DurableObjectNamespace;
   MODERATION_STORE_DO: DurableObjectNamespace;
   TICKET_TRANSCRIPTS_BUCKET?: R2Bucket;

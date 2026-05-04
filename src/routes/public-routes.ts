@@ -3,6 +3,7 @@ import {
   buildTicketTranscriptStorageKey,
 } from "../tickets";
 import type { TicketTranscriptBlobStore } from "../runtime/contracts";
+import type { FeatureFlags } from "../runtime/features";
 
 export interface RouteHandler {
   (request: Request): Promise<Response | null>;
@@ -10,9 +11,10 @@ export interface RouteHandler {
 
 export interface PublicRouteOptions {
   ticketTranscriptBlobs?: TicketTranscriptBlobStore;
+  features: FeatureFlags;
 }
 
-export function createPublicRoutes(options: PublicRouteOptions = {}): RouteHandler {
+export function createPublicRoutes(options: PublicRouteOptions): RouteHandler {
   return async (request: Request): Promise<Response | null> => {
     const url = new URL(request.url);
 
@@ -20,9 +22,9 @@ export function createPublicRoutes(options: PublicRouteOptions = {}): RouteHandl
       return new Response("OK", { status: 200 });
     }
 
-    const transcriptMediaMatch = /^\/transcripts\/([^/]+)\/([^/]+)\/media\/([^/]+)\/(.+)$/.exec(
-      url.pathname,
-    );
+    const transcriptMediaMatch =
+      options.features.tickets &&
+      /^\/transcripts\/([^/]+)\/([^/]+)\/media\/([^/]+)\/(.+)$/.exec(url.pathname);
     if (request.method === "GET" && transcriptMediaMatch) {
       const guildId = decodeURIComponent(transcriptMediaMatch[1] ?? "");
       const channelId = decodeURIComponent(transcriptMediaMatch[2] ?? "");
@@ -48,7 +50,8 @@ export function createPublicRoutes(options: PublicRouteOptions = {}): RouteHandl
       });
     }
 
-    const transcriptMatch = /^\/transcripts\/([^/]+)\/([^/]+)$/.exec(url.pathname);
+    const transcriptMatch =
+      options.features.tickets && /^\/transcripts\/([^/]+)\/([^/]+)$/.exec(url.pathname);
     if (request.method === "GET" && transcriptMatch) {
       const guildId = decodeURIComponent(transcriptMatch[1] ?? "");
       const channelId = decodeURIComponent(transcriptMatch[2] ?? "");

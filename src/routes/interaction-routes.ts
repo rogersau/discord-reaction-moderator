@@ -1,5 +1,6 @@
 import type { GatewayController, TicketTranscriptBlobStore } from "../runtime/contracts";
 import type { RuntimeStores } from "../runtime/app-types";
+import type { FeatureFlags } from "../runtime/features";
 import type { TimedRoleService } from "../services/timed-role-service";
 import type { BlocklistService } from "../services/blocklist-service";
 
@@ -16,6 +17,7 @@ export interface InteractionRouteOptions {
   gateway: GatewayController;
   ticketTranscriptBlobs?: TicketTranscriptBlobStore;
   services: InteractionRouteServices;
+  features?: FeatureFlags;
   handleInteractionRequest: (
     request: Request,
     options: Pick<
@@ -27,6 +29,7 @@ export interface InteractionRouteOptions {
       | "gateway"
       | "ticketTranscriptBlobs"
       | "services"
+      | "features"
     >,
   ) => Promise<Response>;
 }

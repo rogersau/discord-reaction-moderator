@@ -1,4 +1,6 @@
-export const SLASH_COMMAND_DEFINITIONS = [
+import type { FeatureFlags } from "./runtime/features";
+
+const ALL_SLASH_COMMAND_DEFINITIONS = [
   {
     name: "lfg",
     description: "Manage the Looking For Gamers noticeboard",
@@ -95,3 +97,23 @@ export const SLASH_COMMAND_DEFINITIONS = [
     ],
   },
 ];
+
+export function getSlashCommandDefinitions(features: FeatureFlags) {
+  return ALL_SLASH_COMMAND_DEFINITIONS.filter((command) => {
+    switch (command.name) {
+      case "lfg":
+        return features.lfg;
+      case "marketplace":
+        return features.marketplace;
+      case "blocklist":
+        return features.blocklist;
+      case "timedrole":
+        return features.timedRoles;
+      default:
+        return true;
+    }
+  });
+}
+
+/** @deprecated Use getSlashCommandDefinitions instead. */
+export const SLASH_COMMAND_DEFINITIONS = ALL_SLASH_COMMAND_DEFINITIONS;

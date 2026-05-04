@@ -4,6 +4,7 @@ import {
   removeGuildMemberRole,
   syncApplicationCommands,
 } from "../discord";
+import { getSlashCommandDefinitions } from "../discord-commands";
 import { createAdminRoutes } from "../routes/admin-routes";
 import { createInteractionRoutes } from "../routes/interaction-routes";
 import { createPublicRoutes } from "../routes/public-routes";
@@ -21,16 +22,24 @@ import {
 } from "./admin-shell";
 import type { RuntimeAppOptions } from "./app-types";
 import { handleInteractionRequest } from "./interaction-handler";
+import { ALL_FEATURES_ENABLED } from "./features";
 import type { GuildNotificationChannelStore } from "../services/moderation-log";
 
 export { escapeHtmlAttribute } from "./admin-shell";
 export type { RuntimeAppOptions } from "./app-types";
 
 export function createRuntimeApp(options: RuntimeAppOptions) {
+  const features = options.features ?? ALL_FEATURES_ENABLED;
+
   const gatewayService = new GatewayService(options.gateway, {
     discordApplicationId: options.discordApplicationId,
     syncApplicationCommands: options.discordApplicationId
-      ? (appId) => syncApplicationCommands(appId, options.discordBotToken)
+      ? (appId) =>
+          syncApplicationCommands(
+            appId,
+            options.discordBotToken,
+            getSlashCommandDefinitions(features),
+          )
       : undefined,
   });
 
@@ -60,27 +69,32 @@ export function createRuntimeApp(options: RuntimeAppOptions) {
   const handleAdminApiRequest = createAdminApiHandler({
     stores: options.stores,
     discordBotToken: options.discordBotToken,
+    features,
   });
 
   const publicRoutes = createPublicRoutes({
     ticketTranscriptBlobs: options.ticketTranscriptBlobs,
+    features,
   });
-  const adminRoutes = createAdminRoutes({
-    adminSessionSecret: options.adminSessionSecret,
-    adminUiPassword: options.adminUiPassword,
-    services: {
-      gatewayService,
-      adminOverviewService,
-      blocklistService,
-      timedRoleService,
-    },
-    handleAdminApiRequest,
-    redirect,
-    getAdminLoginLocation,
-    renderAdminShell,
-    isAdminUiAuthorized,
-    requireAdminSession,
-  });
+  const adminRoutes = features.adminUi
+    ? createAdminRoutes({
+        adminSessionSecret: options.adminSessionSecret,
+        adminUiPassword: options.adminUiPassword,
+        services: {
+          gatewayService,
+          adminOverviewService,
+          blocklistService,
+          timedRoleService,
+        },
+        handleAdminApiRequest,
+        redirect,
+        getAdminLoginLocation,
+        renderAdminShell,
+        isAdminUiAuthorized,
+        requireAdminSession,
+        features,
+      })
+    : async () => null;
   const interactionRoutes = createInteractionRoutes({
     discordPublicKey: options.discordPublicKey,
     discordBotToken: options.discordBotToken,
@@ -93,6 +107,7 @@ export function createRuntimeApp(options: RuntimeAppOptions) {
       blocklistService,
     },
     handleInteractionRequest,
+    features,
   });
 
   return {

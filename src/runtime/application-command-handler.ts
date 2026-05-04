@@ -19,6 +19,7 @@ import { createUserDmMessage, deleteChannelMessage, editChannelMessage } from ".
 import { formatMarketplaceLogs } from "../marketplace";
 import type { RuntimeStores } from "./app-types";
 import type { DiscordInteraction } from "./app-types";
+import type { FeatureFlags } from "./features";
 
 const DISCORD_MESSAGE_CONTENT_LIMIT = 2_000;
 
@@ -26,6 +27,7 @@ export async function handleApplicationCommand(
   interaction: DiscordInteraction,
   stores: RuntimeStores,
   discordBotToken: string,
+  features: FeatureFlags,
 ): Promise<Response> {
   if (typeof interaction?.guild_id !== "string" || interaction.guild_id.length === 0) {
     return Response.json(buildEphemeralMessage("This command can only be used inside a server."));
@@ -80,6 +82,9 @@ export async function handleApplicationCommand(
   });
 
   if (invocation.commandName === "lfg" && invocation.subcommandName === "setup") {
+    if (!features.lfg) {
+      return Response.json(buildEphemeralMessage("This feature is currently disabled."));
+    }
     if (!interaction.channel_id) {
       return Response.json(buildEphemeralMessage("Could not determine this channel."));
     }
@@ -97,6 +102,9 @@ export async function handleApplicationCommand(
   }
 
   if (invocation.commandName === "blocklist" && invocation.subcommandName === "list") {
+    if (!features.blocklist) {
+      return Response.json(buildEphemeralMessage("This feature is currently disabled."));
+    }
     try {
       const guildConfig = await blocklistService.getGuildBlocklist(interaction.guild_id);
       const effectiveEmojis = guildConfig.enabled === false ? [] : guildConfig.emojis;
@@ -113,6 +121,9 @@ export async function handleApplicationCommand(
   }
 
   if (invocation.commandName === "timedrole" && invocation.subcommandName === "list") {
+    if (!features.timedRoles) {
+      return Response.json(buildEphemeralMessage("This feature is currently disabled."));
+    }
     const assignments = await timedRoleService.listTimedRoles(interaction.guild_id);
     const content =
       assignments.length === 0
@@ -127,6 +138,9 @@ export async function handleApplicationCommand(
   }
 
   if (invocation.commandName === "marketplace" && invocation.subcommandName === "setup") {
+    if (!features.marketplace) {
+      return Response.json(buildEphemeralMessage("This feature is currently disabled."));
+    }
     if (!interaction.channel_id) {
       return Response.json(buildEphemeralMessage("Could not determine this channel."));
     }
@@ -144,12 +158,18 @@ export async function handleApplicationCommand(
   }
 
   if (invocation.commandName === "marketplace" && invocation.subcommandName === "logs") {
+    if (!features.marketplace) {
+      return Response.json(buildEphemeralMessage("This feature is currently disabled."));
+    }
     const amount = Math.min(Math.max(invocation.amount, 1), 20);
     const logs = await marketplaceService.listLogs(interaction.guild_id, amount);
     return Response.json(buildEphemeralMessage(formatMarketplaceLogs(logs)));
   }
 
   if (invocation.commandName === "timedrole" && invocation.subcommandName === "add") {
+    if (!features.timedRoles) {
+      return Response.json(buildEphemeralMessage("This feature is currently disabled."));
+    }
     const parsedDuration = parseTimedRoleDuration(invocation.duration, Date.now());
     if (!parsedDuration) {
       return Response.json(
@@ -181,6 +201,9 @@ export async function handleApplicationCommand(
   }
 
   if (invocation.commandName === "timedrole" && invocation.subcommandName === "remove") {
+    if (!features.timedRoles) {
+      return Response.json(buildEphemeralMessage("This feature is currently disabled."));
+    }
     const assignments = await timedRoleService.listTimedRoles(interaction.guild_id);
     const activeAssignment = assignments.find(
       (entry) => entry.userId === invocation.userId && entry.roleId === invocation.roleId,
@@ -213,6 +236,9 @@ export async function handleApplicationCommand(
   }
 
   if (invocation.commandName === "blocklist" && invocation.subcommandName === "add") {
+    if (!features.blocklist) {
+      return Response.json(buildEphemeralMessage("This feature is currently disabled."));
+    }
     const normalizedEmoji = normalizeEmoji(invocation.emoji);
     if (!normalizedEmoji) {
       return Response.json(buildEphemeralMessage("Invalid emoji."));
@@ -233,6 +259,9 @@ export async function handleApplicationCommand(
   }
 
   if (invocation.commandName === "blocklist" && invocation.subcommandName === "remove") {
+    if (!features.blocklist) {
+      return Response.json(buildEphemeralMessage("This feature is currently disabled."));
+    }
     const normalizedEmoji = normalizeEmoji(invocation.emoji);
     if (!normalizedEmoji) {
       return Response.json(buildEphemeralMessage("Invalid emoji."));

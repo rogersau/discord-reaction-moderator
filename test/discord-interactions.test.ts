@@ -221,8 +221,19 @@ test("extractCommandInvocation rejects non-string emoji values", () => {
   assert.equal(extractCommandInvocation(nonStringEmoji), null);
 });
 
-test("SLASH_COMMAND_DEFINITIONS matches expected blocklist command tree", () => {
+test("SLASH_COMMAND_DEFINITIONS matches expected command tree", () => {
   const expected = [
+    {
+      name: "lfg",
+      description: "Manage the Looking For Gamers noticeboard",
+      options: [
+        {
+          type: 1,
+          name: "setup",
+          description: "Post or reset the LFG noticeboard in this channel",
+        },
+      ],
+    },
     {
       name: "blocklist",
       description: "Manage this server's blocked emoji list",
@@ -314,7 +325,7 @@ test("SLASH_COMMAND_DEFINITIONS matches expected blocklist command tree", () => 
 
 test("SLASH_COMMAND_DEFINITIONS includes the blocklist list subcommand", () => {
   assert.deepEqual(
-    SLASH_COMMAND_DEFINITIONS[0].options?.map((option) => option.name),
+    SLASH_COMMAND_DEFINITIONS[1].options?.map((option) => option.name),
     ["add", "remove", "list"],
   );
 });

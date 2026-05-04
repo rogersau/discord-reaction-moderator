@@ -1,6 +1,7 @@
 import { verifyDiscordSignature } from "../discord";
 import { buildEphemeralMessage } from "../discord-interactions";
 import type { DiscordInteraction, RuntimeAppOptions } from "./app-types";
+import { ALL_FEATURES_ENABLED } from "./features";
 import { handleApplicationCommand } from "./application-command-handler";
 import {
   handleMessageComponentInteraction,
@@ -20,6 +21,7 @@ export async function handleInteractionRequest(
   request: Request,
   options: RuntimeAppOptions,
 ): Promise<Response> {
+  const features = options.features ?? ALL_FEATURES_ENABLED;
   const signature = request.headers.get("x-signature-ed25519");
   const timestamp = request.headers.get("x-signature-timestamp");
   const body = await request.text();
@@ -46,12 +48,17 @@ export async function handleInteractionRequest(
   }
 
   if (interaction?.type === 2) {
-    return handleApplicationCommand(interaction, options.stores, options.discordBotToken);
+    return handleApplicationCommand(
+      interaction,
+      options.stores,
+      options.discordBotToken,
+      features,
+    );
   }
 
   // Ticket button interactions (open, close, close-request, etc.)
   if (interaction?.type === 3) {
-    if (isMarketplaceInteraction(interaction)) {
+    if (features.marketplace && isMarketplaceInteraction(interaction)) {
       return handleMarketplaceComponentInteraction(
         interaction,
         options.stores,
@@ -59,7 +66,7 @@ export async function handleInteractionRequest(
       );
     }
 
-    if (isLfgInteraction(interaction)) {
+    if (features.lfg && isLfgInteraction(interaction)) {
       return handleLfgComponentInteraction(
         interaction,
         options.stores,
@@ -67,18 +74,22 @@ export async function handleInteractionRequest(
       );
     }
 
-    return handleMessageComponentInteraction(
-      interaction,
-      options.stores,
-      options.discordBotToken,
-      new URL(request.url).origin,
-      options.ticketTranscriptBlobs,
-    );
+    if (features.tickets) {
+      return handleMessageComponentInteraction(
+        interaction,
+        options.stores,
+        options.discordBotToken,
+        new URL(request.url).origin,
+        options.ticketTranscriptBlobs,
+      );
+    }
+
+    return Response.json(buildEphemeralMessage("This feature is currently disabled."));
   }
 
   // Ticket modal submissions (ticket creation with questions)
   if (interaction?.type === 5) {
-    if (isMarketplaceInteraction(interaction)) {
+    if (features.marketplace && isMarketplaceInteraction(interaction)) {
       return handleMarketplaceModalSubmitInteraction(
         interaction,
         options.stores,
@@ -86,7 +97,7 @@ export async function handleInteractionRequest(
       );
     }
 
-    if (isLfgInteraction(interaction)) {
+    if (features.lfg && isLfgInteraction(interaction)) {
       return handleLfgModalSubmitInteraction(
         interaction,
         options.stores,
@@ -94,7 +105,11 @@ export async function handleInteractionRequest(
       );
     }
 
-    return handleTicketModalSubmitInteraction(interaction, options.stores, options.discordBotToken);
+    if (features.tickets) {
+      return handleTicketModalSubmitInteraction(interaction, options.stores, options.discordBotToken);
+    }
+
+    return Response.json(buildEphemeralMessage("This feature is currently disabled."));
   }
 
   return Response.json(buildEphemeralMessage("Unsupported interaction type."));

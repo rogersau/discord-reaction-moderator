@@ -1,9 +1,9 @@
-import { SLASH_COMMAND_DEFINITIONS } from "../discord-commands";
 import { DISCORD_API } from "./client";
 
 export async function syncApplicationCommands(
   applicationId: string,
   botToken: string,
+  commands: unknown[],
 ): Promise<void> {
   const response = await fetch(`${DISCORD_API}/applications/${applicationId}/commands`, {
     method: "PUT",
@@ -11,7 +11,7 @@ export async function syncApplicationCommands(
       Authorization: `Bot ${botToken}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify(SLASH_COMMAND_DEFINITIONS),
+    body: JSON.stringify(commands),
   });
 
   if (!response.ok) {

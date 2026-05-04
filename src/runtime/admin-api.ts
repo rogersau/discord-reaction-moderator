@@ -26,6 +26,8 @@ import {
   parseLfgClosePostBody,
 } from "./admin-api-validation";
 import type { RuntimeStores } from "./app-types";
+import type { FeatureFlags } from "./features";
+import { ALL_FEATURES_ENABLED } from "./features";
 import { handleTicketPanelAdminRequest } from "./ticket-panel-admin";
 import type { BlocklistConfig, TimedRoleAssignment } from "../types";
 
@@ -40,13 +42,18 @@ interface AdminOverviewGuild {
 export interface AdminApiHandlerOptions {
   stores: RuntimeStores;
   discordBotToken: string;
+  features?: FeatureFlags;
 }
 
 export function createAdminApiHandler(options: AdminApiHandlerOptions) {
+  const features = options.features ?? ALL_FEATURES_ENABLED;
   return async (request: Request, url: URL): Promise<Response | null> => {
     const refreshDiscordCache = shouldRefreshAdminDiscordCache(url);
 
     if (url.pathname.startsWith("/admin/api/tickets/")) {
+      if (!features.tickets) {
+        return Response.json({ error: "Not found" }, { status: 404 });
+      }
       const ticketResponse = await handleTicketPanelAdminRequest(request, url, options);
       if (ticketResponse) {
         return ticketResponse;
@@ -64,6 +71,22 @@ export function createAdminApiHandler(options: AdminApiHandlerOptions) {
           { error: "feature must be blocklist, timed-roles, tickets, marketplace, or lfg" },
           { status: 400 },
         );
+      }
+
+      if (featureParam === "blocklist" && !features.blocklist) {
+        return Response.json({ error: "Not found" }, { status: 404 });
+      }
+      if (featureParam === "timed-roles" && !features.timedRoles) {
+        return Response.json({ error: "Not found" }, { status: 404 });
+      }
+      if (featureParam === "tickets" && !features.tickets) {
+        return Response.json({ error: "Not found" }, { status: 404 });
+      }
+      if (featureParam === "marketplace" && !features.marketplace) {
+        return Response.json({ error: "Not found" }, { status: 404 });
+      }
+      if (featureParam === "lfg" && !features.lfg) {
+        return Response.json({ error: "Not found" }, { status: 404 });
       }
 
       try {
@@ -113,6 +136,9 @@ export function createAdminApiHandler(options: AdminApiHandlerOptions) {
     }
 
     if (request.method === "GET" && url.pathname === "/admin/api/marketplace") {
+      if (!features.marketplace) {
+        return Response.json({ error: "Not found" }, { status: 404 });
+      }
       const guildId = url.searchParams.get("guildId");
       if (!guildId) {
         return Response.json({ error: "guildId is required" }, { status: 400 });
@@ -128,6 +154,9 @@ export function createAdminApiHandler(options: AdminApiHandlerOptions) {
     }
 
     if (request.method === "POST" && url.pathname === "/admin/api/marketplace/config") {
+      if (!features.marketplace) {
+        return Response.json({ error: "Not found" }, { status: 404 });
+      }
       const parsedBody = await parseJsonBody(request, parseMarketplaceConfigBody);
       if (!parsedBody.ok) {
         return parsedBody.response;
@@ -141,6 +170,9 @@ export function createAdminApiHandler(options: AdminApiHandlerOptions) {
     }
 
     if (request.method === "POST" && url.pathname === "/admin/api/marketplace/post/close") {
+      if (!features.marketplace) {
+        return Response.json({ error: "Not found" }, { status: 404 });
+      }
       const parsedBody = await parseJsonBody(request, parseMarketplaceClosePostBody);
       if (!parsedBody.ok) {
         return parsedBody.response;
@@ -155,6 +187,9 @@ export function createAdminApiHandler(options: AdminApiHandlerOptions) {
     }
 
     if (request.method === "GET" && url.pathname === "/admin/api/lfg") {
+      if (!features.lfg) {
+        return Response.json({ error: "Not found" }, { status: 404 });
+      }
       const guildId = url.searchParams.get("guildId");
       if (!guildId) {
         return Response.json({ error: "guildId is required" }, { status: 400 });
@@ -169,6 +204,9 @@ export function createAdminApiHandler(options: AdminApiHandlerOptions) {
     }
 
     if (request.method === "POST" && url.pathname === "/admin/api/lfg/config") {
+      if (!features.lfg) {
+        return Response.json({ error: "Not found" }, { status: 404 });
+      }
       const parsedBody = await parseJsonBody(request, parseLfgConfigBody);
       if (!parsedBody.ok) {
         return parsedBody.response;
@@ -182,6 +220,9 @@ export function createAdminApiHandler(options: AdminApiHandlerOptions) {
     }
 
     if (request.method === "POST" && url.pathname === "/admin/api/lfg/post/close") {
+      if (!features.lfg) {
+        return Response.json({ error: "Not found" }, { status: 404 });
+      }
       const parsedBody = await parseJsonBody(request, parseLfgClosePostBody);
       if (!parsedBody.ok) {
         return parsedBody.response;

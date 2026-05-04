@@ -15,6 +15,7 @@ import type { GatewayService } from "../services/gateway-service";
 import type { AdminOverviewService } from "../services/admin-overview-service";
 import type { BlocklistService } from "../services/blocklist-service";
 import type { TimedRoleService } from "../services/timed-role-service";
+import type { FeatureFlags } from "../runtime/features";
 import {
   parseJsonBody,
   parseBlocklistMutationBody,
@@ -23,6 +24,7 @@ import {
   parseTimedRoleMutationBody,
 } from "../runtime/admin-api-validation";
 import { shouldRefreshAdminDiscordCache } from "../runtime/admin-discord-cache";
+import { ALL_FEATURES_ENABLED } from "../runtime/features";
 
 export interface AdminRouteServices {
   gatewayService: GatewayService;
@@ -47,6 +49,7 @@ export interface AdminRouteOptions {
     request: Request,
     options: Pick<AdminRouteOptions, "adminSessionSecret" | "getAdminLoginLocation">,
   ) => Promise<Response | null>;
+  features?: FeatureFlags;
 }
 
 export interface RouteHandler {
@@ -75,6 +78,7 @@ async function handleAdminLogin(request: Request, options: AdminRouteOptions): P
 }
 
 export function createAdminRoutes(options: AdminRouteOptions): RouteHandler {
+  const features = options.features ?? ALL_FEATURES_ENABLED;
   return async (request: Request): Promise<Response | null> => {
     const url = new URL(request.url);
 
@@ -146,6 +150,9 @@ export function createAdminRoutes(options: AdminRouteOptions): RouteHandler {
       }
 
       if (request.method === "GET" && url.pathname === "/admin/api/blocklist") {
+        if (!features.blocklist) {
+          return Response.json({ error: "Not found" }, { status: 404 });
+        }
         const guildId = url.searchParams.get("guildId");
         if (!guildId) {
           return Response.json({ error: "guildId is required" }, { status: 400 });
@@ -161,6 +168,9 @@ export function createAdminRoutes(options: AdminRouteOptions): RouteHandler {
       }
 
       if (request.method === "POST" && url.pathname === "/admin/api/blocklist") {
+        if (!features.blocklist) {
+          return Response.json({ error: "Not found" }, { status: 404 });
+        }
         const parsedBody = await parseJsonBody(request, parseBlocklistMutationBody);
         if (!parsedBody.ok) {
           return parsedBody.response;
@@ -189,6 +199,9 @@ export function createAdminRoutes(options: AdminRouteOptions): RouteHandler {
       }
 
       if (request.method === "POST" && url.pathname === "/admin/api/moderation-log-channel") {
+        if (!features.blocklist && !features.timedRoles) {
+          return Response.json({ error: "Not found" }, { status: 404 });
+        }
         const parsedBody = await parseJsonBody(request, parseGuildNotificationChannelBody);
         if (!parsedBody.ok) {
           return parsedBody.response;
@@ -203,6 +216,9 @@ export function createAdminRoutes(options: AdminRouteOptions): RouteHandler {
       }
 
       if (request.method === "GET" && url.pathname === "/admin/api/timed-roles") {
+        if (!features.timedRoles) {
+          return Response.json({ error: "Not found" }, { status: 404 });
+        }
         const guildId = url.searchParams.get("guildId");
         if (!guildId) {
           return Response.json({ error: "guildId is required" }, { status: 400 });
@@ -222,6 +238,9 @@ export function createAdminRoutes(options: AdminRouteOptions): RouteHandler {
         request.method === "POST" &&
         url.pathname === "/admin/api/timed-roles/new-member-config"
       ) {
+        if (!features.timedRoles) {
+          return Response.json({ error: "Not found" }, { status: 404 });
+        }
         const parsedBody = await parseJsonBody(request, parseNewMemberTimedRoleConfigBody);
         if (!parsedBody.ok) {
           return parsedBody.response;
@@ -258,6 +277,9 @@ export function createAdminRoutes(options: AdminRouteOptions): RouteHandler {
       }
 
       if (request.method === "POST" && url.pathname === "/admin/api/timed-roles") {
+        if (!features.timedRoles) {
+          return Response.json({ error: "Not found" }, { status: 404 });
+        }
         const parsedBody = await parseJsonBody(request, parseTimedRoleMutationBody);
         if (!parsedBody.ok) {
           return parsedBody.response;

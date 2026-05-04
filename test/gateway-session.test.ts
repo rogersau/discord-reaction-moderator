@@ -6,7 +6,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { buildHeartbeatPayload, buildIdentifyPayload, buildResumePayload } from "../src/gateway";
+import { getSlashCommandDefinitions } from "../src/discord-commands";
 import { GatewaySessionDO } from "../src/durable-objects/gateway-session";
+import { parseFeatureFlags } from "../src/runtime/features";
 import { handleGatewayDispatch } from "../src/services/gateway/handle-gateway-dispatch";
 
 test("GatewaySessionDO reports idle status before startup", async () => {
@@ -194,6 +196,100 @@ test("GatewaySessionDO moderates blocked reaction dispatch events", async () => 
     globalThis.fetch = originalFetch;
     restore();
   }
+});
+
+test('GatewaySessionDO treats DISABLE_BLOCKLIST="false" as enabled', async () => {
+  const { state } = createGatewayState();
+  const { restore, sockets } = installFakeWebSocket();
+  const storeFetches: string[] = [];
+  const deleteCalls: Array<{ input: string; method: string | undefined }> = [];
+  const originalFetch = globalThis.fetch;
+
+  globalThis.fetch = async (input, init) => {
+    deleteCalls.push({
+      input: String(input),
+      method: init?.method,
+    });
+    return new Response(null, { status: 204 });
+  };
+
+  try {
+    const gateway = new GatewaySessionDO(
+      state,
+      createGatewayEnv({
+        DISABLE_BLOCKLIST: "false",
+        moderationStoreFetch(input) {
+          storeFetches.push(String(input));
+          return Response.json({
+            guilds: {
+              "guild-1": {
+                enabled: true,
+                emojis: ["✅"],
+              },
+            },
+            botUserId: "bot-1",
+          });
+        },
+      }),
+    );
+    await gateway.fetch(new Request("https://gateway-session/start", { method: "POST" }));
+
+    await sockets[0]?.emitMessage({
+      op: 0,
+      t: "MESSAGE_REACTION_ADD",
+      s: 5,
+      d: {
+        channel_id: "channel-1",
+        message_id: "message-1",
+        guild_id: "guild-1",
+        emoji: { id: null, name: "✅", animated: false },
+        user_id: "user-1",
+      },
+    });
+
+    assert.deepEqual(storeFetches, ["https://moderation-store/config"]);
+    assert.equal(deleteCalls.length, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+    restore();
+  }
+});
+
+test("parseFeatureFlags only disables features for true-like values", () => {
+  assert.deepEqual(
+    parseFeatureFlags({
+      DISABLE_LFG: "true",
+      DISABLE_MARKETPLACE: "1",
+      DISABLE_TICKETS: "yes",
+      DISABLE_BLOCKLIST: "false",
+      DISABLE_TIMED_ROLES: "0",
+      DISABLE_ADMIN_UI: "no",
+    }),
+    {
+      lfg: false,
+      marketplace: false,
+      tickets: false,
+      blocklist: true,
+      timedRoles: true,
+      adminUi: true,
+    },
+  );
+});
+
+test("getSlashCommandDefinitions filters disabled features out of slash sync", () => {
+  const commands = getSlashCommandDefinitions({
+    lfg: false,
+    marketplace: true,
+    tickets: false,
+    blocklist: true,
+    timedRoles: false,
+    adminUi: true,
+  });
+
+  assert.deepEqual(
+    commands.map((command) => command.name),
+    ["blocklist", "marketplace"],
+  );
 });
 
 test("GatewaySessionDO resumes persisted sessions after HELLO", async () => {
@@ -581,11 +677,13 @@ function createGatewayState(initialValues?: Record<string, string>) {
 }
 
 function createGatewayEnv(options?: {
+  DISABLE_BLOCKLIST?: string;
   moderationStoreFetch?: (input: Request | string | URL) => Response;
 }) {
   return {
     DISCORD_BOT_TOKEN: "bot-token",
     BOT_USER_ID: "bot-user-id",
+    DISABLE_BLOCKLIST: options?.DISABLE_BLOCKLIST,
     ADMIN_AUTH_SECRET: undefined,
     GATEWAY_SESSION_DO: {
       idFromName() {
